@@ -1,9 +1,9 @@
 ## forked 改动
 - **支持push模式下的代码审查**
 - **增加旧版本gitlab的兼容**
-  .env 配置如下
-  #GitLab API版本配置 如GitLab Community Edition 8.9.9 是v3
-  GITLAB_API_VERSION=v3  #支持v3或v4
+  - .env 配置如下
+  - #GitLab API版本配置 如GitLab Community Edition 8.9.9 是v3
+  - GITLAB_API_VERSION=v3  #支持v3或v4
 
 ![Push图片](./doc/img/ai-codereview-cartoon.png)
 
