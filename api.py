@@ -63,7 +63,7 @@ def daily_report():
 
 # 启动定时生成日报的任务
 scheduler = BackgroundScheduler()
-crontab_expression = os.getenv('REPORT_CRONTAB_EXPRESSION', '0 22 * * 1-5')
+crontab_expression = os.getenv('REPORT_CRONTAB_EXPRESSION', '0 21 * * 1-5')
 cron_parts = crontab_expression.split()
 cron_minute, cron_hour, cron_day, cron_month, cron_day_of_week = cron_parts
 
