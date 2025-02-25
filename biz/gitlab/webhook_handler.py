@@ -166,8 +166,9 @@ class PushHandler:
             return []
 
         # 调用 GitLab API 获取提交的差异
+        self.project_id = self.webhook_data.get('project_id')
         # url = f"{self.gitlab_url}/api/v4/projects/{self.project_id}/repository/commits/{last_commit_id}/diff"
-        url = f"{self.gitlab_url}/api/v3/projects/TestCoderReview/repository/commits/{last_commit_id}/diff"
+        url = f"{self.gitlab_url}/api/v3/projects/{self.project_id}/repository/commits/{last_commit_id}/diff"
 
         headers = {
             'Private-Token': self.gitlab_token
