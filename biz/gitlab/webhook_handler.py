@@ -207,7 +207,8 @@ class PushHandler:
             logger.error("Last commit ID not found.")
             return
 
-        url = f"{self.gitlab_url}/api/v4/projects/{self.project_id}/repository/commits/{last_commit_id}/comments"
+        self.project_id = self.webhook_data.get('project_id')
+        url = f"{self.gitlab_url}/api/v3/projects/{self.project_id}/repository/commits/{last_commit_id}/comments"
         headers = {
             'Private-Token': self.gitlab_token,
             'Content-Type': 'application/json'

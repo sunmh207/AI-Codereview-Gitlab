@@ -155,8 +155,13 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
         commits_text = ';'.join(commit['message'] for commit in commits)
         review_result = review_code(str(filter_changes(changes)), commits_text)
 
-        # 将审查结果添加到提交记录的评论中
-        handler.add_push_notes(f'Auto Review Result: {review_result}')
+        #添加异常处理，写入失败不要影响通知
+        try:
+            # 将审查结果添加到提交记录的评论中 
+            handler.add_push_notes(f'Auto Review Result: {review_result}')
+        except Exception as e:
+            logger.error(f"Failed to add note: {e}")
+       
 
         # 构建 Markdown 格式的钉钉消息
         dingtalk_msg = f"### 🚀 {webhook_data['project']['name']}: Push\n\n"
