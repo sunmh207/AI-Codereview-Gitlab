@@ -133,6 +133,14 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
         if not commits:
             logger.error('Failed to get commits')
             return jsonify({'message': 'Failed to get commits'}), 500
+
+        # 获取代码差异
+        changes = handler.get_push_changes()
+        if not changes:
+            logger.info('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
+            return jsonify({
+                'message': 'No code modifications were detected, the modified file may not satisfy SUPPORTED_EXTENSIONS.'}), 500
+
         # 记录到数据文件中
         commits_filtered = [{'message': commit['message'], 'author': commit['author'], 'timestamp': commit['timestamp']}
                             for commit in commits]
@@ -142,6 +150,13 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
         with open(push_file_path, 'a', encoding='utf-8') as f:
             for commit in commits_filtered:
                 f.write(json.dumps(commit, ensure_ascii=False) + "\n")
+
+        # 进行代码审查
+        commits_text = ';'.join(commit['message'] for commit in commits)
+        review_result = review_code(str(filter_changes(changes)), commits_text)
+
+        # 将审查结果添加到提交记录的评论中
+        handler.add_push_notes(f'Auto Review Result: {review_result}')
 
         # 构建 Markdown 格式的钉钉消息
         dingtalk_msg = f"### 🚀 {webhook_data['project']['name']}: Push\n\n"
@@ -157,7 +172,8 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
                 f"- **提交信息**: {message}\n"
                 f"- **提交者**: {author}\n"
                 f"- **时间**: {timestamp}\n"
-                f"- [查看提交详情]({url})\n\n\n\n"
+                f"- [查看提交详情]({url})\n\n"
+                f"- **AI Review 结果**: {review_result}\n\n\n"
             )
 
         send_notification(content=dingtalk_msg, msg_type='markdown',

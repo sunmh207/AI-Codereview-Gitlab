@@ -146,6 +146,46 @@ class PushHandler:
         logger.info(f"Collected {len(commit_details)} commits from push event.")
         return commit_details
 
+    def get_push_changes(self) -> list:
+        # 检查是否为 Push 事件
+        if self.event_type != 'push':
+            logger.warn(f"Invalid event type: {self.event_type}. Only 'push' event is supported now.")
+            return []
+
+        # 获取最后一个提交的ID
+        if not self.commit_list:
+            logger.warn("No commits found to get changes.")
+            return []
+
+        last_commit_id = self.commit_list[-1].get('id')
+        if not last_commit_id:
+            logger.error("Last commit ID not found.")
+            return []
+
+        # 调用 GitLab API 获取提交的差异
+        url = f"{self.gitlab_url}/api/v4/projects/{self.project_id}/repository/commits/{last_commit_id}/diff"
+        headers = {
+            'Private-Token': self.gitlab_token
+        }
+        response = requests.get(url, headers=headers)
+        logger.debug(f"Get diff response from gitlab: {response.status_code}, {response.text}")
+
+        # 检查请求是否成功
+        if response.status_code == 200:
+            diffs = response.json()
+            changes = []
+            for diff in diffs:
+                change = {
+                    'diff': diff.get('diff', ''),
+                    'new_path': diff.get('new_path', ''),
+                    'old_path': diff.get('old_path', '')
+                }
+                changes.append(change)
+            return changes
+        else:
+            logger.warn(f"Failed to get diff: {response.status_code}, {response.text}")
+            return []
+
     def add_push_notes(self, message: str):
         # 添加评论到 GitLab Push 请求的提交中（此处假设是在最后一次提交上添加注释）
         if not self.commit_list:
