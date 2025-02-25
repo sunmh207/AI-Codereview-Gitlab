@@ -179,7 +179,8 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
                 f"- **提交者**: {author}\n"
                 f"- **时间**: {timestamp}\n"
                 f"- [查看提交详情]({url})\n\n"
-                f"- **AI Review 结果**: {review_result}\n\n\n"
+                f"- **AI Review 结果**: 👇👇👇👇👇👇👇👇\n"
+                f"-  {review_result}\n\n"
             )
 
         send_notification(content=dingtalk_msg, msg_type='markdown',
@@ -235,7 +236,8 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
                 f"- **更新时间**: {webhook_data['object_attributes']['updated_at']}\n"
                 f"- **提交信息:** {commits_text}\n\n"
                 f"- [查看合并详情]({webhook_data['object_attributes']['url']})\n\n"
-                f"- **AI Review 结果:** {review_result}"
+                f"- **AI Review 结果**: 👇👇👇👇👇👇👇👇\n"
+                f"-  {review_result}\n\n"
             )
             send_notification(content=dingtalk_msg, msg_type='markdown', title='Merge Request Review')
         else:
