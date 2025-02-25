@@ -93,6 +93,7 @@ def handle_webhook():
     if request.is_json:
         data = request.get_json()
         event_type = request.headers.get('X-Gitlab-Event')
+
         # 优先从请求头获取，如果没有，则从环境变量获取
         gitlab_url = request.headers.get('X-Gitlab-Instance') or os.getenv('GITLAB_URL')
         gitlab_token = request.headers.get('X-Gitlab-Token')

@@ -1,5 +1,6 @@
 import json
 import time
+import os
 
 import requests
 
@@ -16,6 +17,7 @@ class MergeRequestHandler:
         self.merge_request_id = None
         self.project_id = None
         self.action = None
+        self.api_version = os.getenv('GITLAB_API_VERSION', 'v4')
         self.parse_event_type()
 
     def parse_event_type(self):
@@ -42,7 +44,7 @@ class MergeRequestHandler:
         retry_delay = 10  # 重试间隔时间（秒）
         for attempt in range(max_retries):
             # 调用 GitLab API 获取 Merge Request 的 changes
-            url = f"{self.gitlab_url}/api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/changes"
+            url = f"{self.gitlab_url}/api/{self.api_version}/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/changes"
             headers = {
                 'Private-Token': self.gitlab_token
             }
@@ -72,7 +74,7 @@ class MergeRequestHandler:
             return []
 
         # 调用 GitLab API 获取 Merge Request 的 commits
-        url = f"{self.gitlab_url}/api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/commits"
+        url = f"{self.gitlab_url}/api/{self.api_version}/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/commits"
         headers = {
             'Private-Token': self.gitlab_token
         }
@@ -86,7 +88,7 @@ class MergeRequestHandler:
             return []
 
     def add_merge_request_notes(self, review_result):
-        url = f"{self.gitlab_url}/api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/notes"
+        url = f"{self.gitlab_url}/api/{self.api_version}/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/notes"
         headers = {
             'Private-Token': self.gitlab_token,
             'Content-Type': 'application/json'
@@ -112,6 +114,7 @@ class PushHandler:
         self.project_id = None
         self.branch_name = None
         self.commit_list = []
+        self.api_version = os.getenv('GITLAB_API_VERSION', 'v4')
         self.parse_event_type()
 
     def parse_event_type(self):
@@ -167,8 +170,7 @@ class PushHandler:
 
         # 调用 GitLab API 获取提交的差异
         self.project_id = self.webhook_data.get('project_id')
-        # url = f"{self.gitlab_url}/api/v4/projects/{self.project_id}/repository/commits/{last_commit_id}/diff"
-        url = f"{self.gitlab_url}/api/v3/projects/{self.project_id}/repository/commits/{last_commit_id}/diff"
+        url = f"{self.gitlab_url}/api/{self.api_version}/projects/{self.project_id}/repository/commits/{last_commit_id}/diff"
 
         headers = {
             'Private-Token': self.gitlab_token
@@ -208,7 +210,7 @@ class PushHandler:
             return
 
         self.project_id = self.webhook_data.get('project_id')
-        url = f"{self.gitlab_url}/api/v3/projects/{self.project_id}/repository/commits/{last_commit_id}/comments"
+        url = f"{self.gitlab_url}/api/{self.api_version}/projects/{self.project_id}/repository/commits/{last_commit_id}/comments"
         headers = {
             'Private-Token': self.gitlab_token,
             'Content-Type': 'application/json'
