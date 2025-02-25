@@ -147,6 +147,9 @@ class PushHandler:
         return commit_details
 
     def get_push_changes(self) -> list:
+        #打印self
+        print("***************  PushHandler self:")
+        print(json.dumps(self.webhook_data, indent=4))
         # 检查是否为 Push 事件
         if self.event_type != 'push':
             logger.warn(f"Invalid event type: {self.event_type}. Only 'push' event is supported now.")
