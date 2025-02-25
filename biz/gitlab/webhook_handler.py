@@ -168,6 +168,9 @@ class PushHandler:
             'Private-Token': self.gitlab_token
         }
         response = requests.get(url, headers=headers)
+        # 打印请求地址及headers信息
+        logger.debug(f"***************  Get diff URL: {url}")
+        logger.debug(f"***************  Get diff headers: {headers}")
         logger.debug(f"Get diff response from gitlab: {response.status_code}, {response.text}")
 
         # 检查请求是否成功
