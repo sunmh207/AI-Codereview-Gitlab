@@ -185,7 +185,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
 
         send_notification(content=dingtalk_msg, msg_type='markdown',
                           title=f"{webhook_data['project']['name']} Push Event",
-                          project_name={webhook_data['project']['name']})
+                          project={webhook_data['project']['name']})
     except Exception as e:
         error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
         send_notification(error_message)
@@ -242,7 +242,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
             )
             send_notification(content=dingtalk_msg, msg_type='markdown', 
                               title='Merge Request Review',
-                              project_name={webhook_data['project']['name']})
+                              project={webhook_data['project']['name']})
         else:
             logger.info(f"Merge Request Hook event, action={handler.action}, ignored.")
 
@@ -317,7 +317,7 @@ def review_code(changes_text: str, commits_text: str = '') -> str:
     return CodeReviewer().review_code(changes_text, commits_text)
 
 
-def send_notification(content, msg_type='text', title="通知", is_at_all=False,project_name=None):
+def send_notification(content, msg_type='text', title="通知", is_at_all=False,project=None):
     """
     发送通知消息到配置的平台(钉钉和企业微信)
     :param content: 消息内容
@@ -326,7 +326,7 @@ def send_notification(content, msg_type='text', title="通知", is_at_all=False,
     :param is_at_all: 是否@所有人
     """
     # 钉钉推送
-    notifier = DingTalkNotifier(project_name = project_name)
+    notifier = DingTalkNotifier(project_name = project)
     notifier.send_message(content=content, msg_type=msg_type, title=title, is_at_all=is_at_all)
 
     # 企业微信推送
