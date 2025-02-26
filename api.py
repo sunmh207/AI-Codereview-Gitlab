@@ -170,14 +170,13 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
 
         for commit in commits:
             message = commit.get('message', '').strip()
-            # 从author字典中获取name
-            author_name = commit.get('author', {}).get('name', 'Unknown Author')
+            author = commit.get('author', 'Unknown Author')
             timestamp = commit.get('timestamp', '')
             url = commit.get('url', '#')
 
             dingtalk_msg += (
                 f"- **提交信息**: {message}\n"
-                f"- **提交者**: @{author_name}\n"
+                f"- **提交者**: {author}\n"
                 f"- **时间**: {timestamp}\n"
                 f"- [查看提交详情]({url})\n\n"
                 f"- **AI Review 结果**: 👇👇👇👇👇👇👇👇\n"
