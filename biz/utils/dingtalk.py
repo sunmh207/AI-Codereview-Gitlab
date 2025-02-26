@@ -16,8 +16,12 @@ class DingTalkNotifier:
     def __init__(self, webhook_url=None, project_name=None):
         self.enabled = os.environ.get('DINGTALK_ENABLED', '0') == '1'
         #打印项目名称
+        logger.info(f"项目名称:{project_name}")
         # 项目名称{'DMP'}是这个结构的，改为只要DMP这个内容
-        project_name = project_name.split('{')[1].split('}')[0]
+        # 判断是否为空或None
+        if project_name and project_name != None:
+            project_name = list(project_name)[0]  # 将集合转换为列表，并获取第一个元素
+           
         logger.info(f"项目名称:{project_name}")
         logger.info(f'DINGTALK_WEBHOOK_URL_{project_name}')
         #打印os.environ.get(f'DINGTALK_WEBHOOK_URL_{project_name}', '')
