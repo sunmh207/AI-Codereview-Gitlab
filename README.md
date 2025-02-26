@@ -4,8 +4,8 @@
   - .env 配置如下
   - #GitLab API版本配置 如GitLab Community Edition 8.9.9 是v3
   - GITLAB_API_VERSION=v3  #支持v3或v4
-
-![Push图片](./doc/img/ai-codereview-cartoon.png)
+- **增加不同项目推送不同的钉钉群组**
+  - 详见配置文件说明
 
 ## 项目简介
 
@@ -158,7 +158,6 @@ python api.py
   ```
 
 ## 交流
-
+原作者联系方式见forked from
 如果您有任何问题或建议，欢迎提交 Issue 或 PR，我会尽快处理。此外，您也可以添加微信与我交流：
-
-![wechat](./doc/img/wechat.jpeg)
+![wechat](./doc/img/wechat.png)
