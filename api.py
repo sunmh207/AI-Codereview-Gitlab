@@ -179,8 +179,11 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
                 f"- **提交者**: {author}\n"
                 f"- **时间**: {timestamp}\n"
                 f"- [查看提交详情]({url})\n\n"
-                f"- **AI Review 结果**: 👇👇👇👇👇👇👇👇\n"
-                f"-  {review_result}\n\n"
+                f"- **AI Review 结果**: \n"
+                f"<details>\n"
+                f"<summary>点击查看 AI Review 详细结果</summary>\n\n"
+                f"{review_result}\n"
+                f"</details>\n\n"
             )
 
         send_notification(content=dingtalk_msg, msg_type='markdown',
