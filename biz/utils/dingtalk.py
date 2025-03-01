@@ -16,7 +16,7 @@ class DingTalkNotifier:
     def __init__(self, webhook_url=None, project_name=None):
         self.enabled = os.environ.get('DINGTALK_ENABLED', '0') == '1'
         #打印项目名称
-        logger.info(f"项目名称:{project_name}")
+        # logger.info(f"项目名称:{project_name}")
         # 项目名称{'DMP'}是这个结构的，改为只要DMP这个内容
         # 判断是否为空或None
         if project_name and project_name != None:
@@ -33,6 +33,8 @@ class DingTalkNotifier:
         else:
             self.webhook_url = webhook_url or os.environ.get('DINGTALK_WEBHOOK_URL', '')
         self.secret = os.environ.get('DINGTALK_SECRET', None)
+        #打印self.webhook_url
+        logger.info(f"钉钉webhook:{self.webhook_url}")
 
     def _generate_signature(self):
         timestamp = str(round(time.time() * 1000))
@@ -49,7 +51,7 @@ class DingTalkNotifier:
         timestamp, sign = self._generate_signature()
         return f"{self.webhook_url}&timestamp={timestamp}&sign={sign}"
 
-    def send_message(self, content: str, msg_type='text', title='通知', is_at_all=False):
+    def send_message(self, content: str, msg_type='text', title='通知', is_at_all=False, btns=None):
         if not self.enabled:
             logger.info("钉钉推送未启用")
             return
@@ -72,6 +74,16 @@ class DingTalkNotifier:
                     },
                     "at": {
                         "isAtAll": is_at_all
+                    }
+                }
+            elif   msg_type =='actionCard':
+                 message = {
+                    "msgtype": "actionCard",
+                    "actionCard": {
+                        "title": title,
+                        "text": content[0],
+                        "btnOrientation": "1",
+                        "btns": btns
                     }
                 }
             else:

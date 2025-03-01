@@ -164,6 +164,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
             logger.error(f"Failed to add note: {e}")
        
 
+        msg_type = os.getenv('MESSAGE_TYPE', 'markdown')  # 从环境变量获取消息类型配置
         # 构建 Markdown 格式的钉钉消息
         dingtalk_msg = f"### 🚀 {webhook_data['project']['name']}: Push\n\n"
         dingtalk_msg += "#### 提交记录:\n"
@@ -174,21 +175,30 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
             timestamp = commit.get('timestamp', '')
             url = commit.get('url', '#')
 
+            if(msg_type=='actionCard'):
+                #提取前50个字符
+                review_result=review_result[:50]
             dingtalk_msg += (
                 f"- **提交信息**: {message}\n"
                 f"- **提交者**: {author}\n"
                 f"- **时间**: {timestamp}\n"
                 f"- [查看提交详情]({url})\n\n"
-                f"- **AI Review 结果**: \n"
-                f"<details>\n"
-                f"<summary>点击查看 AI Review 详细结果</summary>\n\n"
-                f"{review_result}\n"
-                f"</details>\n\n"
+                f"- **AI Review 结果**: 👇👇👇👇👇👇👇👇\n"
+                f"-  {review_result}\n\n"
             )
+
+            # 构建按钮配置
+            btns = [
+                {
+                    "title": "Review详情",
+                    "actionURL": url
+                }
+            ]
 
         send_notification(content=dingtalk_msg, msg_type='markdown',
                           title=f"{webhook_data['project']['name']} Push Event",
-                          project={webhook_data['project']['name']})
+                          project={webhook_data['project']['name']},
+                          btns = btns)
     except Exception as e:
         error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
         send_notification(error_message)
@@ -233,6 +243,17 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
             dingtalk_msg = f"### 🔀 {webhook_data['project']['name']}: Merge Request\n\n"
             dingtalk_msg += f"#### 合并请求信息:\n"
 
+            msg_type = os.getenv('MESSAGE_TYPE', 'markdown')  # 从环境变量获取消息类型配置
+            if(msg_type=='actionCard'):
+                #提取前50个字符
+                review_result=review_result[:50]
+            btns = [
+                {
+                    "title": "Review详情",
+                    "actionURL": webhook_data['object_attributes']['url']
+                }
+            ]
+
             dingtalk_msg += (
                 f"- **提交者:** {webhook_data['user']['name']}\n\n"
                 f"- **源分支**: `{webhook_data['object_attributes']['source_branch']}`\n"
@@ -245,7 +266,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
             )
             send_notification(content=dingtalk_msg, msg_type='markdown', 
                               title='Merge Request Review',
-                              project={webhook_data['project']['name']})
+                              project={webhook_data['project']['name']},btns=btns)
         else:
             logger.info(f"Merge Request Hook event, action={handler.action}, ignored.")
 
@@ -320,7 +341,7 @@ def review_code(changes_text: str, commits_text: str = '') -> str:
     return CodeReviewer().review_code(changes_text, commits_text)
 
 
-def send_notification(content, msg_type='text', title="通知", is_at_all=False,project=None):
+def send_notification(content, msg_type='text', title="通知", is_at_all=False,project=None,btns=None):
     """
     发送通知消息到配置的平台(钉钉和企业微信)
     :param content: 消息内容
@@ -330,7 +351,7 @@ def send_notification(content, msg_type='text', title="通知", is_at_all=False,
     """
     # 钉钉推送
     notifier = DingTalkNotifier(project_name = project)
-    notifier.send_message(content=content, msg_type=msg_type, title=title, is_at_all=is_at_all)
+    notifier.send_message(content=content, msg_type=msg_type, title=title, is_at_all=is_at_all,btns=btns)
 
     # 企业微信推送
     wecom_notifier = WeComNotifier()
