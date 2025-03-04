@@ -19,7 +19,7 @@ class DingTalkNotifier:
         self.secret = self._get_project_secret()
 
     def _get_project_secret(self):
-        env_key = f"{self._git_project_name}_DINGTALK_SECRET" if self._git_project_name else "DINGTALK_SECRET"
+        env_key = f"{self._git_project_name.upper()}_DINGTALK_SECRET" if self._git_project_name else "DINGTALK_SECRET"
         return os.environ.get(env_key, None)
 
     def _generate_signature(self):
