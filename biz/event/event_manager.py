@@ -35,7 +35,8 @@ def on_merge_request_reviewed(mr_review_entity: MergeRequestReviewEntity):
 
 {mr_review_entity.review_result}
     """
-    im_notifier.send_notification(content=im_msg, msg_type='markdown', title='Merge Request Review')
+    im_notifier.send_notification(content=im_msg, msg_type='markdown', title='Merge Request Review',
+                                  project_name=mr_review_entity.project_name)
 
     # 记录到数据库
     ReviewService().insert_mr_review_log(mr_review_entity)
@@ -71,7 +72,8 @@ def on_push_reviewed(entity: PushReviewEntity):
     if entity.review_result:
         im_msg += f"#### AI Review 结果: \n {entity.review_result}\n\n"
     im_notifier.send_notification(content=im_msg, msg_type='markdown',
-                                  title=f"{entity.project_name} Push Event")
+                                  title=f"{entity.project_name} Push Event",
+                                  project_name=entity.project_name)
 
     # 记录到数据库
     ReviewService().insert_push_review_log(entity)

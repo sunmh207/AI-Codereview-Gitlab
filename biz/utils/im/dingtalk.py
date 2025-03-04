@@ -12,10 +12,15 @@ from biz.utils.log import logger
 
 
 class DingTalkNotifier:
-    def __init__(self, webhook_url=None):
+    def __init__(self, webhook_url=None, git_project_name=None):
         self.enabled = os.environ.get('DINGTALK_ENABLED', '0') == '1'
         self.webhook_url = webhook_url or os.environ.get('DINGTALK_WEBHOOK_URL', '')
-        self.secret = os.environ.get('DINGTALK_SECRET', None)
+        self._git_project_name = git_project_name
+        self.secret = self._get_project_secret()
+
+    def _get_project_secret(self):
+        env_key = f"{self._git_project_name}_DINGTALK_SECRET" if self._git_project_name else "DINGTALK_SECRET"
+        return os.environ.get(env_key, None)
 
     def _generate_signature(self):
         timestamp = str(round(time.time() * 1000))
