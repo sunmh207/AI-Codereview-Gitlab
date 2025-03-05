@@ -14,7 +14,7 @@ def send_notification(content, msg_type='text', title="通知", is_at_all=False,
     :param project_name: git项目名称
     """
     # 钉钉推送
-    notifier = DingTalkNotifier(webhook_url=os.getenv(f"{project_name.upper()}_DINGTALK_WEBHOOK_URL", None))
+    notifier = DingTalkNotifier(git_project_name=project_name)
     notifier.send_message(content=content, msg_type=msg_type, title=title, is_at_all=is_at_all)
 
     # 企业微信推送

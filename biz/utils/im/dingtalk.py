@@ -12,10 +12,26 @@ from biz.utils.log import logger
 
 
 class DingTalkNotifier:
-    def __init__(self, webhook_url=None):
+    def __init__(self, git_project_name=None):
         self.enabled = os.environ.get('DINGTALK_ENABLED', '0') == '1'
-        self.webhook_url = webhook_url or os.environ.get('DINGTALK_WEBHOOK_URL', '')
-        self.secret = os.environ.get('DINGTALK_SECRET', None)
+        self.webhook_url = self._get_webhook_url()
+        self._git_project_name = git_project_name
+        self.secret = self._get_project_secret()
+
+    def _get_webhook_url(self):
+        token = os.environ.get('DINGTALK_WEBHOOK_TOKEN', None)
+        if self._git_project_name:
+            token = os.environ.get(f"{self._git_project_name.upper()}_DINGTALK_WEBHOOK_TOKEN")
+
+        if not token:
+            raise ValueError("Webhook token not found. Please ensure 'DINGTALK_WEBHOOK_TOKEN' or "
+                             f"{self._git_project_name.upper()}_DINGTALK_WEBHOOK_TOKEN is set in environment variables.")
+
+        return f"https://oapi.dingtalk.com/robot/send?access_token={str(token)}"
+
+    def _get_project_secret(self):
+        env_key = f"{self._git_project_name.upper()}_DINGTALK_SECRET" if self._git_project_name else "DINGTALK_SECRET"
+        return os.environ.get(env_key, None)
 
     def _generate_signature(self):
         timestamp = str(round(time.time() * 1000))
