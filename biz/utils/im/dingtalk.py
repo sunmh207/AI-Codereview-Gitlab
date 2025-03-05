@@ -12,15 +12,10 @@ from biz.utils.log import logger
 
 
 class DingTalkNotifier:
-    def __init__(self, webhook_url=None, git_project_name=None):
+    def __init__(self, webhook_url=None):
         self.enabled = os.environ.get('DINGTALK_ENABLED', '0') == '1'
         self.webhook_url = webhook_url or os.environ.get('DINGTALK_WEBHOOK_URL', '')
-        self._git_project_name = git_project_name
-        self.secret = self._get_project_secret()
-
-    def _get_project_secret(self):
-        env_key = f"{self._git_project_name.upper()}_DINGTALK_SECRET" if self._git_project_name else "DINGTALK_SECRET"
-        return os.environ.get(env_key, None)
+        self.secret = os.environ.get('DINGTALK_SECRET', None)
 
     def _generate_signature(self):
         timestamp = str(round(time.time() * 1000))
@@ -46,6 +41,7 @@ class DingTalkNotifier:
             logger.error("钉钉Webhook URL未配置")
             return
         try:
+            logger.info(f"钉钉Webhook: {str(self.webhook_url)}")
             post_url = self._get_post_url()
             headers = {
                 "Content-Type": "application/json",
