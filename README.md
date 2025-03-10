@@ -1,29 +1,15 @@
-## forked 改动
-- **支持push模式下的代码审查**
-- **增加旧版本gitlab的兼容**
-  - .env 配置如下
-  - #GitLab API版本配置 如GitLab Community Edition 8.9.9 是v3
-  - GITLAB_API_VERSION=v3  #支持v3或v4
-- **增加不同项目推送不同的钉钉群组**
-  - 详见配置文件说明
+![Push图片](./doc/img/ai-codereview-cartoon.png)
 
 ## 项目简介
 
-本项目是一个基于大模型的自动化代码审查工具，帮助开发团队在代码合并或提交时，快速进行智能化的 Code Review，提升代码质量和开发效率。
-
-- 大模型支持DeepSeek、ZhipuAI、OpenAI和Ollama。
-- 消息推送支持钉钉、企业微信和飞书;
+本项目是一个基于大模型的自动化代码审查工具，帮助开发团队在代码合并或提交时，快速进行智能化的审查(Code Review)，提升代码质量和开发效率。
 
 ## 功能
 
-- **代码审查:**
-  使用大模型对代码进行分析和审查，并给出分数和建议。
-
-- **自动发送审查结果:**
-  自动推送审核结果到钉钉群，以及更新GitLab Merge Request 或 Commit 的 Note。
-
-- **生成员工日报:**
-  根据成员的Commit记录，自动生成工作日报。
+- 多大模型支持：兼容 DeepSeek、ZhipuAI、OpenAI 和 Ollama。
+- 消息推送：审查结果可自动推送至钉钉、企业微信和飞书;
+- 自动化日报生成：基于 GitLab Commit 记录，自动整理开发日报；
+- 可视化 Dashboard：集中展示 Code Review 记录。
 
 **效果图:**
 
@@ -33,10 +19,12 @@
 
 ![Note图片](./doc/img/note.jpeg)
 
+![Dashboard图片](./doc/img/dashboard.png)
+
 ## 原理
 
 当用户在 GitLab 上提交代码（包括 Merge Request 或 Push 操作）时，GitLab 会触发 webhook 事件，并
-调用本系统的接口；本系统调用第三方大模型对提交的代码进行审查，并将审查结果记录在对应的 Merge Request 或 Commit 的 note
+调用本系统的接口；本系统调用第三方大模型对代码进行审查，并将审查结果记录在对应的 Merge Request 或 Commit 的 Note
 中。
 
 ## 部署
@@ -73,16 +61,22 @@ GITLAB_ACCESS_TOKEN={YOUR_GITLAB_ACCESS_TOKEN}
 **2. 启动docker容器**
 
 ```bash
-docker run -d --name codereview-gitlab \
+docker run --rm --name codereview-gitlab \
   -p 5001:5001 \
+  -p 5002:5002 \
   -v $(pwd)/.env:/app/.env \
-  registry.cn-hangzhou.aliyuncs.com/stanley-public/ai-codereview-gitlab:1.0.7
+  registry.cn-hangzhou.aliyuncs.com/stanley-public/ai-codereview-gitlab:1.2.0
 ```
+
+**3. 验证服务**
+
+访问 http://your-server-ip:5001 显示 "The code review server is running." 说明服务启动成功。
+
+访问 http://your-server-ip:5002 看到一个审查日志页面，说明 Dashboard 启动成功。
 
 ### 方案二：本地Python环境部署
 
 **1. 获取源码**
-
 
 ```bash
 git clone https://github.com/sunmh207/AI-Codereview-Gitlab.git
@@ -103,19 +97,27 @@ pip install -r requirements.txt
 
 **4. 启动服务**
 
+- 启动API服务：
+
 ```bash
 python api.py
 ```
 
+- 启动Dashboard服务：
+
+```bash
+streamlit run ui.py --server.port=5002 --server.address=0.0.0.0
+```
+
 ### 配置 GitLab Webhook
 
-#### **a) 创建Access Token**
+#### 1. 创建Access Token**
 
 方法一：在 GitLab 个人设置中，创建一个 Personal Access Token。
 
 方法二：在 GitLab 项目设置中，创建Project Access Token
 
-#### **b) 配置 Webhook**
+#### 2. 配置 Webhook**
 
 在 GitLab 项目设置中，配置 Webhook：
 
@@ -123,9 +125,11 @@ python api.py
 - Trigger Events：勾选 Push Events 和 Merge Request Events (不要勾选其它Event)
 - Secret Token：上面配置的 Access Token(可选)
 
-备注：系统会优先使用.env中的GITLAB_ACCESS_TOKEN，如果找到，则使用Webhook 传递的Secret Token
+备注：系统会优先使用.env中的GITLAB_ACCESS_TOKEN，如果未找到，则使用Webhook 传递的Secret Token
 
-### 配置钉钉推送
+### 配置消息推送
+
+#### 1.配置钉钉推送
 
 - 在钉钉群中添加一个自定义机器人，获取 Webhook URL。
 - 更新 .env 中的配置：
@@ -134,9 +138,8 @@ python api.py
   DINGTALK_ENABLED=1  #0不发送钉钉消息，1发送钉钉消息
   DINGTALK_WEBHOOK_URL=https://oapi.dingtalk.com/robot/send?access_token=xxx #替换为你的Webhook URL
   ```
-- 如果使用企业机器人，需要配置DINGTALK_SECRET，具体可参考：https://open.dingtalk.com/document/orgapp/obtain-orgapp-token
 
-### 配置企业微信推送
+#### 2.配置企业微信推送
 
 - 在企业微信群中添加一个自定义机器人，获取 Webhook URL。
 
@@ -147,7 +150,7 @@ python api.py
   WECOM_WEBHOOK_URL=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx  #替换为你的Webhook URL
   ```
 
-### 配置飞书推送
+#### 3.配置飞书推送
 
 - 在飞书群中添加一个自定义机器人，获取 Webhook URL。
 - 更新 .env 中的配置：
@@ -157,7 +160,18 @@ python api.py
   FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/xxx #替换为你的Webhook URL
   ```
 
+## 常见问题
+
+参见 [常见问题](doc/faq.md)
+
 ## 交流
-原作者联系方式见forked from
-如果您有任何问题或建议，欢迎提交 Issue 或 PR，我会尽快处理。此外，您也可以添加微信与我交流：
-![wechat](./doc/img/wechat.png)
+
+若本项目对您有帮助，欢迎 Star ⭐️ 或 Fork。 有任何问题或建议，欢迎提交 Issue 或 PR。
+
+也欢迎加微信/微信群，一起交流学习。
+
+<p float="left">
+  <img src="doc/img/wechat.jpg" width="400" />
+  <img src="doc/img/wechat_group.jpg" width="400" /> 
+</p>
+

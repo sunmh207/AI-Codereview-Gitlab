@@ -1,11 +1,11 @@
 services:
   flask-app:
-    image: registry.cn-hangzhou.aliyuncs.com/stanley-public/ai-codereview-gitlab:1.0.7
+    image: registry.cn-hangzhou.aliyuncs.com/stanley-public/ai-codereview-gitlab:1.2.0
     ports:
       - "5001:5001"
-    environment:
-      - FLASK_ENV=production
+      - "5002:5002"
     volumes:
       - ./.env:/app/.env
       - ./log:/app/log
+      - ./data:/app/data
     restart: unless-stopped

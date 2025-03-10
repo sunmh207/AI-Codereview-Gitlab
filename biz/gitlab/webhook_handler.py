@@ -1,6 +1,6 @@
 import json
 import time
-import os
+from urllib.parse import urljoin
 
 import requests
 
@@ -17,7 +17,6 @@ class MergeRequestHandler:
         self.merge_request_id = None
         self.project_id = None
         self.action = None
-        self.api_version = os.getenv('GITLAB_API_VERSION', 'v4')
         self.parse_event_type()
 
     def parse_event_type(self):
@@ -44,7 +43,8 @@ class MergeRequestHandler:
         retry_delay = 10  # 重试间隔时间（秒）
         for attempt in range(max_retries):
             # 调用 GitLab API 获取 Merge Request 的 changes
-            url = f"{self.gitlab_url}/api/{self.api_version}/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/changes"
+            url = urljoin(f"{self.gitlab_url}/",
+                          f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/changes")
             headers = {
                 'Private-Token': self.gitlab_token
             }
@@ -74,7 +74,8 @@ class MergeRequestHandler:
             return []
 
         # 调用 GitLab API 获取 Merge Request 的 commits
-        url = f"{self.gitlab_url}/api/{self.api_version}/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/commits"
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/commits")
         headers = {
             'Private-Token': self.gitlab_token
         }
@@ -88,7 +89,8 @@ class MergeRequestHandler:
             return []
 
     def add_merge_request_notes(self, review_result):
-        url = f"{self.gitlab_url}/api/{self.api_version}/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/notes"
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/notes")
         headers = {
             'Private-Token': self.gitlab_token,
             'Content-Type': 'application/json'
@@ -102,7 +104,7 @@ class MergeRequestHandler:
             logger.info("Note successfully added to merge request.")
         else:
             logger.error(f"Failed to add note: {response.status_code}")
-            logger.error(response.json())
+            logger.error(response.text)
 
 
 class PushHandler:
@@ -114,7 +116,6 @@ class PushHandler:
         self.project_id = None
         self.branch_name = None
         self.commit_list = []
-        self.api_version = os.getenv('GITLAB_API_VERSION', 'v4')
         self.parse_event_type()
 
     def parse_event_type(self):
@@ -149,54 +150,6 @@ class PushHandler:
         logger.info(f"Collected {len(commit_details)} commits from push event.")
         return commit_details
 
-    def get_push_changes(self) -> list:
-        #打印self
-        print("***************  PushHandler self:")
-        print(json.dumps(self.webhook_data, indent=4))
-        # 检查是否为 Push 事件
-        if self.event_type != 'push':
-            logger.warn(f"Invalid event type: {self.event_type}. Only 'push' event is supported now.")
-            return []
-
-        # 获取最后一个提交的ID
-        if not self.commit_list:
-            logger.warn("No commits found to get changes.")
-            return []
-
-        last_commit_id = self.commit_list[-1].get('id')
-        if not last_commit_id:
-            logger.error("Last commit ID not found.")
-            return []
-
-        # 调用 GitLab API 获取提交的差异
-        self.project_id = self.webhook_data.get('project_id')
-        url = f"{self.gitlab_url}/api/{self.api_version}/projects/{self.project_id}/repository/commits/{last_commit_id}/diff"
-
-        headers = {
-            'Private-Token': self.gitlab_token
-        }
-        response = requests.get(url, headers=headers)
-        # 打印请求地址及headers信息
-        logger.debug(f"***************  Get diff URL: {url}")
-        logger.debug(f"***************  Get diff headers: {headers}")
-        logger.debug(f"Get diff response from gitlab: {response.status_code}, {response.text}")
-
-        # 检查请求是否成功
-        if response.status_code == 200:
-            diffs = response.json()
-            changes = []
-            for diff in diffs:
-                change = {
-                    'diff': diff.get('diff', ''),
-                    'new_path': diff.get('new_path', ''),
-                    'old_path': diff.get('old_path', '')
-                }
-                changes.append(change)
-            return changes
-        else:
-            logger.warn(f"Failed to get diff: {response.status_code}, {response.text}")
-            return []
-
     def add_push_notes(self, message: str):
         # 添加评论到 GitLab Push 请求的提交中（此处假设是在最后一次提交上添加注释）
         if not self.commit_list:
@@ -209,8 +162,8 @@ class PushHandler:
             logger.error("Last commit ID not found.")
             return
 
-        self.project_id = self.webhook_data.get('project_id')
-        url = f"{self.gitlab_url}/api/{self.api_version}/projects/{self.project_id}/repository/commits/{last_commit_id}/comments"
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/repository/commits/{last_commit_id}/comments")
         headers = {
             'Private-Token': self.gitlab_token,
             'Content-Type': 'application/json'
@@ -224,4 +177,34 @@ class PushHandler:
             logger.info("Comment successfully added to push commit.")
         else:
             logger.error(f"Failed to add comment: {response.status_code}")
-            logger.error(response.json())
+            logger.error(response.text)
+
+    def get_push_changes(self) -> list:
+        # 检查是否为 Push 事件
+        if self.event_type != 'push':
+            logger.warn(f"Invalid event type: {self.event_type}. Only 'push' event is supported now.")
+            return []
+
+        # 如果没有提交，返回空列表
+        if not self.commit_list:
+            logger.info("No commits found in push event.")
+            return []
+        headers = {
+            'Private-Token': self.gitlab_token
+        }
+
+        # 优先尝试compare API获取变更
+        before = self.webhook_data.get('before', '')
+        after = self.webhook_data.get('after', '')
+        if before and after:
+            url = f"{urljoin(f'{self.gitlab_url}/', f'api/v4/projects/{self.project_id}/repository/compare')}?from={before}&to={after}"
+
+            response = requests.get(url, headers=headers)
+            logger.debug(f"Get changes response from GitLab for push event: {response.status_code}, {response.text}")
+            if response.status_code == 200:
+                return response.json().get('diffs', [])
+            else:
+                logger.warn(f"Failed to get changes for push event: {response.status_code}, {response.text}")
+                return []
+        else:
+            return []

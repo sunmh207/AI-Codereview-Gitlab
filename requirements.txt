@@ -6,3 +6,5 @@ APScheduler==3.10.4
 openai==1.59.3
 httpx[socks]
 ollama==0.4.7
+pandas==2.2.3
+streamlit==1.42.2
