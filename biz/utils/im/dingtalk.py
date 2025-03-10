@@ -31,7 +31,7 @@ class DingTalkNotifier:
                 raise ValueError("未提供项目名称，且未设置默认的钉钉 Webhook URL。")
 
         # 遍历所有环境变量（忽略大小写），找到项目对应的 Webhook URL
-        target_key = f"DINGTALK_WEBHOOK_URL_{project_name.upper()}"
+        target_key = f"DINGTALK_WEBHOOK_URL_{project_name}"
         for env_key, env_value in os.environ.items():
             if env_key.upper() == target_key:
                 return env_value  # 找到匹配项，直接返回
