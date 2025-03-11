@@ -19,7 +19,6 @@ class MergeRequestHandler:
         self.project_id = None
         self.action = None
         self.api_version = os.getenv('GITLAB_API_VERSION', 'v4')
-
         self.parse_event_type()
 
     def parse_event_type(self):
@@ -119,6 +118,7 @@ class PushHandler:
         self.project_id = None
         self.branch_name = None
         self.commit_list = []
+        self.api_version = os.getenv('GITLAB_API_VERSION', 'v4')
         self.parse_event_type()
 
     def parse_event_type(self):
@@ -130,6 +130,14 @@ class PushHandler:
     def parse_push_event(self):
         # 提取 Push 事件的相关参数
         self.project_id = self.webhook_data.get('project', {}).get('id')
+        #如果project_id为空，换一种方式获取
+        if not self.project_id:
+            self.project_id = self.webhook_data.get('project_id')
+
+        if not self.project_id:
+            logger.error("Project ID not found.")
+            return
+        # 提取分支名
         self.branch_name = self.webhook_data.get('ref', '').replace('refs/heads/', '')
         self.commit_list = self.webhook_data.get('commits', [])
 
@@ -201,7 +209,9 @@ class PushHandler:
         after = self.webhook_data.get('after', '')
         if before and after:
             url = f"{urljoin(f'{self.gitlab_url}/', f'api/{self.api_version}/projects/{self.project_id}/repository/compare')}?from={before}&to={after}"
-
+            # url = f"{self.gitlab_url}/api/{self.api_version}/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/changes"
+            #打印url
+            logger.debug(f"Get changes url: {url}")
             response = requests.get(url, headers=headers)
             logger.debug(f"Get changes response from GitLab for push event: {response.status_code}, {response.text}")
             if response.status_code == 200:

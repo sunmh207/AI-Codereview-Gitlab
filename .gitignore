@@ -6,7 +6,10 @@ docker
 
 log/*
 !log/
+data/*
+!data/
 
 .env
 .pyc
 __pycache__/
+data/data.db

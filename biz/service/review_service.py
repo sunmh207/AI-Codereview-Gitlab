@@ -63,7 +63,7 @@ class ReviewService:
             print(f"Error inserting review log: {e}")
 
     @staticmethod
-    def get_mr_review_logs(authors: list = None, updated_at_gte: int = None,
+    def get_mr_review_logs(authors: list = None, project_names: list = None, updated_at_gte: int = None,
                            updated_at_lte: int = None) -> pd.DataFrame:
         """获取符合条件的合并请求审核日志"""
         try:
@@ -79,6 +79,11 @@ class ReviewService:
                     placeholders = ','.join(['?'] * len(authors))
                     query += f" AND author IN ({placeholders})"
                     params.extend(authors)
+
+                if project_names:
+                    placeholders = ','.join(['?'] * len(project_names))
+                    query += f" AND project_name IN ({placeholders})"
+                    params.extend(project_names)
 
                 if updated_at_gte is not None:
                     query += " AND updated_at >= ?"
@@ -110,19 +115,51 @@ class ReviewService:
                 conn.commit()
         except sqlite3.DatabaseError as e:
             print(f"Error inserting review log: {e}")
-
     @staticmethod
-    def get_push_review_logs() -> pd.DataFrame:
-        """获取指定项目、作者、源分支、目标分支的合并请求审核日志"""
+    def get_push_review_logs(authors: list = None, project_names: list = None, updated_at_gte: int = None,
+                             updated_at_lte: int = None) -> pd.DataFrame:
+        """获取符合条件的推送审核日志"""
         try:
             with sqlite3.connect(ReviewService.DB_FILE) as conn:
-                df = pd.read_sql_query(
-                    "SELECT project_name, author, branch, updated_at, commit_messages, score, review_result FROM push_review_log",
-                    conn)
-            return df
+                # 基础查询
+                query = """
+                    SELECT project_name, author, branch, updated_at, commit_messages, score, review_result
+                    FROM push_review_log
+                    WHERE 1=1
+                """
+                params = []
+
+                # 动态添加 authors 条件
+                if authors:
+                    placeholders = ','.join(['?'] * len(authors))
+                    query += f" AND author IN ({placeholders})"
+                    params.extend(authors)
+
+                # 动态添加 project_names 条件
+                if project_names:
+                    placeholders = ','.join(['?'] * len(project_names))
+                    query += f" AND project_name IN ({placeholders})"
+                    params.extend(project_names)
+
+                # 动态添加 updated_at_gte 条件
+                if updated_at_gte is not None:
+                    query += " AND updated_at >= ?"
+                    params.append(updated_at_gte)
+
+                # 动态添加 updated_at_lte 条件
+                if updated_at_lte is not None:
+                    query += " AND updated_at <= ?"
+                    params.append(updated_at_lte)
+
+                # 按 updated_at 降序排序
+                query += " ORDER BY updated_at DESC"
+
+                # 执行查询
+                df = pd.read_sql_query(sql=query, con=conn, params=params)
+                return df
         except sqlite3.DatabaseError as e:
-            print(f"Error retrieving review logs: {e}")
-            return pd.DataFrame()  # 返回空的DataFrame以防止程序崩溃
+            print(f"Error retrieving push review logs: {e}")
+            return pd.DataFrame()
 
 
 # Initialize database
