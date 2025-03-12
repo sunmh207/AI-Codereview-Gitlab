@@ -70,9 +70,17 @@ def generate_project_count_chart(df):
     project_counts = df['project_name'].value_counts().reset_index()
     project_counts.columns = ['project_name', 'count']
     
+    # 生成颜色列表，每个项目一个颜色
+    colors = plt.cm.get_cmap('tab20', len(project_counts))  # 使用'tab20'颜色映射，适合分类数据
+    
     # 显示提交数量柱状图
     fig1, ax1 = plt.subplots(figsize=(10, 6))
-    ax1.bar(project_counts['project_name'], project_counts['count'])
+    # ax1.bar(project_counts['project_name'], project_counts['count'])
+    ax1.bar(
+        project_counts['project_name'], 
+        project_counts['count'], 
+        color=[colors(i) for i in range(len(project_counts))]
+    )
     ax1.set_xlabel('Project Name')
     ax1.set_ylabel('Push Count')
     plt.xticks(rotation=45, ha='right')
@@ -90,9 +98,16 @@ def generate_project_score_chart(df):
     project_scores = df.groupby('project_name')['score'].mean().reset_index()
     project_scores.columns = ['project_name', 'average_score']
     
+    # 生成颜色列表，每个项目一个颜色
+    colors = plt.cm.get_cmap('Accent', len(project_scores))  # 使用'tab20'颜色映射，适合分类数据
     # 显示平均分数柱状图
     fig2, ax2 = plt.subplots(figsize=(10, 6))
-    ax2.bar(project_scores['project_name'], project_scores['average_score'])
+    # ax2.bar(project_scores['project_name'], project_scores['average_score'])
+    ax2.bar(
+        project_scores['project_name'], 
+        project_scores['average_score'], 
+        color=[colors(i) for i in range(len(project_scores))]
+    )
     ax2.set_xlabel('Project Name')
     ax2.set_ylabel('AVG Scores')
     plt.xticks(rotation=45, ha='right')
@@ -110,9 +125,15 @@ def generate_author_count_chart(df):
     author_counts = df['author'].value_counts().reset_index()
     author_counts.columns = ['author', 'count']
     
+    # 生成颜色列表，每个项目一个颜色
+    colors = plt.cm.get_cmap('Paired', len(author_counts))  # 使用'tab21'颜色映射，适合分类数据
     # 显示提交数量柱状图
     fig1, ax1 = plt.subplots(figsize=(10, 6))
-    ax1.bar(author_counts['author'], author_counts['count'])
+    ax1.bar(
+        author_counts['author'],
+        author_counts['count'],
+        color=[colors(i) for i in range(len(author_counts))]
+        )
     ax1.set_xlabel('User')
     ax1.set_ylabel('Push Count')
     plt.xticks(rotation=45, ha='right')
@@ -132,7 +153,13 @@ def generate_author_score_chart(df):
     
     # 显示平均分数柱状图
     fig2, ax2 = plt.subplots(figsize=(10, 6))
-    ax2.bar(author_scores['author'], author_scores['average_score'])
+     # 生成颜色列表，每个项目一个颜色
+    colors = plt.cm.get_cmap('Pastel1', len(author_scores))  # 使用'tab21'颜色映射，适合分类数据
+    ax2.bar(
+        author_scores['author'],
+        author_scores['average_score'],
+        color=[colors(i) for i in range(len(author_scores))]
+        )
     ax2.set_xlabel('User')
     ax2.set_ylabel('AVG Scores')
     plt.xticks(rotation=45, ha='right')
@@ -202,7 +229,7 @@ def display_data(tab, service_func, columns, column_config):
         row2_col1, row2_col2 = st.columns(2)
         
         with row1_col1:
-            st.markdown("#### 项目提交数量")
+            st.markdown("#### 项目提交次数")
             generate_project_count_chart(df)
         
         with row1_col2:
@@ -210,7 +237,7 @@ def display_data(tab, service_func, columns, column_config):
             generate_project_score_chart(df)
         
         with row2_col1:
-            st.markdown("#### 人员提交数量")
+            st.markdown("#### 人员提交次数")
             generate_author_count_chart(df)
         
         with row2_col2:

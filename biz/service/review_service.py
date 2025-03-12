@@ -71,7 +71,7 @@ class ReviewService:
                 query = """
                             SELECT project_name, author, source_branch, target_branch, updated_at, commit_messages, score, url, review_result
                             FROM mr_review_log
-                            WHERE 1=1
+                            WHERE 1=1  and score>0  
                             """
                 params = []
 
@@ -125,7 +125,7 @@ class ReviewService:
                 query = """
                     SELECT project_name, author, branch, updated_at, commit_messages, score, review_result
                     FROM push_review_log
-                    WHERE 1=1
+                    WHERE 1=1 and score>0 
                 """
                 params = []
 
