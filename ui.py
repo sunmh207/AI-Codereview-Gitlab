@@ -1,12 +1,12 @@
 import datetime
 import os
 
-from bs4 import BeautifulSoup
+# from bs4 import BeautifulSoup
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib
-import markdown
+# import markdown
 from dotenv import load_dotenv
 
 from biz.service.review_service import ReviewService
@@ -14,7 +14,7 @@ from biz.service.review_service import ReviewService
 load_dotenv()
 
 # 设置matplotlib中文字体，解决中文显示乱码问题
-matplotlib.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'SimHei', 'Microsoft YaHei', 'WenQuanYi Micro Hei']
+matplotlib.rcParams['font.sans-serif'] = ['WenQuanYi Zen Hei', 'SimHei', 'Microsoft YaHei', 'Arial Unicode MS']
 matplotlib.rcParams['axes.unicode_minus'] = False
 
 
@@ -73,8 +73,8 @@ def generate_project_count_chart(df):
     # 显示提交数量柱状图
     fig1, ax1 = plt.subplots(figsize=(10, 6))
     ax1.bar(project_counts['project_name'], project_counts['count'])
-    ax1.set_xlabel('项目名称')
-    ax1.set_ylabel('提交数量')
+    ax1.set_xlabel('Project Name')
+    ax1.set_ylabel('Push Count')
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
     st.pyplot(fig1)
@@ -93,8 +93,8 @@ def generate_project_score_chart(df):
     # 显示平均分数柱状图
     fig2, ax2 = plt.subplots(figsize=(10, 6))
     ax2.bar(project_scores['project_name'], project_scores['average_score'])
-    ax2.set_xlabel('项目名称')
-    ax2.set_ylabel('平均分数')
+    ax2.set_xlabel('Project Name')
+    ax2.set_ylabel('AVG Scores')
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
     st.pyplot(fig2)
@@ -113,8 +113,8 @@ def generate_author_count_chart(df):
     # 显示提交数量柱状图
     fig1, ax1 = plt.subplots(figsize=(10, 6))
     ax1.bar(author_counts['author'], author_counts['count'])
-    ax1.set_xlabel('人员')
-    ax1.set_ylabel('提交数量')
+    ax1.set_xlabel('User')
+    ax1.set_ylabel('Push Count')
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
     st.pyplot(fig1)
@@ -133,8 +133,8 @@ def generate_author_score_chart(df):
     # 显示平均分数柱状图
     fig2, ax2 = plt.subplots(figsize=(10, 6))
     ax2.bar(author_scores['author'], author_scores['average_score'])
-    ax2.set_xlabel('人员')
-    ax2.set_ylabel('平均分数')
+    ax2.set_xlabel('User')
+    ax2.set_ylabel('AVG Scores')
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
     st.pyplot(fig2)
