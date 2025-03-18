@@ -1,9 +1,10 @@
 from biz.utils.im.dingtalk import DingTalkNotifier
 from biz.utils.im.feishu import FeishuNotifier
 from biz.utils.im.wecom import WeComNotifier
+from biz.utils.i18n import get_translator
+_ = get_translator()
 
-
-def send_notification(content, msg_type='text', title="通知", is_at_all=False, project_name=None):
+def send_notification(content, msg_type='text', title=_("通知"), is_at_all=False, project_name=None):
     """
     发送通知消息到配置的平台(钉钉和企业微信)
     :param content: 消息内容

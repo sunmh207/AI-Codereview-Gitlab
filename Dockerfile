@@ -12,6 +12,7 @@ COPY api.py /app/api.py
 COPY ui.py /app/ui.py
 COPY prompt_templates.yml /app/prompt_templates.yml
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY locales /app/locales
 RUN mkdir -p /app/log /app/data
 
 # 安装 supervisord 作为进程管理工具

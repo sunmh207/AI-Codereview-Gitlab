@@ -67,3 +67,11 @@ DINGTALK_WEBHOOK_URL=https://oapi.dingtalk.com/robot/send?access_token={access_t
 OLLAMA_API_BASE_URL=http://127.0.0.1:11434  # 错误
 OLLAMA_API_BASE_URL=http://{宿主机/外网IP地址}:11434  # 正确
 ```
+
+#### 5. 翻译
+更改翻译后无法正确应用，我该怎么办？
+该应用程序使用 python 原生 gettext 实现来加载各种语言的翻译。如果您更改了翻译文件，但是应用程序没有正确应用新的翻译，您可以尝试以下步骤：
+1. 更新翻译: `bash translations_update.sh`
+2. 通过向具有空 msgstr 的新行添加值来手动调整 `locales/<locale>/LC_Messages/messages.po` 中缺失的翻译
+3. 编译翻译：`bash translations_compile.sh`
+4. 重新启动您的应用程序

@@ -5,7 +5,8 @@ from urllib.parse import urljoin
 import requests
 
 from biz.utils.log import logger
-
+from biz.utils.i18n import get_translator
+_ = get_translator()
 
 class MergeRequestHandler:
     def __init__(self, webhook_data: dict, gitlab_token: str, gitlab_url: str):
@@ -35,7 +36,7 @@ class MergeRequestHandler:
     def get_merge_request_changes(self) -> list:
         # 检查是否为 Merge Request Hook 事件
         if self.event_type != 'merge_request':
-            logger.warn(f"Invalid event type: {self.event_type}. Only 'merge_request' event is supported now.")
+            logger.warn(_("Invalid event type: {}. Only 'merge_request' event is supported now.").format(self.event_type))
             return []
 
         # Gitlab merge request changes API可能存在延迟，多次尝试
@@ -50,8 +51,7 @@ class MergeRequestHandler:
             }
             response = requests.get(url, headers=headers, verify=False)
             logger.debug(
-                f"Get changes response from GitLab (attempt {attempt + 1}): {response.status_code}, {response.text}, URL: {url}")
-
+                _("Get changes response from GitLab (attempt {}): {}, {}, URL: {}").format(attempt + 1, response.status_code, response.text, url))
             # 检查请求是否成功
             if response.status_code == 200:
                 changes = response.json().get('changes', [])
@@ -59,13 +59,13 @@ class MergeRequestHandler:
                     return changes
                 else:
                     logger.info(
-                        f"Changes is empty, retrying in {retry_delay} seconds... (attempt {attempt + 1}/{max_retries}), URL: {url}")
+                        _("Changes is empty, retrying in {} seconds... (attempt {}/{}), URL: {}").format(retry_delay, attempt + 1, max_retries, url))
                     time.sleep(retry_delay)
             else:
-                logger.warn(f"Failed to get changes from GitLab (URL: {url}): {response.status_code}, {response.text}")
+                logger.warn(_("Failed to get changes from GitLab (URL: {}): {}, {}").format(url, response.status_code, response.text))
                 return []
 
-        logger.warning(f"Max retries ({max_retries}) reached. Changes is still empty.")
+        logger.warning(_("Max retries ({}) reached. Changes is still empty.").format(max_retries))
         return []  # 达到最大重试次数后返回空列表
 
     def get_merge_request_commits(self) -> list:
@@ -80,12 +80,11 @@ class MergeRequestHandler:
             'Private-Token': self.gitlab_token
         }
         response = requests.get(url, headers=headers, verify=False)
-        logger.debug(f"Get commits response from gitlab: {response.status_code}, {response.text}")
-        # 检查请求是否成功
+        logger.debug(_("Get commits response from gitlab: {}, {}").format(response.status_code, response.text))  # 检查请求是否成功
         if response.status_code == 200:
             return response.json()
         else:
-            logger.warn(f"Failed to get commits: {response.status_code}, {response.text}")
+            logger.warn(_("Failed to get commits: {}, {}").format(response.status_code, response.text))
             return []
 
     def add_merge_request_notes(self, review_result):
@@ -99,11 +98,11 @@ class MergeRequestHandler:
             'body': review_result
         }
         response = requests.post(url, headers=headers, json=data, verify=False)
-        logger.debug(f"Add notes to gitlab {url}: {response.status_code}, {response.text}")
+        logger.debug(_("Add notes to gitlab {}: {}, {}").format(url, response.status_code, response.text))
         if response.status_code == 201:
             logger.info("Note successfully added to merge request.")
         else:
-            logger.error(f"Failed to add note: {response.status_code}")
+            logger.error(_("Failed to add note: {}").format(response.status_code))
             logger.error(response.text)
 
 
@@ -133,7 +132,7 @@ class PushHandler:
     def get_push_commits(self) -> list:
         # 检查是否为 Push 事件
         if self.event_type != 'push':
-            logger.warn(f"Invalid event type: {self.event_type}. Only 'push' event is supported now.")
+            logger.warn(_("Invalid event type: {}. Only 'push' event is supported now.").format(self.event_type))
             return []
 
         # 提取提交信息
@@ -147,19 +146,19 @@ class PushHandler:
             }
             commit_details.append(commit_info)
 
-        logger.info(f"Collected {len(commit_details)} commits from push event.")
+        logger.info(_("Collected {} commits from push event.").format(len(commit_details)))
         return commit_details
 
     def add_push_notes(self, message: str):
         # 添加评论到 GitLab Push 请求的提交中（此处假设是在最后一次提交上添加注释）
         if not self.commit_list:
-            logger.warn("No commits found to add notes to.")
+            logger.warn(_("No commits found to add notes to."))
             return
 
         # 获取最后一个提交的ID
         last_commit_id = self.commit_list[-1].get('id')
         if not last_commit_id:
-            logger.error("Last commit ID not found.")
+            logger.error(_("Last commit ID not found."))
             return
 
         url = urljoin(f"{self.gitlab_url}/",
@@ -182,12 +181,12 @@ class PushHandler:
     def get_push_changes(self) -> list:
         # 检查是否为 Push 事件
         if self.event_type != 'push':
-            logger.warn(f"Invalid event type: {self.event_type}. Only 'push' event is supported now.")
+            logger.warn(_("Invalid event type: {}. Only 'push' event is supported now.").format(self.event_type))
             return []
 
         # 如果没有提交，返回空列表
         if not self.commit_list:
-            logger.info("No commits found in push event.")
+            logger.info(_("No commits found in push event."))
             return []
         headers = {
             'Private-Token': self.gitlab_token
@@ -201,12 +200,11 @@ class PushHandler:
 
             response = requests.get(url, headers=headers, verify=False)
             logger.debug(
-                f"Get changes response from GitLab for push event: {response.status_code}, {response.text}, URL: {url}")
+                _("Get changes response from GitLab for push event: {}, {}, URL: {}").format(response.status_code, response.text, url))
             if response.status_code == 200:
                 return response.json().get('diffs', [])
             else:
-                logger.warn(
-                    f"Failed to get changes for push event: {response.status_code}, {response.text}, URL: {url}")
+                logger.warn(_("Failed to get changes for push event: {}, {}, URL: {}").format(response.status_code, response.text, url))
                 return []
         else:
             return []
@@ -222,39 +220,39 @@ class SystemHookHandler:
         self.parse_event_type()
 
     def parse_event_type(self):
-        # 提取 event_type
-        self.event_type = self.webhook_data.get('event_name', None)
-        if self.event_type == 'repository_update':
+        # Extract event_type
+        self.event_type = self.webhook_data.get(_('event_name'), None)
+        if self.event_type == _('repository_update'):
             self.parse_repository_update_event()
 
     def parse_repository_update_event(self):
-        # 解析 repository_update 事件的相关参数
+        # Parse repository_update event parameters
         self.project_id = self.webhook_data.get('project', {}).get('id')
         self.changes = self.webhook_data.get('changes', [])
 
     def get_repository_changes(self) -> list:
-        # 检查是否为 repository_update 事件
+        # Check if the event is repository_update
         if self.event_type != 'repository_update':
-            logger.warn(f"Invalid event type: {self.event_type}. Only 'repository_update' event is supported now.")
+            logger.warn(_("Invalid event type: {}. Only 'repository_update' event is supported now.").format(self.event_type))
             return []
 
         if not self.changes:
-            logger.warn("No changes found in webhook data.")
+            logger.warn(_("No changes found in webhook data."))
             return []
 
         headers = {'Private-Token': self.gitlab_token}
         all_diffs = []
 
-        max_retries = 3  # 最大重试次数
-        retry_delay = 10  # 重试间隔时间（秒）
+        max_retries = 3  # Maximum retry attempts
+        retry_delay = 10  # Retry delay in seconds
 
         for change in self.changes:
             before = change.get('before')
             after = change.get('after')
-            ref = change.get('ref', 'unknown branch')
+            ref = change.get('ref', _('unknown branch'))
 
             if not before or not after:
-                logger.warn(f"Missing before or after commit ID for ref {ref}.")
+                logger.warn(_("Missing before or after commit ID for ref {}.").format(ref))
                 continue
 
             url = f"{urljoin(f'{self.gitlab_url}/', f'api/v4/projects/{self.project_id}/repository/compare')}?from={before}&to={after}"
@@ -262,7 +260,7 @@ class SystemHookHandler:
             for attempt in range(max_retries):
                 response = requests.get(url, headers=headers, verify=False)
                 logger.debug(
-                    f"Get changes response from GitLab for repository_update (attempt {attempt + 1}): {response.status_code}, {response.text}, URL: {url}")
+                    _("Get changes response from GitLab for repository_update (attempt {}): {}, {}, URL: {}").format(attempt + 1, response.status_code, response.text, url))
 
                 if response.status_code == 200:
                     diffs = response.json().get('diffs', [])
@@ -271,21 +269,21 @@ class SystemHookHandler:
                     break
                 else:
                     logger.warn(
-                        f"Failed to get changes for ref {ref}: {response.status_code}, {response.text}, retrying in {retry_delay} seconds...")
+                        _("Failed to get changes for ref {}: {}, {}, retrying in {} seconds...").format(ref, response.status_code, response.text, retry_delay))
                     time.sleep(retry_delay)
 
         if not all_diffs:
-            logger.warning(f"Max retries ({max_retries}) reached. Unable to retrieve repository changes.")
+            logger.warning(_("Max retries ({}) reached. Unable to retrieve repository changes.").format(max_retries))
         return all_diffs
 
     def get_repository_commits(self) -> list:
-        # 获取 repository_update 事件中的提交信息
-        if self.event_type != 'repository_update':
-            logger.warn(f"Invalid event type: {self.event_type}. Only 'repository_update' event is supported now.")
+        # Get commits from repository_update event
+        if self.event_type != _('repository_update'):
+            logger.warn(_("Invalid event type: {}. Only 'repository_update' event is supported now.").format(self.event_type))
             return []
 
         if not self.changes:
-            logger.warn("No changes found in webhook data.")
+            logger.warn(_("No changes found in webhook data."))
             return []
 
         headers = {'Private-Token': self.gitlab_token}
@@ -294,16 +292,16 @@ class SystemHookHandler:
         for change in self.changes:
             before = change.get('before')
             after = change.get('after')
-            ref = change.get('ref', 'unknown branch')
+            ref = change.get('ref', _('unknown branch'))
 
             if not before or not after:
-                logger.warn(f"Missing before or after commit ID for ref {ref}.")
+                logger.warn(_("Missing before or after commit ID for ref {}.").format(ref))
                 continue
 
             url = f"{urljoin(f'{self.gitlab_url}/', f'api/v4/projects/{self.project_id}/repository/commits')}?ref_name={ref}"
             response = requests.get(url, headers=headers, verify=False)
             logger.debug(
-                f"Get commits response from GitLab for repository_update: {response.status_code}, {response.text}, URL: {url}")
+                _("Get commits response from GitLab for repository_update: {}, {}, URL: {}").format(response.status_code, response.text, url))
 
             if response.status_code == 200:
                 commits = response.json()
@@ -311,6 +309,6 @@ class SystemHookHandler:
                     all_commits.extend(commits)
             else:
                 logger.warn(
-                    f"Failed to get commits for ref {ref}: {response.status_code}, {response.text}")
+                    _("Failed to get commits for ref {}: {}, {}").format(ref, response.status_code, response.text))
 
         return all_commits
