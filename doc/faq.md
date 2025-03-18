@@ -58,6 +58,7 @@ DINGTALK_WEBHOOK_URL=https://oapi.dingtalk.com/robot/send?access_token={access_t
 **可能原因**
 
 配置127.0.0.1:11434连接Ollama。由于docker容器的网络模式为bridge，容器内的127.0.0.1并不是宿主机的127.0.0.1，所以连接失败。
+对于Docker Desktop，请使用此地址连接Ollama: http://host.docker.internal:11434。
 
 **解决方案**
 

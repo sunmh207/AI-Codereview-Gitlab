@@ -1,5 +1,8 @@
 services:
   flask-app:
+    build:
+        context: .
+        dockerfile: Dockerfile
     image: sunmh207/ai-codereview-gitlab:1.2.2
     ports:
       - "5001:5001"
