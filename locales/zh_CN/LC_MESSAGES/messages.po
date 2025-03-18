@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-03-18 17:24+0100\n"
+"POT-Creation-Date: 2025-03-18 17:56+0100\n"
 "PO-Revision-Date: 2025-03-18 15:05+0100\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -16,77 +16,99 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: api.py:63
+#: api.py:64
 msgid "代码提交日报"
 msgstr ""
 
-#: api.py:166
-msgid "未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。"
+#: api.py:113
+msgid "Invalid JSON"
+msgstr ""
+
+#: api.py:123
+msgid "Missing GitLab access token"
+msgstr ""
+
+#: api.py:126
+msgid "Received event: {}"
+msgstr ""
+
+#: api.py:127
+msgid "Payload: {}"
+msgstr ""
+
+#: api.py:135 api.py:141
+msgid "Request received(object_kind={}), will process asynchronously."
+msgstr ""
+
+#: api.py:143
+msgid ""
+"Only merge_request and push events are supported (both Webhook and System "
+"Hook), but received: {}."
+msgstr ""
+
+#: api.py:147
+msgid "Invalid data format"
+msgstr ""
+
+#: api.py:156 api.py:218
+msgid "Failed to get commits"
 msgstr ""
 
 #: api.py:167
+msgid "未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。"
+msgstr ""
+
+#: api.py:168
 msgid "关注的文件没有修改"
 msgstr ""
 
-#: api.py:174 api.py:225
+#: api.py:175 api.py:226
 msgid ""
 "Auto Review Result: \n"
 "{}"
 msgstr ""
 
-#: api.py:187
+#: api.py:188
 msgid "服务出现未知错误: {}"
 msgstr ""
 
-#: api.py:189 api.py:248 api.py:287
+#: api.py:190 api.py:249
 msgid "出现未知错误: {}"
 msgstr ""
 
-#: api.py:203
+#: api.py:204
 msgid "Merge Request Hook event received"
 msgstr ""
 
-#: api.py:208 api.py:263
+#: api.py:209
 msgid "changes: {}"
 msgstr ""
 
-#: api.py:211 api.py:266
+#: api.py:212
 msgid "未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。"
 msgstr ""
 
-#: api.py:217
-msgid "Failed to get commits"
-msgstr ""
-
-#: api.py:243
+#: api.py:244
 msgid "Merge Request Hook event, action={}, ignored."
 msgstr ""
 
-#: api.py:246 api.py:285
+#: api.py:247
 msgid "AI Code Review 服务出现未知错误: {}"
 msgstr ""
 
-#: api.py:260
-msgid "System Hook event received"
-msgstr ""
-
-#: api.py:272
-msgid "Payload: {}"
-msgstr ""
-
-#: api.py:314
+#: api.py:276
 msgid "代码为空, diffs_text = {}"
 msgstr ""
 
-#: api.py:315
+#: api.py:277
 msgid "代码为空"
 msgstr ""
 
-#: api.py:319
+#: api.py:281
 msgid "文本超长，截段后content: {}"
 msgstr ""
 
-#: biz/event/event_manager.py:25
+#: biz/event/event_manager.py:20
 #, python-brace-format
 msgid ""
 "\n"
@@ -108,26 +130,26 @@ msgid ""
 "    "
 msgstr ""
 
-#: biz/event/event_manager.py:51
+#: biz/event/event_manager.py:46
 msgid "Merge Request Review"
 msgstr ""
 
-#: biz/event/event_manager.py:60
+#: biz/event/event_manager.py:55
 #, python-brace-format
 msgid ""
 "### 🚀 {project_name}: Push\n"
 "\n"
 msgstr ""
 
-#: biz/event/event_manager.py:61 biz/event/event_manager.py:93
+#: biz/event/event_manager.py:56
 msgid "#### 提交记录:\n"
 msgstr ""
 
-#: biz/event/event_manager.py:65 biz/event/event_manager.py:97
+#: biz/event/event_manager.py:60
 msgid "Unknown Author"
 msgstr ""
 
-#: biz/event/event_manager.py:69
+#: biz/event/event_manager.py:64
 #, python-brace-format
 msgid ""
 "- **提交信息**: {message}\n"
@@ -137,7 +159,7 @@ msgid ""
 "\n"
 msgstr ""
 
-#: biz/event/event_manager.py:81 biz/event/event_manager.py:109
+#: biz/event/event_manager.py:76
 #, python-brace-format
 msgid ""
 "#### AI Review 结果: \n"
@@ -145,24 +167,9 @@ msgid ""
 "\n"
 msgstr ""
 
-#: biz/event/event_manager.py:83 biz/event/event_manager.py:111
+#: biz/event/event_manager.py:78
 #, python-brace-format
 msgid "{project_name} Push Event"
-msgstr ""
-
-#: biz/event/event_manager.py:92
-#, python-brace-format
-msgid ""
-"### 🚀 {project_name}: System Hook\n"
-"\n"
-msgstr ""
-
-#: biz/event/event_manager.py:100
-#, python-brace-format
-msgid ""
-"- **提交信息**: {message}\n"
-"- **提交者**: {author}\n"
-"- **时间**: {timestamp}\n"
 msgstr ""
 
 #: biz/gitlab/webhook_handler.py:39
@@ -201,7 +208,7 @@ msgstr ""
 msgid "Failed to add note: {}"
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:135 biz/gitlab/webhook_handler.py:184
+#: biz/gitlab/webhook_handler.py:135 biz/gitlab/webhook_handler.py:224
 msgid "Invalid event type: {}. Only 'push' event is supported now."
 msgstr ""
 
@@ -218,62 +225,23 @@ msgid "Last commit ID not found."
 msgstr ""
 
 #: biz/gitlab/webhook_handler.py:189
+msgid ""
+"Get commits response from GitLab for repository_commits: {response."
+"status_code}, {}, URL: {url}"
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:212
+msgid ""
+"Get changes response from GitLab for repository_compare: {}, {response."
+"text}, URL: {}"
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:218
+msgid "Failed to get changes for repository_compare: {}, {}"
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:229
 msgid "No commits found in push event."
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:203
-msgid "Get changes response from GitLab for push event: {}, {}, URL: {}"
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:207
-msgid "Failed to get changes for push event: {}, {}, URL: {}"
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:224
-msgid "event_name"
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:225 biz/gitlab/webhook_handler.py:281
-msgid "repository_update"
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:236 biz/gitlab/webhook_handler.py:282
-msgid ""
-"Invalid event type: {}. Only 'repository_update' event is supported now."
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:240 biz/gitlab/webhook_handler.py:286
-msgid "No changes found in webhook data."
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:252 biz/gitlab/webhook_handler.py:295
-msgid "unknown branch"
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:255 biz/gitlab/webhook_handler.py:298
-msgid "Missing before or after commit ID for ref {}."
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:263
-msgid ""
-"Get changes response from GitLab for repository_update (attempt {}): {}, {}, "
-"URL: {}"
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:272
-msgid "Failed to get changes for ref {}: {}, {}, retrying in {} seconds..."
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:276
-msgid "Max retries ({}) reached. Unable to retrieve repository changes."
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:304
-msgid "Get commits response from GitLab for repository_update: {}, {}, URL: {}"
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:312
-msgid "Failed to get commits for ref {}: {}, {}"
 msgstr ""
 
 #: biz/utils/code_reviewer.py:27
@@ -439,11 +407,11 @@ msgstr ""
 msgid "Unknown chat model provider: {provider}"
 msgstr ""
 
-#: ui.py:53 ui.py:68
+#: ui.py:55 ui.py:70
 msgid "登录"
 msgstr "登录"
 
-#: ui.py:57
+#: ui.py:59
 msgid ""
 "安全提示：检测到默认用户名和密码为 'admin'，存在安全风险！\n"
 "\n"
@@ -453,46 +421,46 @@ msgid ""
 "3. 保存并重启应用"
 msgstr ""
 
-#: ui.py:63
+#: ui.py:65
 msgid "当前用户名: `{}`, 当前密码: `{}`"
 msgstr ""
 
-#: ui.py:65 ui.py:109
+#: ui.py:67 ui.py:111
 msgid "用户名"
 msgstr ""
 
-#: ui.py:66
+#: ui.py:68
 msgid "密码"
 msgstr ""
 
-#: ui.py:74
+#: ui.py:76
 msgid "用户名或密码错误"
 msgstr ""
 
-#: ui.py:79
+#: ui.py:81
 msgid "#### 审查日志"
 msgstr ""
 
-#: ui.py:88
+#: ui.py:90
 msgid "Merge Request"
 msgstr ""
 
-#: ui.py:88
+#: ui.py:90
 msgid "Push"
 msgstr ""
 
-#: ui.py:96
+#: ui.py:98
 msgid "开始日期"
 msgstr ""
 
-#: ui.py:98
+#: ui.py:100
 msgid "结束日期"
 msgstr ""
 
-#: ui.py:123
+#: ui.py:125
 msgid "**总记录数:** {}，**平均分:** {}"
 msgstr ""
 
-#: ui.py:137
+#: ui.py:139
 msgid "查看"
 msgstr ""
