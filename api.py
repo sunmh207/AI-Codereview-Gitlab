@@ -10,9 +10,9 @@ from apscheduler.triggers.cron import CronTrigger
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 
-from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity, SystemHookReviewEntity
+from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity
 from biz.event.event_manager import event_manager
-from biz.gitlab.webhook_handler import MergeRequestHandler, PushHandler, SystemHookHandler
+from biz.gitlab.webhook_handler import MergeRequestHandler, PushHandler
 from biz.service.review_service import ReviewService
 from biz.utils.code_reviewer import CodeReviewer
 from biz.utils.im import im_notifier
@@ -109,42 +109,42 @@ def handle_webhook():
     # 获取请求的JSON数据
     if request.is_json:
         data = request.get_json()
-        event_type = request.headers.get('X-Gitlab-Event')
+        if not data:
+            return jsonify({"error": _("Invalid JSON")}), 400
+
+        object_kind = data.get("object_kind")
+
         # 优先从请求头获取，如果没有，则从环境变量获取
         gitlab_url = request.headers.get('X-Gitlab-Instance') or os.getenv('GITLAB_URL')
         # 优先从环境变量获取，如果没有，则从请求头获取
         gitlab_token = os.getenv('GITLAB_ACCESS_TOKEN') or request.headers.get('X-Gitlab-Token')
         # 如果gitlab_token为空，返回错误
         if not gitlab_token:
-            return jsonify({'message': 'Missing GitLab access token'}), 400
+            return jsonify({'message': _('Missing GitLab access token')}), 400
 
         # 打印整个payload数据，或根据需求进行处理
-        logger.info(f'Received event: {event_type}')
-        logger.info(f'Payload: {json.dumps(data)}')
+        logger.info(_('Received event: {}').format(object_kind))
+        logger.info(_('Payload: {}').format(json.dumps(data)))
 
         # 处理Merge Request Hook
-        if event_type == 'Merge Request Hook':
+        if object_kind == "merge_request":
             # 创建一个新进程进行异步处理
             process = Process(target=__handle_merge_request_event, args=(data, gitlab_token, gitlab_url))
             process.start()
             # 立马返回响应
-            return jsonify({'message': 'Request received, will process asynchronously.'}), 200
-        elif event_type == 'Push Hook':
+            return jsonify({'message': _('Request received(object_kind={}), will process asynchronously.').format(object_kind)}), 200
+        elif object_kind == "push":
             # 创建一个新进程进行异步处理
             process = Process(target=__handle_push_event, args=(data, gitlab_token, gitlab_url))
             process.start()
             # 立马返回响应
-            return jsonify({'message': 'Request received, will process asynchronously.'}), 200
-        elif event_type == 'System Hook':
-            # 创建一个新进程进行异步处理
-            process = Process(target=__handle_system_hook, args=(data, gitlab_token, gitlab_url))
-            process.start()
-            # 立马返回响应
-            return jsonify({'message': 'Request received, will process asynchronously.'}), 200
+            return jsonify({'message': _('Request received(object_kind={}), will process asynchronously.').format(object_kind)}), 200
         else:
-            return jsonify({'message': 'Event type not supported'}), 400
+            error_message = _('Only merge_request and push events are supported (both Webhook and System Hook), but received: {}.').format(object_kind)
+            logger.error(error_message)
+            return jsonify(error_message), 400
     else:
-        return jsonify({'message': 'Invalid data format'}), 400
+        return jsonify({'message': _('Invalid data format')}), 400
 
 
 def __handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
@@ -153,7 +153,7 @@ def __handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
         logger.info('Push Hook event received')
         commits = handler.get_push_commits()
         if not commits:
-            logger.error('Failed to get commits')
+            logger.error(_('Failed to get commits'))
             return
 
         review_result = None
@@ -245,45 +245,6 @@ def __handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_u
 
     except Exception as e:
         error_message = _('AI Code Review 服务出现未知错误: {}').format(f'{str(e)}\n{traceback.format_exc()}')
-        im_notifier.send_notification(content=error_message)
-        logger.error(_('出现未知错误: {}').format(error_message))
-
-
-def __handle_system_hook(webhook_data: dict, gitlab_token: str, gitlab_url: str):
-    '''
-    处理System Hook事件
-    :param webhook_data:
-    :param gitlab_token:
-    :param gitlab_url:
-    :return:
-    '''
-    try:
-        logger.info(_('System Hook event received'))
-        handler = SystemHookHandler(webhook_data, gitlab_token, gitlab_url)
-        changes = handler.get_repository_changes()
-        logger.info(_('changes: {}').format(changes))
-        changes = filter_changes(changes)
-        if not changes:
-            logger.info(_('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。'))
-            return
-        commits = handler.get_repository_commits()
-        # review 代码
-        commits_text = ';'.join(commit['title'] for commit in commits)
-        review_result = review_code(str(changes), commits_text)
-        logger.info(_('Payload: {}').format(json.dumps(webhook_data)))
-        # dispatch system_hook_reviewed event
-        event_manager['system_hook_reviewed'].send(
-            SystemHookReviewEntity(
-                project_name=webhook_data['project']['name'],
-                author=webhook_data['user_name'],
-                updated_at=int(datetime.now().timestamp()),
-                commits=commits,
-                score=CodeReviewer.parse_review_score(review_text=review_result),
-                review_result=review_result
-            )
-        )
-    except Exception as e:
-        error_message = _('AI Code Review 服务出现未知错误: {}'.format(f'{str(e)}\n{traceback.format_exc()}'))
         im_notifier.send_notification(content=error_message)
         logger.error(_('出现未知错误: {}').format(error_message))
 

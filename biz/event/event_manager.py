@@ -1,10 +1,6 @@
-import json
-import os
-from datetime import datetime
-
 from blinker import Signal
 
-from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity, SystemHookReviewEntity
+from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity
 from biz.service.review_service import ReviewService
 from biz.utils.im import im_notifier
 
@@ -15,7 +11,6 @@ _ = get_translator()
 event_manager = {
     "merge_request_reviewed": Signal(),
     "push_reviewed": Signal(),
-    "system_hook_reviewed": Signal(),
 }
 
 
@@ -87,32 +82,6 @@ def on_push_reviewed(entity: PushReviewEntity):
     ReviewService().insert_push_review_log(entity)
 
 
-def on_system_hook_reviewed(entity: SystemHookReviewEntity):
-    # 发送IM消息通知
-    im_msg = _("### 🚀 {project_name}: System Hook\n\n").format(project_name=entity.project_name)
-    im_msg += _("#### 提交记录:\n")
-
-    for commit in entity.commits:
-        message = commit.get('message', '').strip()
-        author = commit.get('author_name', _('Unknown Author'))
-        timestamp = commit.get('committed_date', '')
-        im_msg += (
-            _("- **提交信息**: {message}\n"
-              "- **提交者**: {author}\n"
-              "- **时间**: {timestamp}\n").format(
-                message=message,
-                author=author,
-                timestamp=timestamp
-            )
-        )
-    if entity.review_result:
-        im_msg += _("#### AI Review 结果: \n {review_result}\n\n").format(review_result=entity.review_result)
-    im_notifier.send_notification(content=im_msg, msg_type='markdown',
-                                  title=_("{project_name} Push Event").format(project_name=entity.project_name),
-                                  project_name=entity.project_name)
-
-
 # 连接事件处理函数到事件信号
 event_manager["merge_request_reviewed"].connect(on_merge_request_reviewed)
 event_manager["push_reviewed"].connect(on_push_reviewed)
-event_manager["system_hook_reviewed"].connect(on_system_hook_reviewed)

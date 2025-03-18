@@ -178,6 +178,46 @@ class PushHandler:
             logger.error(f"Failed to add comment: {response.status_code}")
             logger.error(response.text)
 
+    def __repository_commits(self, ref_name: str = "", since: str = "", until: str = "", pre_page: int = 100, page: int = 1):
+        # 获取仓库提交信息
+        url = f"{urljoin(f'{self.gitlab_url}/', f'api/v4/projects/{self.project_id}/repository/commits')}?ref_name={ref_name}&since={since}&until={until}&per_page={pre_page}&page={page}"
+        headers = {
+            'Private-Token': self.gitlab_token
+        }
+        response = requests.get(url, headers=headers, verify=False)
+        logger.debug(
+            _("Get commits response from GitLab for repository_commits: {response.status_code}, {}, URL: {url}").format(response.status_code, response.text, url))
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.warn(
+                f"Failed to get commits for ref {ref_name}: {response.status_code}, {response.text}")
+            return []
+
+    def get_parent_commit_id(self, commit_id: str) -> str:
+        commits = self.__repository_commits(ref_name=commit_id, pre_page=1, page=1)
+        if commits and commits[0].get('parent_ids', []):
+            return commits[0].get('parent_ids', [])[0]
+        return ""
+
+    def repository_compare(self, before: str, after: str):
+        # 比较两个提交之间的差异
+        url = f"{urljoin(f'{self.gitlab_url}/', f'api/v4/projects/{self.project_id}/repository/compare')}?from={before}&to={after}"
+        headers = {
+            'Private-Token': self.gitlab_token
+        }
+        response = requests.get(url, headers=headers, verify=False)
+        logger.debug(
+            _("Get changes response from GitLab for repository_compare: {}, {response.text}, URL: {}").format(response.status_code, url))
+
+        if response.status_code == 200:
+            return response.json().get('diffs', [])
+        else:
+            logger.warn(
+                _("Failed to get changes for repository_compare: {}, {}").format(response.status_code, response.text))
+            return []
+
     def get_push_changes(self) -> list:
         # 检查是否为 Push 事件
         if self.event_type != 'push':
@@ -196,119 +236,15 @@ class PushHandler:
         before = self.webhook_data.get('before', '')
         after = self.webhook_data.get('after', '')
         if before and after:
-            url = f"{urljoin(f'{self.gitlab_url}/', f'api/v4/projects/{self.project_id}/repository/compare')}?from={before}&to={after}"
-
-            response = requests.get(url, headers=headers, verify=False)
-            logger.debug(
-                _("Get changes response from GitLab for push event: {}, {}, URL: {}").format(response.status_code, response.text, url))
-            if response.status_code == 200:
-                return response.json().get('diffs', [])
-            else:
-                logger.warn(_("Failed to get changes for push event: {}, {}, URL: {}").format(response.status_code, response.text, url))
+            if after.startswith('0000000'):
+                # 删除分支处理
                 return []
+            if before.startswith('0000000'):
+                # 创建分支处理
+                first_commit_id = self.commit_list[0].get('id')
+                parent_commit_id = self.get_parent_commit_id(first_commit_id)
+                if parent_commit_id:
+                    before = parent_commit_id
+            return self.repository_compare(before, after)
         else:
             return []
-
-class SystemHookHandler:
-    def __init__(self, webhook_data: dict, gitlab_token: str, gitlab_url: str):
-        self.webhook_data = webhook_data
-        self.gitlab_token = gitlab_token
-        self.gitlab_url = gitlab_url
-        self.event_type = None
-        self.project_id = None
-        self.changes = []
-        self.parse_event_type()
-
-    def parse_event_type(self):
-        # Extract event_type
-        self.event_type = self.webhook_data.get(_('event_name'), None)
-        if self.event_type == _('repository_update'):
-            self.parse_repository_update_event()
-
-    def parse_repository_update_event(self):
-        # Parse repository_update event parameters
-        self.project_id = self.webhook_data.get('project', {}).get('id')
-        self.changes = self.webhook_data.get('changes', [])
-
-    def get_repository_changes(self) -> list:
-        # Check if the event is repository_update
-        if self.event_type != 'repository_update':
-            logger.warn(_("Invalid event type: {}. Only 'repository_update' event is supported now.").format(self.event_type))
-            return []
-
-        if not self.changes:
-            logger.warn(_("No changes found in webhook data."))
-            return []
-
-        headers = {'Private-Token': self.gitlab_token}
-        all_diffs = []
-
-        max_retries = 3  # Maximum retry attempts
-        retry_delay = 10  # Retry delay in seconds
-
-        for change in self.changes:
-            before = change.get('before')
-            after = change.get('after')
-            ref = change.get('ref', _('unknown branch'))
-
-            if not before or not after:
-                logger.warn(_("Missing before or after commit ID for ref {}.").format(ref))
-                continue
-
-            url = f"{urljoin(f'{self.gitlab_url}/', f'api/v4/projects/{self.project_id}/repository/compare')}?from={before}&to={after}"
-
-            for attempt in range(max_retries):
-                response = requests.get(url, headers=headers, verify=False)
-                logger.debug(
-                    _("Get changes response from GitLab for repository_update (attempt {}): {}, {}, URL: {}").format(attempt + 1, response.status_code, response.text, url))
-
-                if response.status_code == 200:
-                    diffs = response.json().get('diffs', [])
-                    if diffs:
-                        all_diffs.extend(diffs)
-                    break
-                else:
-                    logger.warn(
-                        _("Failed to get changes for ref {}: {}, {}, retrying in {} seconds...").format(ref, response.status_code, response.text, retry_delay))
-                    time.sleep(retry_delay)
-
-        if not all_diffs:
-            logger.warning(_("Max retries ({}) reached. Unable to retrieve repository changes.").format(max_retries))
-        return all_diffs
-
-    def get_repository_commits(self) -> list:
-        # Get commits from repository_update event
-        if self.event_type != _('repository_update'):
-            logger.warn(_("Invalid event type: {}. Only 'repository_update' event is supported now.").format(self.event_type))
-            return []
-
-        if not self.changes:
-            logger.warn(_("No changes found in webhook data."))
-            return []
-
-        headers = {'Private-Token': self.gitlab_token}
-        all_commits = []
-
-        for change in self.changes:
-            before = change.get('before')
-            after = change.get('after')
-            ref = change.get('ref', _('unknown branch'))
-
-            if not before or not after:
-                logger.warn(_("Missing before or after commit ID for ref {}.").format(ref))
-                continue
-
-            url = f"{urljoin(f'{self.gitlab_url}/', f'api/v4/projects/{self.project_id}/repository/commits')}?ref_name={ref}"
-            response = requests.get(url, headers=headers, verify=False)
-            logger.debug(
-                _("Get commits response from GitLab for repository_update: {}, {}, URL: {}").format(response.status_code, response.text, url))
-
-            if response.status_code == 200:
-                commits = response.json()
-                if commits:
-                    all_commits.extend(commits)
-            else:
-                logger.warn(
-                    _("Failed to get commits for ref {}: {}, {}").format(ref, response.status_code, response.text))
-
-        return all_commits

@@ -33,18 +33,3 @@ class PushReviewEntity:
         # 合并所有 commit 的 message 属性，用分号分隔
         return "; ".join(commit["message"].strip() for commit in self.commits)
 
-
-class SystemHookReviewEntity:
-    def __init__(self, project_name: str, author: str, updated_at: int, commits: list, score: float,
-                 review_result: str):
-        self.project_name = project_name
-        self.author = author
-        self.updated_at = updated_at
-        self.commits = commits
-        self.score = score
-        self.review_result = review_result
-
-    @property
-    def commit_messages(self):
-        # 合并所有 commit 的 message 属性，用分号分隔
-        return "; ".join(commit["message"].strip() for commit in self.commits)
