@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: dev
-    image: sunmh207/ai-codereview-gitlab:1.2.2
+    image: sunmh207/ai-codereview-gitlab:1.2.3
     ports:
       - "5001:5001"
       - "5002:5002"

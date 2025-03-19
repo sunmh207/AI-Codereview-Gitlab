@@ -61,12 +61,9 @@ GITLAB_ACCESS_TOKEN={YOUR_GITLAB_ACCESS_TOKEN}
 **2. 启动docker容器**
 
 ```bash
-docker run --rm --name ai-codereview-gitlab \
-  -p 5001:5001 \
-  -p 5002:5002 \
-  -v $(pwd)/.env:/app/.env \
-  -e TZ=Asia/Shanghai \
-  sunmh207/ai-codereview-gitlab:1.2.2
+git clone https://github.com/sunmh207/AI-Codereview-Gitlab.git
+cd AI-Codereview-Gitlab
+docker-compose up -d
 ```
 
 **3. 验证服务**
