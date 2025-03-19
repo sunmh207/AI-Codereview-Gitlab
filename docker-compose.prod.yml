@@ -1,0 +1,20 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: prod
+    image: sunmh207/ai-codereview-gitlab:1.2.2
+    ports:
+      - "5001:5001"
+      - "5002:5002"
+    volumes:
+      - data:/app/data
+      - log:/app/log
+    env_file:
+      - .env
+    restart: unless-stopped
+
+volumes:
+  data:
+  log:

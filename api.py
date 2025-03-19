@@ -18,6 +18,7 @@ from biz.utils.code_reviewer import CodeReviewer
 from biz.utils.im import im_notifier
 from biz.utils.log import logger
 from biz.utils.reporter import Reporter
+from urllib.parse import urlparse
 
 load_dotenv()
 api_app = Flask(__name__)
@@ -114,8 +115,21 @@ def handle_webhook():
 
         object_kind = data.get("object_kind")
 
-        # 优先从请求头获取，如果没有，则从环境变量获取
-        gitlab_url = request.headers.get('X-Gitlab-Instance') or os.getenv('GITLAB_URL')
+        # 优先从请求头获取，如果没有，则从环境变量获取，如果没有，则从推送事件中获取
+        gitlab_url = os.getenv('GITLAB_URL') or request.headers.get('X-Gitlab-Instance')
+        if not gitlab_url:
+            repository = data.get('repository')
+            if not repository:
+                return jsonify({'message': 'Missing GitLab URL'}), 400 
+            homepage = repository.get("homepage")
+            if not homepage:
+                return jsonify({'message': 'Missing GitLab URL'}), 400 
+            try:
+                parsed_url = urlparse(homepage)
+                gitlab_url = f"{parsed_url.scheme}://{parsed_url.netloc}/"
+            except Exception as e:
+                return jsonify({"error": f"Failed to parse homepage URL: {str(e)}"}), 400
+                
         # 优先从环境变量获取，如果没有，则从请求头获取
         gitlab_token = os.getenv('GITLAB_ACCESS_TOKEN') or request.headers.get('X-Gitlab-Token')
         # 如果gitlab_token为空，返回错误

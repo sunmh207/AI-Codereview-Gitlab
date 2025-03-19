@@ -5,9 +5,9 @@ test/
 docker
 
 log/*
-!log/
+!log/.gitkeep
 data/*
-!data/
+!data/.gitkeep
 
 .env
 .pyc
