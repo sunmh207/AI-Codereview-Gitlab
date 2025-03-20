@@ -61,8 +61,8 @@ GITLAB_ACCESS_TOKEN={YOUR_GITLAB_ACCESS_TOKEN}
 **2. 启动docker容器**
 
 ```bash
-git clone https://github.com/sunmh207/AI-Codereview-Gitlab.git
-cd AI-Codereview-Gitlab
+git clone https://github.com/mashb1t/ai-codereview-gitlab.git
+cd ai-codereview-gitlab
 docker-compose up -d
 ```
 
@@ -77,8 +77,8 @@ docker-compose up -d
 **1. 获取源码**
 
 ```bash
-git clone https://github.com/sunmh207/AI-Codereview-Gitlab.git
-cd AI-Codereview-Gitlab
+git clone https://github.com/mashb1t/ai-codereview-gitlab.git
+cd ai-codereview-gitlab
 ```
 
 **2. 安装依赖**

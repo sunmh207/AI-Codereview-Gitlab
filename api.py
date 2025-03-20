@@ -30,9 +30,8 @@ PUSH_REVIEW_ENABLED = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
 @api_app.route('/')
 def home():
     return """<h2>The code review api server is running.</h2>
-              <p>GitHub project address: <a href="https://github.com/sunmh207/AI-Codereview-Gitlab" target="_blank">
-              https://github.com/sunmh207/AI-Codereview-Gitlab</a></p>
-              <p>Gitee project address: <a href="https://gitee.com/sunminghui/ai-codereview-gitlab" target="_blank">https://gitee.com/sunminghui/ai-codereview-gitlab</a></p>
+              <p>GitHub project address: <a href="https://github.com/mashb1t/ai-codereview-gitlab" target="_blank">
+              https://github.com/mashb1t/ai-codereview-gitlab</a></p>
               """
 
 
