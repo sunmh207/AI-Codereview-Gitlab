@@ -13,7 +13,7 @@ class FeishuNotifier:
         self.default_webhook_url = webhook_url or os.environ.get('FEISHU_WEBHOOK_URL', '')
         self.enabled = os.environ.get('FEISHU_ENABLED', '0') == '1'
 
-    def _get_webhook_url(self, project_name=None):
+    def _get_webhook_url(self, project_name=None, url_base=None):
         """
         获取项目对应的 Webhook URL
         :param project_name: 项目名称
@@ -32,6 +32,12 @@ class FeishuNotifier:
         for env_key, env_value in os.environ.items():
             if env_key.upper() == target_key:
                 return env_value  # 找到匹配项，直接返回
+            
+        # url_base 优先级次之
+        target_key_url_base = f"WECOM_WEBHOOK_URL_{url_base.upper()}"
+        for env_key, env_value in os.environ.items():
+            if target_key_url_base !=None and  env_key.upper() == target_key_url_base:
+                return env_value  # 找到匹配项，直接返回
 
         # 如果未找到匹配的环境变量，降级使用全局的 Webhook URL
         if self.default_webhook_url:
@@ -40,7 +46,7 @@ class FeishuNotifier:
         # 如果既未找到匹配项，也没有默认值，抛出异常
         raise ValueError(_("未找到项目 '{project_name}' 对应的 Feishu Webhook URL，且未设置默认的 Webhook URL。"))
 
-    def send_message(self, content, msg_type='text', title=None, is_at_all=False, project_name=None):
+    def send_message(self, content, msg_type='text', title=None, is_at_all=False, project_name=None, url_base=None):
         """
         发送飞书消息
         :param content: 消息内容
@@ -54,7 +60,7 @@ class FeishuNotifier:
             return
 
         try:
-            post_url = self._get_webhook_url(project_name=project_name)
+            post_url = self._get_webhook_url(project_name=project_name, url_base=url_base)
             if msg_type == 'markdown':
                 data = {
                     "msg_type": "interactive",

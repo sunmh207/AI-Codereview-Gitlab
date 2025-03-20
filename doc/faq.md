@@ -69,7 +69,23 @@ OLLAMA_API_BASE_URL=http://127.0.0.1:11434  # 错误
 OLLAMA_API_BASE_URL=http://{宿主机/外网IP地址}:11434  # 正确
 ```
 
-#### 5. 翻译
+#### 5.如何支持多个git服务器及对应的不通webhook地址
+
+在项目的 .env 文件中，配置不同GIT项目对应的群机器人的 Webhook 地址。替换
+以 DingTalk 为例，配置如下：
+
+```
+DINGTALK_ENABLED=1
+# git服务器A实际地址 http://192.168.30.164/
+DINGTALK_WEBHOOK_192_168_30_164=https://oapi.dingtalk.com/robot/send?access_token={access_token_of_project_a}
+# git服务器A实际地址 http://192.168.35.164/
+DINGTALK_WEBHOOK_192_168_35_164=https://oapi.dingtalk.com/robot/send?access_token={access_token_of_project_a}
+```
+
+飞书和企业微信的配置方式类似，GIT服务器的群机器人优先级，仓库名字>特定服务器地址>默认服务器地址
+
+#### 6. 翻译
+
 更改翻译后无法正确应用，我该怎么办？
 该应用程序使用 python 原生 gettext 实现来加载各种语言的翻译。如果您更改了翻译文件，但是应用程序没有正确应用新的翻译，您可以尝试以下步骤：
 1. 更新翻译: `bash translations_update.sh`

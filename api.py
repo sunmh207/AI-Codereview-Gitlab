@@ -160,6 +160,20 @@ def handle_webhook():
     else:
         return jsonify({'message': _('Invalid data format')}), 400
 
+def transform_gitlab_url(url):
+    # 去掉 http:// 或 https://
+    if url.startswith("http://"):
+        url = url[len("http://"):]
+    elif url.startswith("https://"):
+        url = url[len("https://"):]
+
+    if url.endswith('/'):
+        url = url[:-1]
+        
+    # 替换 . 和 / 为 _
+    transformed_url = url.replace('.', '_').replace('/', '_')
+    
+    return transformed_url
 
 def __handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
     try:
@@ -179,6 +193,7 @@ def __handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
             changes = filter_changes(changes)
             if not changes:
                 logger.info(_('未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。'))
+                return
             review_result = _("关注的文件没有修改")
 
             if len(changes) > 0:
@@ -188,6 +203,8 @@ def __handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
             # 将review结果提交到Gitlab的 notes
             handler.add_push_notes(_('Auto Review Result: \n{}').format(review_result))
 
+        url_base = transform_gitlab_url(gitlab_url)
+
         event_manager['push_reviewed'].send(PushReviewEntity(
             project_name=webhook_data['project']['name'],
             author=webhook_data['user_username'],
@@ -196,6 +213,7 @@ def __handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
             commits=commits,
             score=score,
             review_result=review_result,
+            gitlab_url = url_base,
         ))
 
     except Exception as e:
@@ -236,9 +254,14 @@ def __handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_u
             commits_text = ';'.join(commit['title'] for commit in commits)
             review_result = review_code(str(changes), commits_text)
 
+            if "COT ABORT!" in review_result:
+                logger.error('COT ABORT!')
+                return
+
             # 将review结果提交到Gitlab的 notes
             handler.add_merge_request_notes(_('Auto Review Result: \n{}').format(review_result))
 
+            url_base = transform_gitlab_url(gitlab_url)
             # dispatch merge_request_reviewed event
             event_manager['merge_request_reviewed'].send(
                 MergeRequestReviewEntity(
@@ -250,7 +273,8 @@ def __handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_u
                     commits=commits,
                     score=CodeReviewer.parse_review_score(review_text=review_result),
                     url=webhook_data['object_attributes']['url'],
-                    review_result=review_result
+                    review_result=review_result,
+                    gitlab_url = url_base,
                 )
             )
 
