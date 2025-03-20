@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-03-18 17:56+0100\n"
+"POT-Creation-Date: 2025-03-20 16:41+0100\n"
 "PO-Revision-Date: 2025-03-18 15:05+0100\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -16,95 +16,95 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: api.py:64
+#: api.py:66
 msgid "代码提交日报"
 msgstr ""
 
-#: api.py:113
+#: api.py:115
 msgid "Invalid JSON"
 msgstr ""
 
-#: api.py:123
+#: api.py:138
 msgid "Missing GitLab access token"
 msgstr ""
 
-#: api.py:126
+#: api.py:141
 msgid "Received event: {}"
 msgstr ""
 
-#: api.py:127
+#: api.py:142
 msgid "Payload: {}"
 msgstr ""
 
-#: api.py:135 api.py:141
+#: api.py:150 api.py:156
 msgid "Request received(object_kind={}), will process asynchronously."
 msgstr ""
 
-#: api.py:143
+#: api.py:158
 msgid ""
 "Only merge_request and push events are supported (both Webhook and System "
 "Hook), but received: {}."
 msgstr ""
 
-#: api.py:147
+#: api.py:162
 msgid "Invalid data format"
 msgstr ""
 
-#: api.py:156 api.py:218
+#: api.py:189 api.py:254
 msgid "Failed to get commits"
 msgstr ""
 
-#: api.py:167
+#: api.py:200
 msgid "未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。"
 msgstr ""
 
-#: api.py:168
+#: api.py:202
 msgid "关注的文件没有修改"
 msgstr ""
 
-#: api.py:175 api.py:226
+#: api.py:209 api.py:266
 msgid ""
 "Auto Review Result: \n"
 "{}"
 msgstr ""
 
-#: api.py:188
+#: api.py:224
 msgid "服务出现未知错误: {}"
 msgstr ""
 
-#: api.py:190 api.py:249
+#: api.py:226 api.py:290
 msgid "出现未知错误: {}"
 msgstr ""
 
-#: api.py:204
+#: api.py:240
 msgid "Merge Request Hook event received"
 msgstr ""
 
-#: api.py:209
+#: api.py:245
 msgid "changes: {}"
 msgstr ""
 
-#: api.py:212
+#: api.py:248
 msgid "未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。"
 msgstr ""
 
-#: api.py:244
+#: api.py:285
 msgid "Merge Request Hook event, action={}, ignored."
 msgstr ""
 
-#: api.py:247
+#: api.py:288
 msgid "AI Code Review 服务出现未知错误: {}"
 msgstr ""
 
-#: api.py:276
+#: api.py:318
 msgid "代码为空, diffs_text = {}"
 msgstr ""
 
-#: api.py:277
+#: api.py:319
 msgid "代码为空"
 msgstr ""
 
-#: api.py:281
+#: api.py:323
 msgid "文本超长，截段后content: {}"
 msgstr ""
 
@@ -134,22 +134,22 @@ msgstr ""
 msgid "Merge Request Review"
 msgstr ""
 
-#: biz/event/event_manager.py:55
+#: biz/event/event_manager.py:56
 #, python-brace-format
 msgid ""
 "### 🚀 {project_name}: Push\n"
 "\n"
 msgstr ""
 
-#: biz/event/event_manager.py:56
+#: biz/event/event_manager.py:57
 msgid "#### 提交记录:\n"
 msgstr ""
 
-#: biz/event/event_manager.py:60
+#: biz/event/event_manager.py:61
 msgid "Unknown Author"
 msgstr ""
 
-#: biz/event/event_manager.py:64
+#: biz/event/event_manager.py:65
 #, python-brace-format
 msgid ""
 "- **提交信息**: {message}\n"
@@ -159,7 +159,7 @@ msgid ""
 "\n"
 msgstr ""
 
-#: biz/event/event_manager.py:76
+#: biz/event/event_manager.py:77
 #, python-brace-format
 msgid ""
 "#### AI Review 结果: \n"
@@ -167,7 +167,7 @@ msgid ""
 "\n"
 msgstr ""
 
-#: biz/event/event_manager.py:78
+#: biz/event/event_manager.py:79
 #, python-brace-format
 msgid "{project_name} Push Event"
 msgstr ""
@@ -264,27 +264,27 @@ msgstr ""
 msgid "总分[:：]\\s*(\\d+)分?"
 msgstr ""
 
-#: biz/utils/im/dingtalk.py:28
+#: biz/utils/im/dingtalk.py:29
 msgid "未提供项目名称，且未设置默认的钉钉 Webhook URL。"
 msgstr ""
 
-#: biz/utils/im/dingtalk.py:41
+#: biz/utils/im/dingtalk.py:48
 msgid "未找到项目 '{}' 对应的钉钉Webhook URL，且未设置默认的 Webhook URL。"
 msgstr ""
 
-#: biz/utils/im/dingtalk.py:45
+#: biz/utils/im/dingtalk.py:52
 msgid "钉钉推送未启用"
 msgstr ""
 
-#: biz/utils/im/dingtalk.py:78
+#: biz/utils/im/dingtalk.py:85
 msgid "钉钉消息发送成功! webhook_url: {}"
 msgstr ""
 
-#: biz/utils/im/dingtalk.py:80
+#: biz/utils/im/dingtalk.py:87
 msgid "钉钉消息发送失败! webhook_url: {}, errmsg: {}"
 msgstr ""
 
-#: biz/utils/im/dingtalk.py:82
+#: biz/utils/im/dingtalk.py:89
 msgid "钉钉消息发送失败!"
 msgstr ""
 
@@ -292,37 +292,37 @@ msgstr ""
 msgid "未提供项目名称，且未设置默认的 飞书 Webhook URL。"
 msgstr ""
 
-#: biz/utils/im/feishu.py:41
+#: biz/utils/im/feishu.py:47
 #, python-brace-format
 msgid ""
 "未找到项目 '{project_name}' 对应的 Feishu Webhook URL，且未设置默认的 "
 "Webhook URL。"
 msgstr ""
 
-#: biz/utils/im/feishu.py:53
+#: biz/utils/im/feishu.py:59
 msgid "飞书推送未启用"
 msgstr ""
 
-#: biz/utils/im/feishu.py:113
+#: biz/utils/im/feishu.py:119
 #, python-brace-format
 msgid "飞书消息发送失败! webhook_url: {post_url}, error_msg: {post_url}"
 msgstr ""
 
-#: biz/utils/im/feishu.py:118
+#: biz/utils/im/feishu.py:124
 #, python-brace-format
 msgid "发送飞书消息失败! webhook_url: {post_url}, errmsg: {result}"
 msgstr ""
 
-#: biz/utils/im/feishu.py:120
+#: biz/utils/im/feishu.py:126
 #, python-brace-format
 msgid "飞书消息发送成功! webhook_url: {post_url}"
 msgstr ""
 
-#: biz/utils/im/feishu.py:123
+#: biz/utils/im/feishu.py:129
 msgid "飞书消息发送失败!"
 msgstr ""
 
-#: biz/utils/im/im_notifier.py:7
+#: biz/utils/im/im_notifier.py:9
 msgid "通知"
 msgstr ""
 
@@ -330,30 +330,44 @@ msgstr ""
 msgid "未提供项目名称，且未设置默认的企业微信 Webhook URL。"
 msgstr ""
 
-#: biz/utils/im/wecom.py:43
+#: biz/utils/im/wecom.py:49
 msgid ""
 "未找到项目 '{}' 对应的企业微信 Webhook URL，且未设置默认的 Webhook URL。"
 msgstr ""
 
-#: biz/utils/im/wecom.py:73
+#: biz/utils/im/wecom.py:82
 msgid "企业微信推送未启用"
 msgstr ""
 
-#: biz/utils/im/wecom.py:102
+#: biz/utils/im/wecom.py:90
+#, python-brace-format
+msgid "发送企业微信消息: url={post_url}, data={data}"
+msgstr ""
+
+#: biz/utils/im/wecom.py:94
 msgid "企业微信消息发送失败! webhook_url:{}, error_msg:{}"
 msgstr ""
 
-#: biz/utils/im/wecom.py:107
-#, python-brace-format
-msgid "企业微信消息发送失败! webhook_url: {post_url}, errmsg: {result}"
+#: biz/utils/im/wecom.py:96
+msgid "Markdown 消息过长，尝试发送纯文本"
 msgstr ""
 
-#: biz/utils/im/wecom.py:109
+#: biz/utils/im/wecom.py:100
 msgid "企业微信消息发送成功! webhook_url: {}"
 msgstr ""
 
-#: biz/utils/im/wecom.py:112
+#: biz/utils/im/wecom.py:103
 msgid "企业微信消息发送失败!"
+msgstr ""
+
+#: biz/utils/im/wecom.py:112
+#, python-brace-format
+msgid "企业微信消息发送请求失败! url:{url}, error: {e}"
+msgstr ""
+
+#: biz/utils/im/wecom.py:114
+#, python-brace-format
+msgid "企业微信返回的 JSON 解析失败! url:{url}, error: {e}"
 msgstr ""
 
 #: biz/utils/reporter.py:13

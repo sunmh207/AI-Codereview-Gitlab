@@ -15,7 +15,7 @@ class WeComNotifier:
         self.default_webhook_url = webhook_url or os.environ.get('WECOM_WEBHOOK_URL', '')
         self.enabled = os.environ.get('WECOM_ENABLED', '0') == '1'
 
-    def _get_webhook_url(self, project_name=None, url_base=None):
+    def _get_webhook_url(self, project_name=None, gitlab_url_slug=None):
         """
         获取项目对应的 Webhook URL
         :param project_name: 项目名称
@@ -29,19 +29,17 @@ class WeComNotifier:
             else:
                 raise ValueError(_("未提供项目名称，且未设置默认的企业微信 Webhook URL。"))
 
-        # 遍历所有环境变量（忽略大小写），找到项目对应的 Webhook URL
-        target_key = f"WECOM_WEBHOOK_URL_{project_name.upper()}"
+        # 构造目标键
+        target_key_project = f"WECOM_WEBHOOK_URL_{project_name.upper()}"
+        target_key_url_slug = f"WECOM_WEBHOOK_URL_{gitlab_url_slug.upper()}"
 
-        # 仓库名称优先级高，先匹配
+        # 遍历环境变量
         for env_key, env_value in os.environ.items():
-            if env_key.upper() == target_key :
-                return env_value  # 找到匹配项，直接返回
-        
-        # url_base 优先级次之
-        target_key_url_base = f"WECOM_WEBHOOK_URL_{url_base.upper()}"
-        for env_key, env_value in os.environ.items():
-            if target_key_url_base !=None and  env_key.upper() == target_key_url_base:
-                return env_value  # 找到匹配项，直接返回
+            env_key_upper = env_key.upper()
+            if env_key_upper == target_key_project:
+                return env_value  # 找到项目名称对应的 Webhook URL，直接返回
+            if env_key_upper == target_key_url_slug:
+                return env_value  # 找到 GitLab URL 对应的 Webhook URL，直接返回
 
         # 如果未找到匹配的环境变量，降级使用全局的 Webhook URL
         if self.default_webhook_url:
@@ -69,76 +67,69 @@ class WeComNotifier:
         formatted_content += content
         return formatted_content
 
-    def send_message(self, content, msg_type='text', title=None, is_at_all=False, project_name=None, url_base=None):
+    def send_message(self, content, msg_type='text', title=None, is_at_all=False, project_name=None,
+                     gitlab_url_slug=None):
         """
         发送企业微信消息
         :param content: 消息内容
-        :param msg_type: 消息类型，支持text和markdown
-        :param title: 消息标题(markdown类型时使用)
-        :param is_at_all: 是否@所有人
+        :param msg_type: 消息类型，支持 text 和 markdown
+        :param title: 消息标题 (markdown 类型时使用)
+        :param is_at_all: 是否 @所有人
+        :param project_name: 关联项目名称
+        :param gitlab_url_slug: GitLab URL Slug
         """
         if not self.enabled:
             logger.info(_("企业微信推送未启用"))
             return
 
         try:
-            post_url = self._get_webhook_url(project_name=project_name, url_base=url_base)
-            if msg_type == 'markdown':
-                formatted_content = self.format_markdown_content(content, title)
-                data = {
-                    "msgtype": "markdown",
-                    "markdown": {
-                        "content": formatted_content
-                    }
-                }
-            else:
-                data = {
-                    "msgtype": "text",
-                    "text": {
-                        "content": content,
-                        "mentioned_list": ["@all"] if is_at_all else []
-                    }
-                }
+            post_url = self._get_webhook_url(project_name=project_name, gitlab_url_slug=gitlab_url_slug)
+            data = self._build_markdown_message(content, title) if msg_type == 'markdown' else self._build_text_message(
+                content, is_at_all)
 
-            response = requests.post(
-                url=post_url,
-                json=data,
-                headers={'Content-Type': 'application/json'}
-            )
+            logger.debug(_("发送企业微信消息: url={post_url}, data={data}").format(post_url=post_url, data=data))
+            response = self._send_request(post_url, data)
 
-            if response.status_code != 200:
+            if response and response.get('errcode') != 0:
                 logger.error(_("企业微信消息发送失败! webhook_url:{}, error_msg:{}").format(post_url, response.text))
-
-                try:
-                    data = json.loads(response.text)
-                    errmsg = data.get("errmsg")
-                    if errmsg and "markdown.content exceed max length" in errmsg:
-                        # markdown渲染过长了，尝试text发送
-                        data = {
-                            "msgtype": "text",
-                            "text": {
-                                "content": content,
-                                "mentioned_list": ["@all"] if is_at_all else []
-                            }
-                        }
-
-                        response = requests.post(
-                            url=post_url,
-                            json=data,
-                            headers={'Content-Type': 'application/json'}
-                        )
-
-                except json.JSONDecodeError as e:
-                    print(f"JSON 解析失败: {e}")
-                except Exception as e:
-                    logger.error(_("企业微信消息发送失败! {}").format(e))
-                return
-
-            result = response.json()
-            if result.get('errcode') != 0:
-                logger.error(_("企业微信消息发送失败! webhook_url: {post_url}, errmsg: {result}").format(post_url=post_url, result=result))
+                if response.get("errmsg") and "markdown.content exceed max length" in response["errmsg"]:
+                    logger.warning(_("Markdown 消息过长，尝试发送纯文本"))
+                    data = self._build_text_message(content, is_at_all)
+                    self._send_request(post_url, data)
             else:
                 logger.info(_("企业微信消息发送成功! webhook_url: {}").format(post_url))
 
         except Exception as e:
             logger.error(_("企业微信消息发送失败!"), e)
+
+    def _send_request(self, url, data):
+        """ 发送请求并返回 JSON 响应 """
+        try:
+            response = requests.post(url, json=data, headers={'Content-Type': 'application/json'})
+            response.raise_for_status()  # 触发 HTTP 错误
+            return response.json()
+        except requests.RequestException as e:
+            logger.error(_("企业微信消息发送请求失败! url:{url}, error: {e}").format(url=url, e=e))
+        except json.JSONDecodeError as e:
+            logger.error(_("企业微信返回的 JSON 解析失败! url:{url}, error: {e}").format(url=url, e=e))
+        return None
+
+    def _build_text_message(self, content, is_at_all):
+        """ 构造纯文本消息 """
+        return {
+            "msgtype": "text",
+            "text": {
+                "content": content,
+                "mentioned_list": ["@all"] if is_at_all else []
+            }
+        }
+
+    def _build_markdown_message(self, content, title):
+        """ 构造 Markdown 消息 """
+        formatted_content = self.format_markdown_content(content, title)
+        return {
+            "msgtype": "markdown",
+            "markdown": {
+                "content": formatted_content
+            }
+        }

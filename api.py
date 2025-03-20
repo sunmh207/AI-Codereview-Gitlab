@@ -1,6 +1,7 @@
 import atexit
 import json
 import os
+import re
 import traceback
 from datetime import datetime
 from multiprocessing import Process
@@ -120,16 +121,16 @@ def handle_webhook():
         if not gitlab_url:
             repository = data.get('repository')
             if not repository:
-                return jsonify({'message': 'Missing GitLab URL'}), 400 
+                return jsonify({'message': 'Missing GitLab URL'}), 400
             homepage = repository.get("homepage")
             if not homepage:
-                return jsonify({'message': 'Missing GitLab URL'}), 400 
+                return jsonify({'message': 'Missing GitLab URL'}), 400
             try:
                 parsed_url = urlparse(homepage)
                 gitlab_url = f"{parsed_url.scheme}://{parsed_url.netloc}/"
             except Exception as e:
                 return jsonify({"error": f"Failed to parse homepage URL: {str(e)}"}), 400
-                
+
         # 优先从环境变量获取，如果没有，则从请求头获取
         gitlab_token = os.getenv('GITLAB_ACCESS_TOKEN') or request.headers.get('X-Gitlab-Token')
         # 如果gitlab_token为空，返回错误
@@ -160,20 +161,24 @@ def handle_webhook():
     else:
         return jsonify({'message': _('Invalid data format')}), 400
 
-def transform_gitlab_url(url):
-    # 去掉 http:// 或 https://
-    if url.startswith("http://"):
-        url = url[len("http://"):]
-    elif url.startswith("https://"):
-        url = url[len("https://"):]
 
-    if url.endswith('/'):
-        url = url[:-1]
-        
-    # 替换 . 和 / 为 _
-    transformed_url = url.replace('.', '_').replace('/', '_')
-    
-    return transformed_url
+def slugify_url(original_url: str) -> str:
+    """
+    将原始URL转换为适合作为文件名的字符串，其中非字母或数字的字符会被替换为下划线，举例：
+    slugify_url("http://example.com/path/to/repo/") => example_com_path_to_repo
+    slugify_url("https://gitlab.com/user/repo.git") => gitlab_com_user_repo_git
+    """
+    # Remove URL scheme (http, https, etc.) if present
+    original_url = re.sub(r'^https?://', '', original_url)
+
+    # Replace non-alphanumeric characters (except underscore) with underscores
+    target = re.sub(r'[^a-zA-Z0-9]', '_', original_url)
+
+    # Remove trailing underscore if present
+    target = target.rstrip('_')
+
+    return target
+
 
 def __handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
     try:
@@ -203,7 +208,6 @@ def __handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
             # 将review结果提交到Gitlab的 notes
             handler.add_push_notes(_('Auto Review Result: \n{}').format(review_result))
 
-        url_base = transform_gitlab_url(gitlab_url)
 
         event_manager['push_reviewed'].send(PushReviewEntity(
             project_name=webhook_data['project']['name'],
@@ -213,7 +217,7 @@ def __handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
             commits=commits,
             score=score,
             review_result=review_result,
-            gitlab_url = url_base,
+            gitlab_url_slug = slugify_url(gitlab_url),
         ))
 
     except Exception as e:
@@ -261,7 +265,6 @@ def __handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_u
             # 将review结果提交到Gitlab的 notes
             handler.add_merge_request_notes(_('Auto Review Result: \n{}').format(review_result))
 
-            url_base = transform_gitlab_url(gitlab_url)
             # dispatch merge_request_reviewed event
             event_manager['merge_request_reviewed'].send(
                 MergeRequestReviewEntity(
@@ -274,7 +277,7 @@ def __handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_u
                     score=CodeReviewer.parse_review_score(review_text=review_result),
                     url=webhook_data['object_attributes']['url'],
                     review_result=review_result,
-                    gitlab_url = url_base,
+                    gitlab_url_slug = slugify_url(gitlab_url),
                 )
             )
 
@@ -285,6 +288,7 @@ def __handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_u
         error_message = _('AI Code Review 服务出现未知错误: {}').format(f'{str(e)}\n{traceback.format_exc()}')
         im_notifier.send_notification(content=error_message)
         logger.error(_('出现未知错误: {}').format(error_message))
+
 
 
 def filter_changes(changes: list):
