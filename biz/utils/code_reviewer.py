@@ -41,6 +41,22 @@ class CodeReviewer:
             }
         }
 
+    def review_and_strip_code(self, changes_text: str, commits_text: str = '') -> str:
+        # 如果超长，取前REVIEW_MAX_LENGTH字符
+        review_max_length = int(os.getenv('REVIEW_MAX_LENGTH', 5000))
+        # 如果changes为空,打印日志
+        if not changes_text:
+            logger.info(_('代码为空, diffs_text = {}').format(str(changes_text)))
+            return _('代码为空')
+
+        if len(changes_text) > review_max_length:
+            changes_text = changes_text[:review_max_length]
+            logger.info(_('文本超长，截段后content: {}').format(changes_text))
+        review_result = self.review_code(changes_text, commits_text).strip()
+        if review_result.startswith("```markdown") and review_result.endswith("```"):
+            return review_result[11:-3].strip()
+        return review_result
+
     def review_code(self, diffs_text: str, commits_text: str = "") -> str:
         """Review代码，并返回结果"""
         prompts = self.prompts["code_review"]

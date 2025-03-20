@@ -16,8 +16,36 @@ services:
       - ./api.py:/app/api.py
       - ./prompt_templates.yml:/app/prompt_templates.yml
       - ./requirements.txt:/app/requirements.txt
-      - ./supervisord.dev.conf:/etc/supervisor/conf.d/supervisord.conf
       - ./ui.py:/app/ui.py
     env_file:
       - .env
+    depends_on:
+      redis:
+        condition: service_started
     restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    # image: sunmh207/ai-codereview-gitlab:1.2.3-worker
+    volumes_from:
+      - app
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+#    ports:
+#      - "${REDIS_PORT}:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-03-18 17:56+0100\n"
+"POT-Creation-Date: 2025-03-20 01:45+0100\n"
 "PO-Revision-Date: 2025-03-18 15:05+0100\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -16,96 +16,58 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: api.py:64
+#: api.py:52 api.py:53
+msgid "No data to process."
+msgstr ""
+
+#: api.py:63
 msgid "代码提交日报"
 msgstr ""
 
-#: api.py:113
+#: api.py:68
+msgid "Failed to generate daily report: {}"
+msgstr ""
+
+#: api.py:96
+msgid "Scheduler started successfully."
+msgstr ""
+
+#: api.py:101
+msgid "Error setting up scheduler: {}"
+msgstr ""
+
+#: api.py:112
 msgid "Invalid JSON"
 msgstr ""
 
-#: api.py:123
+#: api.py:121 api.py:124
+msgid "Missing GitLab URL"
+msgstr ""
+
+#: api.py:135
 msgid "Missing GitLab access token"
 msgstr ""
 
-#: api.py:126
+#: api.py:140
 msgid "Received event: {}"
 msgstr ""
 
-#: api.py:127
+#: api.py:141
 msgid "Payload: {}"
 msgstr ""
 
-#: api.py:135 api.py:141
+#: api.py:148 api.py:154
 msgid "Request received(object_kind={}), will process asynchronously."
 msgstr ""
 
-#: api.py:143
+#: api.py:156
 msgid ""
 "Only merge_request and push events are supported (both Webhook and System "
 "Hook), but received: {}."
 msgstr ""
 
-#: api.py:147
+#: api.py:160
 msgid "Invalid data format"
-msgstr ""
-
-#: api.py:156 api.py:218
-msgid "Failed to get commits"
-msgstr ""
-
-#: api.py:167
-msgid "未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。"
-msgstr ""
-
-#: api.py:168
-msgid "关注的文件没有修改"
-msgstr ""
-
-#: api.py:175 api.py:226
-msgid ""
-"Auto Review Result: \n"
-"{}"
-msgstr ""
-
-#: api.py:188
-msgid "服务出现未知错误: {}"
-msgstr ""
-
-#: api.py:190 api.py:249
-msgid "出现未知错误: {}"
-msgstr ""
-
-#: api.py:204
-msgid "Merge Request Hook event received"
-msgstr ""
-
-#: api.py:209
-msgid "changes: {}"
-msgstr ""
-
-#: api.py:212
-msgid "未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。"
-msgstr ""
-
-#: api.py:244
-msgid "Merge Request Hook event, action={}, ignored."
-msgstr ""
-
-#: api.py:247
-msgid "AI Code Review 服务出现未知错误: {}"
-msgstr ""
-
-#: api.py:276
-msgid "代码为空, diffs_text = {}"
-msgstr ""
-
-#: api.py:277
-msgid "代码为空"
-msgstr ""
-
-#: api.py:281
-msgid "文本超长，截段后content: {}"
 msgstr ""
 
 #: biz/event/event_manager.py:20
@@ -172,76 +134,122 @@ msgstr ""
 msgid "{project_name} Push Event"
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:39
+#: biz/gitlab/webhook_handler.py:78
 msgid "Invalid event type: {}. Only 'merge_request' event is supported now."
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:54
+#: biz/gitlab/webhook_handler.py:93
 msgid "Get changes response from GitLab (attempt {}): {}, {}, URL: {}"
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:62
+#: biz/gitlab/webhook_handler.py:101
 msgid "Changes is empty, retrying in {} seconds... (attempt {}/{}), URL: {}"
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:65
+#: biz/gitlab/webhook_handler.py:104
 msgid "Failed to get changes from GitLab (URL: {}): {}, {}"
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:68
+#: biz/gitlab/webhook_handler.py:107
 msgid "Max retries ({}) reached. Changes is still empty."
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:83
+#: biz/gitlab/webhook_handler.py:122
 msgid "Get commits response from gitlab: {}, {}"
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:87
+#: biz/gitlab/webhook_handler.py:126
 msgid "Failed to get commits: {}, {}"
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:101
+#: biz/gitlab/webhook_handler.py:140
 msgid "Add notes to gitlab {}: {}, {}"
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:105
+#: biz/gitlab/webhook_handler.py:144
 msgid "Failed to add note: {}"
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:135 biz/gitlab/webhook_handler.py:224
+#: biz/gitlab/webhook_handler.py:174 biz/gitlab/webhook_handler.py:263
 msgid "Invalid event type: {}. Only 'push' event is supported now."
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:149
+#: biz/gitlab/webhook_handler.py:188
 msgid "Collected {} commits from push event."
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:155
+#: biz/gitlab/webhook_handler.py:194
 msgid "No commits found to add notes to."
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:161
+#: biz/gitlab/webhook_handler.py:200
 msgid "Last commit ID not found."
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:189
+#: biz/gitlab/webhook_handler.py:228
 msgid ""
 "Get commits response from GitLab for repository_commits: {response."
 "status_code}, {}, URL: {url}"
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:212
+#: biz/gitlab/webhook_handler.py:251
 msgid ""
 "Get changes response from GitLab for repository_compare: {}, {response."
 "text}, URL: {}"
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:218
+#: biz/gitlab/webhook_handler.py:257
 msgid "Failed to get changes for repository_compare: {}, {}"
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:229
+#: biz/gitlab/webhook_handler.py:268
 msgid "No commits found in push event."
+msgstr ""
+
+#: biz/queue/worker.py:26 biz/queue/worker.py:89
+msgid "Failed to get commits"
+msgstr ""
+
+#: biz/queue/worker.py:37
+msgid "未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。"
+msgstr ""
+
+#: biz/queue/worker.py:38
+msgid "关注的文件没有修改"
+msgstr ""
+
+#: biz/queue/worker.py:45 biz/queue/worker.py:97
+msgid ""
+"Auto Review Result: \n"
+"{}"
+msgstr ""
+
+#: biz/queue/worker.py:59
+msgid "服务出现未知错误: {}"
+msgstr ""
+
+#: biz/queue/worker.py:61 biz/queue/worker.py:121
+msgid "出现未知错误: {}"
+msgstr ""
+
+#: biz/queue/worker.py:75
+msgid "Merge Request Hook event received"
+msgstr ""
+
+#: biz/queue/worker.py:80
+msgid "changes: {}"
+msgstr ""
+
+#: biz/queue/worker.py:83
+msgid "未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。"
+msgstr ""
+
+#: biz/queue/worker.py:116
+msgid "Merge Request Hook event, action={}, ignored."
+msgstr ""
+
+#: biz/queue/worker.py:119
+msgid "AI Code Review 服务出现未知错误: {}"
 msgstr ""
 
 #: biz/utils/code_reviewer.py:27
@@ -252,15 +260,27 @@ msgstr ""
 msgid "未找到提示词配置{}，或配置格式不正确"
 msgstr ""
 
-#: biz/utils/code_reviewer.py:60
+#: biz/utils/code_reviewer.py:49
+msgid "代码为空, diffs_text = {}"
+msgstr ""
+
+#: biz/utils/code_reviewer.py:50
+msgid "代码为空"
+msgstr ""
+
+#: biz/utils/code_reviewer.py:54
+msgid "文本超长，截段后content: {}"
+msgstr ""
+
+#: biz/utils/code_reviewer.py:76
 msgid "向AI发送代码Review请求, message: {}"
 msgstr ""
 
-#: biz/utils/code_reviewer.py:64
+#: biz/utils/code_reviewer.py:80
 msgid "收到AI返回结果: {}"
 msgstr ""
 
-#: biz/utils/code_reviewer.py:72
+#: biz/utils/code_reviewer.py:88
 msgid "总分[:：]\\s*(\\d+)分?"
 msgstr ""
 
