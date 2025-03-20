@@ -20,14 +20,18 @@ COPY ui.py ./ui.py
 COPY prompt_templates.yml ./prompt_templates.yml
 RUN mkdir -p log data
 
-# 暴露 Flask 和 Streamlit 的端口
-EXPOSE 5001 5002
-
 # 使用 supervisord 作为启动命令
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 
 FROM base AS dev
 COPY supervisord.dev.conf /etc/supervisor/conf.d/supervisord.conf
+# 暴露 Flask 和 Streamlit 的端口
+EXPOSE 5001 5002
 
 FROM base AS prod
 COPY supervisord.prod.conf /etc/supervisor/conf.d/supervisord.conf
+# 暴露 Flask 和 Streamlit 的端口
+EXPOSE 5001 5002
+
+FROM base AS worker
+COPY supervisord.worker.conf /etc/supervisor/conf.d/supervisord.conf

@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2025/3/18 17:58
 # @Author  : Arrow
-import os
 from unittest import TestCase, main
 
 from biz.gitlab.webhook_handler import PushHandler
