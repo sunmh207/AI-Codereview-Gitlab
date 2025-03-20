@@ -44,7 +44,7 @@ def on_merge_request_reviewed(mr_review_entity: MergeRequestReviewEntity):
         review_result=mr_review_entity.review_result
     )
     im_notifier.send_notification(content=im_msg, msg_type='markdown', title=_('Merge Request Review'),
-                                  project_name=mr_review_entity.project_name, url_base=mr_review_entity.gitlab_url)
+                                  project_name=mr_review_entity.project_name, url_base=mr_review_entity.gitlab_domain_slug)
 
     # 记录到数据库
     ReviewService().insert_mr_review_log(mr_review_entity)
@@ -77,7 +77,7 @@ def on_push_reviewed(entity: PushReviewEntity):
     im_notifier.send_notification(content=im_msg, msg_type='markdown',
                                   title=_("{project_name} Push Event").format(project_name=entity.project_name),
                                   project_name=entity.project_name,
-                                  url_base=entity.gitlab_url)
+                                  url_base=entity.gitlab_domain_slug)
 
     # 记录到数据库
     ReviewService().insert_push_review_log(entity)

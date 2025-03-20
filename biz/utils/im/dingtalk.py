@@ -3,8 +3,9 @@ import os
 
 import requests
 
-from biz.utils.log import logger
 from biz.utils.i18n import get_translator
+from biz.utils.log import logger
+
 _ = get_translator()
 
 
@@ -32,11 +33,11 @@ class DingTalkNotifier:
         for env_key, env_value in os.environ.items():
             if env_key.upper() == target_key:
                 return env_value  # 找到匹配项，直接返回
-            
+
         # url_base 优先级次之
         target_key_url_base = f"WECOM_WEBHOOK_URL_{url_base.upper()}"
         for env_key, env_value in os.environ.items():
-            if target_key_url_base !=None and  env_key.upper() == target_key_url_base:
+            if target_key_url_base != None and env_key.upper() == target_key_url_base:
                 return env_value  # 找到匹配项，直接返回
 
         # 如果未找到匹配的环境变量，降级使用全局的 Webhook URL
@@ -46,7 +47,7 @@ class DingTalkNotifier:
         # 如果既未找到匹配项，也没有默认值，抛出异常
         raise ValueError(_("未找到项目 '{}' 对应的钉钉Webhook URL，且未设置默认的 Webhook URL。").format(project_name))
 
-    def send_message(self, content: str, msg_type='text', title='通知', is_at_all=False, project_name=None, url_base = None):
+    def send_message(self, content: str, msg_type='text', title=_('通知'), is_at_all=False, project_name=None, url_base=None):
         if not self.enabled:
             logger.info(_("钉钉推送未启用"))
             return

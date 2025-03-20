@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity
 from biz.event.event_manager import event_manager
-from biz.gitlab.webhook_handler import filter_changes, MergeRequestHandler, PushHandler
+from biz.gitlab.webhook_handler import filter_changes, MergeRequestHandler, PushHandler, slugify_url
 from biz.utils.code_reviewer import CodeReviewer
 from biz.utils.im import im_notifier
 from biz.utils.log import logger
@@ -17,7 +17,7 @@ PUSH_REVIEW_ENABLED = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
 from biz.utils.i18n import get_translator
 _ = get_translator()
 
-def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
+def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_domain_slug: str):
     try:
         handler = PushHandler(webhook_data, gitlab_token, gitlab_url)
         logger.info('Push Hook event received')
@@ -53,6 +53,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
             commits=commits,
             score=score,
             review_result=review_result,
+            gitlab_domain_slug=gitlab_domain_slug
         ))
 
     except Exception as e:
@@ -61,12 +62,13 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
         logger.error(_('出现未知错误: {}').format(error_message))
 
 
-def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
+def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_domain_slug: str):
     '''
     处理Merge Request Hook事件
     :param webhook_data:
     :param gitlab_token:
     :param gitlab_url:
+    :param gitlab_domain_slug:
     :return:
     '''
     try:
@@ -98,6 +100,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
 
             # dispatch merge_request_reviewed event
             # TODO check if not also queueing makes sense here
+            # dispatch merge_request_reviewed event
             event_manager['merge_request_reviewed'].send(
                 MergeRequestReviewEntity(
                     project_name=webhook_data['project']['name'],
@@ -108,7 +111,8 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
                     commits=commits,
                     score=CodeReviewer.parse_review_score(review_text=review_result),
                     url=webhook_data['object_attributes']['url'],
-                    review_result=review_result
+                    review_result=review_result,
+                    gitlab_domain_slug= gitlab_domain_slug,
                 )
             )
 
