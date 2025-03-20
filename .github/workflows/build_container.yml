@@ -4,11 +4,12 @@ on:
   push:
     branches:
       - main
+      - origin/feature/github-actions-docker-build
     tags:
       - v*
 
 jobs:
-  build-and-push-image:
+  build-and-push-images:
     runs-on: ubuntu-latest
 
     permissions:
@@ -26,8 +27,8 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
+      - name: Extract metadata (tags, labels) for Docker (prod)
+        id: meta_prod
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
@@ -37,12 +38,33 @@ jobs:
             type=semver,pattern={{major}}
             type=edge,branch=main
 
-      - name: Build and push Docker image
+      - name: Extract metadata (tags, labels) for Docker (worker)
+        id: meta_worker
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+          tags: |
+            type=semver,pattern={{version}},suffix=-worker
+            type=semver,pattern={{major}}.{{minor}},suffix=-worker
+            type=semver,pattern={{major}},suffix=-worker
+            type=edge,branch=main,suffix=-worker
+
+      - name: Build and push prod Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta_prod.outputs.tags }}
+          labels: ${{ steps.meta_prod.outputs.labels }}
           target: prod
+
+      - name: Build and push worker Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta_worker.outputs.tags }}
+          labels: ${{ steps.meta_worker.outputs.labels }}
+          target: worker
