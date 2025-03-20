@@ -24,6 +24,9 @@ from urllib.parse import urlparse
 load_dotenv()
 api_app = Flask(__name__)
 
+from biz.utils.i18n import get_translator
+_ = get_translator()
+
 PUSH_REVIEW_ENABLED = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
 
 
@@ -60,7 +63,7 @@ def daily_report():
         # 生成日报内容
         report_txt = Reporter().generate_report(json.dumps(commits))
         # 发送钉钉通知
-        im_notifier.send_notification(content=report_txt, msg_type="markdown", title="代码提交日报")
+        im_notifier.send_notification(content=report_txt, msg_type="markdown", title=_("代码提交日报"))
 
         # 返回生成的日报内容
         return json.dumps(report_txt, ensure_ascii=False, indent=4)
@@ -109,7 +112,7 @@ def handle_webhook():
     if request.is_json:
         data = request.get_json()
         if not data:
-            return jsonify({"error": "Invalid JSON"}), 400
+            return jsonify({"error": _("Invalid JSON")}), 400
 
         object_kind = data.get("object_kind")
 
@@ -132,11 +135,11 @@ def handle_webhook():
         gitlab_token = os.getenv('GITLAB_ACCESS_TOKEN') or request.headers.get('X-Gitlab-Token')
         # 如果gitlab_token为空，返回错误
         if not gitlab_token:
-            return jsonify({'message': 'Missing GitLab access token'}), 400
+            return jsonify({'message': _('Missing GitLab access token')}), 400
 
         # 打印整个payload数据，或根据需求进行处理
-        logger.info(f'Received event: {object_kind}')
-        logger.info(f'Payload: {json.dumps(data)}')
+        logger.info(_('Received event: {}').format(object_kind))
+        logger.info(_('Payload: {}').format(json.dumps(data)))
 
         # 处理Merge Request Hook
         if object_kind == "merge_request":
@@ -144,21 +147,19 @@ def handle_webhook():
             process = Process(target=__handle_merge_request_event, args=(data, gitlab_token, gitlab_url))
             process.start()
             # 立马返回响应
-            return jsonify(
-                {'message': f'Request received(object_kind={object_kind}), will process asynchronously.'}), 200
+            return jsonify({'message': _('Request received(object_kind={}), will process asynchronously.').format(object_kind)}), 200
         elif object_kind == "push":
             # 创建一个新进程进行异步处理
             process = Process(target=__handle_push_event, args=(data, gitlab_token, gitlab_url))
             process.start()
             # 立马返回响应
-            return jsonify(
-                {'message': f'Request received(object_kind={object_kind}), will process asynchronously.'}), 200
+            return jsonify({'message': _('Request received(object_kind={}), will process asynchronously.').format(object_kind)}), 200
         else:
-            error_message = f'Only merge_request and push events are supported (both Webhook and System Hook), but received: {object_kind}.'
+            error_message = _('Only merge_request and push events are supported (both Webhook and System Hook), but received: {}.').format(object_kind)
             logger.error(error_message)
             return jsonify(error_message), 400
     else:
-        return jsonify({'message': 'Invalid data format'}), 400
+        return jsonify({'message': _('Invalid data format')}), 400
 
 
 def slugify_url(original_url: str) -> str:
@@ -185,7 +186,7 @@ def __handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
         logger.info('Push Hook event received')
         commits = handler.get_push_commits()
         if not commits:
-            logger.error('Failed to get commits')
+            logger.error(_('Failed to get commits'))
             return
 
         review_result = None
@@ -196,16 +197,16 @@ def __handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
             logger.info('changes: %s', changes)
             changes = filter_changes(changes)
             if not changes:
-                logger.info('未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
+                logger.info(_('未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。'))
                 return
-            review_result = "关注的文件没有修改"
+            review_result = _("关注的文件没有修改")
 
             if len(changes) > 0:
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
                 review_result = review_code(str(changes), commits_text)
                 score = CodeReviewer.parse_review_score(review_text=review_result)
             # 将review结果提交到Gitlab的 notes
-            handler.add_push_notes(f'Auto Review Result: \n{review_result}')
+            handler.add_push_notes(_('Auto Review Result: \n{}').format(review_result))
 
 
         event_manager['push_reviewed'].send(PushReviewEntity(
@@ -220,9 +221,9 @@ def __handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
         ))
 
     except Exception as e:
-        error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
+        error_message = _('服务出现未知错误: {}').format(f'{str(e)}\n{traceback.format_exc()}')
         im_notifier.send_notification(content=error_message)
-        logger.error('出现未知错误: %s', error_message)
+        logger.error(_('出现未知错误: {}').format(error_message))
 
 
 def __handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url: str):
@@ -236,21 +237,21 @@ def __handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_u
     try:
         # 解析Webhook数据
         handler = MergeRequestHandler(webhook_data, gitlab_token, gitlab_url)
-        logger.info('Merge Request Hook event received')
+        logger.info(_('Merge Request Hook event received'))
 
-        if (handler.action in ['open', 'update']):  # 仅仅在MR创建或更新时进行Code Review
+        if handler.action in ['open', 'update']:  # 仅仅在MR创建或更新时进行Code Review
             # 获取Merge Request的changes
             changes = handler.get_merge_request_changes()
-            logger.info('changes: %s', changes)
+            logger.info(_('changes: {}').format(changes))
             changes = filter_changes(changes)
             if not changes:
-                logger.info('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
+                logger.info(_('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。'))
                 return
 
             # 获取Merge Request的commits
             commits = handler.get_merge_request_commits()
             if not commits:
-                logger.error('Failed to get commits')
+                logger.error(_('Failed to get commits'))
                 return
 
             # review 代码
@@ -262,7 +263,7 @@ def __handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_u
                 return
 
             # 将review结果提交到Gitlab的 notes
-            handler.add_merge_request_notes(f'Auto Review Result: \n{review_result}')
+            handler.add_merge_request_notes(_('Auto Review Result: \n{}').format(review_result))
 
             # dispatch merge_request_reviewed event
             event_manager['merge_request_reviewed'].send(
@@ -281,12 +282,13 @@ def __handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_u
             )
 
         else:
-            logger.info(f"Merge Request Hook event, action={handler.action}, ignored.")
+            logger.info(_("Merge Request Hook event, action={}, ignored.").format(handler.action))
 
     except Exception as e:
-        error_message = f'AI Code Review 服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
+        error_message = _('AI Code Review 服务出现未知错误: {}').format(f'{str(e)}\n{traceback.format_exc()}')
         im_notifier.send_notification(content=error_message)
-        logger.error('出现未知错误: %s', error_message)
+        logger.error(_('出现未知错误: {}').format(error_message))
+
 
 
 def filter_changes(changes: list):
@@ -313,12 +315,12 @@ def review_code(changes_text: str, commits_text: str = '') -> str:
     review_max_length = int(os.getenv('REVIEW_MAX_LENGTH', 5000))
     # 如果changes为空,打印日志
     if not changes_text:
-        logger.info('代码为空, diffs_text = %', str(changes_text))
-        return '代码为空'
+        logger.info(_('代码为空, diffs_text = {}').format(str(changes_text)))
+        return _('代码为空')
 
     if len(changes_text) > review_max_length:
         changes_text = changes_text[:review_max_length]
-        logger.info(f'文本超长，截段后content: {changes_text}')
+        logger.info(_('文本超长，截段后content: {}').format(changes_text))
     review_result = CodeReviewer().review_code(changes_text, commits_text).strip()
     if review_result.startswith("```markdown") and review_result.endswith("```"):
         return review_result[11:-3].strip()

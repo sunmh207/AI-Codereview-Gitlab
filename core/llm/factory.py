@@ -7,7 +7,8 @@ from core.llm.client.deepseek import DeepSeekClient
 from core.llm.client.ollama_client import OllamaClient
 from core.llm.client.openai import OpenAIClient
 from core.llm.client.zhipuai import ZhipuAIClient
-
+from biz.utils.i18n import get_translator
+_ = get_translator()
 
 class Factory:
     @staticmethod
@@ -25,4 +26,4 @@ class Factory:
         if provider_func:
             return provider_func()
         else:
-            raise Exception(f'Unknown chat model provider: {provider}')
+            raise Exception(_('Unknown chat model provider: {provider}'))

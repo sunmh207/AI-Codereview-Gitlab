@@ -15,9 +15,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY biz ./biz
 COPY core ./core
+COPY locales ./locales
 COPY api.py ./api.py
 COPY ui.py ./ui.py
-COPY prompt_templates.yml ./prompt_templates.yml
 RUN mkdir -p log data
 
 # 暴露 Flask 和 Streamlit 的端口

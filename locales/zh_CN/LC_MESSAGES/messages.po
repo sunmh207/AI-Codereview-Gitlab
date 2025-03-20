@@ -1,0 +1,480 @@
+# Language locales/zh translations for PACKAGE package.
+# Copyright (C) 2025 THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# Automatically generated, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-03-20 16:41+0100\n"
+"PO-Revision-Date: 2025-03-18 15:05+0100\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: locales/zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: api.py:66
+msgid "代码提交日报"
+msgstr ""
+
+#: api.py:115
+msgid "Invalid JSON"
+msgstr ""
+
+#: api.py:138
+msgid "Missing GitLab access token"
+msgstr ""
+
+#: api.py:141
+msgid "Received event: {}"
+msgstr ""
+
+#: api.py:142
+msgid "Payload: {}"
+msgstr ""
+
+#: api.py:150 api.py:156
+msgid "Request received(object_kind={}), will process asynchronously."
+msgstr ""
+
+#: api.py:158
+msgid ""
+"Only merge_request and push events are supported (both Webhook and System "
+"Hook), but received: {}."
+msgstr ""
+
+#: api.py:162
+msgid "Invalid data format"
+msgstr ""
+
+#: api.py:189 api.py:254
+msgid "Failed to get commits"
+msgstr ""
+
+#: api.py:200
+msgid "未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。"
+msgstr ""
+
+#: api.py:202
+msgid "关注的文件没有修改"
+msgstr ""
+
+#: api.py:209 api.py:266
+msgid ""
+"Auto Review Result: \n"
+"{}"
+msgstr ""
+
+#: api.py:224
+msgid "服务出现未知错误: {}"
+msgstr ""
+
+#: api.py:226 api.py:290
+msgid "出现未知错误: {}"
+msgstr ""
+
+#: api.py:240
+msgid "Merge Request Hook event received"
+msgstr ""
+
+#: api.py:245
+msgid "changes: {}"
+msgstr ""
+
+#: api.py:248
+msgid "未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。"
+msgstr ""
+
+#: api.py:285
+msgid "Merge Request Hook event, action={}, ignored."
+msgstr ""
+
+#: api.py:288
+msgid "AI Code Review 服务出现未知错误: {}"
+msgstr ""
+
+#: api.py:318
+msgid "代码为空, diffs_text = {}"
+msgstr ""
+
+#: api.py:319
+msgid "代码为空"
+msgstr ""
+
+#: api.py:323
+msgid "文本超长，截段后content: {}"
+msgstr ""
+
+#: biz/event/event_manager.py:20
+#, python-brace-format
+msgid ""
+"\n"
+"### 🔀 {project_name}: Merge Request\n"
+"\n"
+"#### 合并请求信息:\n"
+"- **提交者:** {author}\n"
+"\n"
+"- **源分支**: {source_branch}\n"
+"- **目标分支**: {target_branch}\n"
+"- **更新时间**: {updated_at}\n"
+"- **提交信息:** {commit_messages}\n"
+"\n"
+"- [查看合并详情]({url})\n"
+"\n"
+"- **AI Review 结果:** \n"
+"\n"
+"{review_result}\n"
+"    "
+msgstr ""
+
+#: biz/event/event_manager.py:46
+msgid "Merge Request Review"
+msgstr ""
+
+#: biz/event/event_manager.py:56
+#, python-brace-format
+msgid ""
+"### 🚀 {project_name}: Push\n"
+"\n"
+msgstr ""
+
+#: biz/event/event_manager.py:57
+msgid "#### 提交记录:\n"
+msgstr ""
+
+#: biz/event/event_manager.py:61
+msgid "Unknown Author"
+msgstr ""
+
+#: biz/event/event_manager.py:65
+#, python-brace-format
+msgid ""
+"- **提交信息**: {message}\n"
+"- **提交者**: {author}\n"
+"- **时间**: {timestamp}\n"
+"- [查看提交详情]({url})\n"
+"\n"
+msgstr ""
+
+#: biz/event/event_manager.py:77
+#, python-brace-format
+msgid ""
+"#### AI Review 结果: \n"
+" {review_result}\n"
+"\n"
+msgstr ""
+
+#: biz/event/event_manager.py:79
+#, python-brace-format
+msgid "{project_name} Push Event"
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:39
+msgid "Invalid event type: {}. Only 'merge_request' event is supported now."
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:54
+msgid "Get changes response from GitLab (attempt {}): {}, {}, URL: {}"
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:62
+msgid "Changes is empty, retrying in {} seconds... (attempt {}/{}), URL: {}"
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:65
+msgid "Failed to get changes from GitLab (URL: {}): {}, {}"
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:68
+msgid "Max retries ({}) reached. Changes is still empty."
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:83
+msgid "Get commits response from gitlab: {}, {}"
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:87
+msgid "Failed to get commits: {}, {}"
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:101
+msgid "Add notes to gitlab {}: {}, {}"
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:105
+msgid "Failed to add note: {}"
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:135 biz/gitlab/webhook_handler.py:224
+msgid "Invalid event type: {}. Only 'push' event is supported now."
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:149
+msgid "Collected {} commits from push event."
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:155
+msgid "No commits found to add notes to."
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:161
+msgid "Last commit ID not found."
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:189
+msgid ""
+"Get commits response from GitLab for repository_commits: {response."
+"status_code}, {}, URL: {url}"
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:212
+msgid ""
+"Get changes response from GitLab for repository_compare: {}, {response."
+"text}, URL: {}"
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:218
+msgid "Failed to get changes for repository_compare: {}, {}"
+msgstr ""
+
+#: biz/gitlab/webhook_handler.py:229
+msgid "No commits found in push event."
+msgstr ""
+
+#: biz/utils/code_reviewer.py:27
+msgid "未找到提示词配置{}"
+msgstr ""
+
+#: biz/utils/code_reviewer.py:29
+msgid "未找到提示词配置{}，或配置格式不正确"
+msgstr ""
+
+#: biz/utils/code_reviewer.py:60
+msgid "向AI发送代码Review请求, message: {}"
+msgstr ""
+
+#: biz/utils/code_reviewer.py:64
+msgid "收到AI返回结果: {}"
+msgstr ""
+
+#: biz/utils/code_reviewer.py:72
+msgid "总分[:：]\\s*(\\d+)分?"
+msgstr ""
+
+#: biz/utils/im/dingtalk.py:29
+msgid "未提供项目名称，且未设置默认的钉钉 Webhook URL。"
+msgstr ""
+
+#: biz/utils/im/dingtalk.py:48
+msgid "未找到项目 '{}' 对应的钉钉Webhook URL，且未设置默认的 Webhook URL。"
+msgstr ""
+
+#: biz/utils/im/dingtalk.py:52
+msgid "钉钉推送未启用"
+msgstr ""
+
+#: biz/utils/im/dingtalk.py:85
+msgid "钉钉消息发送成功! webhook_url: {}"
+msgstr ""
+
+#: biz/utils/im/dingtalk.py:87
+msgid "钉钉消息发送失败! webhook_url: {}, errmsg: {}"
+msgstr ""
+
+#: biz/utils/im/dingtalk.py:89
+msgid "钉钉消息发送失败!"
+msgstr ""
+
+#: biz/utils/im/feishu.py:28
+msgid "未提供项目名称，且未设置默认的 飞书 Webhook URL。"
+msgstr ""
+
+#: biz/utils/im/feishu.py:47
+#, python-brace-format
+msgid ""
+"未找到项目 '{project_name}' 对应的 Feishu Webhook URL，且未设置默认的 "
+"Webhook URL。"
+msgstr ""
+
+#: biz/utils/im/feishu.py:59
+msgid "飞书推送未启用"
+msgstr ""
+
+#: biz/utils/im/feishu.py:119
+#, python-brace-format
+msgid "飞书消息发送失败! webhook_url: {post_url}, error_msg: {post_url}"
+msgstr ""
+
+#: biz/utils/im/feishu.py:124
+#, python-brace-format
+msgid "发送飞书消息失败! webhook_url: {post_url}, errmsg: {result}"
+msgstr ""
+
+#: biz/utils/im/feishu.py:126
+#, python-brace-format
+msgid "飞书消息发送成功! webhook_url: {post_url}"
+msgstr ""
+
+#: biz/utils/im/feishu.py:129
+msgid "飞书消息发送失败!"
+msgstr ""
+
+#: biz/utils/im/im_notifier.py:9
+msgid "通知"
+msgstr ""
+
+#: biz/utils/im/wecom.py:30
+msgid "未提供项目名称，且未设置默认的企业微信 Webhook URL。"
+msgstr ""
+
+#: biz/utils/im/wecom.py:49
+msgid ""
+"未找到项目 '{}' 对应的企业微信 Webhook URL，且未设置默认的 Webhook URL。"
+msgstr ""
+
+#: biz/utils/im/wecom.py:82
+msgid "企业微信推送未启用"
+msgstr ""
+
+#: biz/utils/im/wecom.py:90
+#, python-brace-format
+msgid "发送企业微信消息: url={post_url}, data={data}"
+msgstr ""
+
+#: biz/utils/im/wecom.py:94
+msgid "企业微信消息发送失败! webhook_url:{}, error_msg:{}"
+msgstr ""
+
+#: biz/utils/im/wecom.py:96
+msgid "Markdown 消息过长，尝试发送纯文本"
+msgstr ""
+
+#: biz/utils/im/wecom.py:100
+msgid "企业微信消息发送成功! webhook_url: {}"
+msgstr ""
+
+#: biz/utils/im/wecom.py:103
+msgid "企业微信消息发送失败!"
+msgstr ""
+
+#: biz/utils/im/wecom.py:112
+#, python-brace-format
+msgid "企业微信消息发送请求失败! url:{url}, error: {e}"
+msgstr ""
+
+#: biz/utils/im/wecom.py:114
+#, python-brace-format
+msgid "企业微信返回的 JSON 解析失败! url:{url}, error: {e}"
+msgstr ""
+
+#: biz/utils/reporter.py:13
+msgid ""
+"下面是以json格式记录员工代码提交信息。请总结这些信息，生成每个员工的工作日报"
+"摘要。员工姓名直接用json内容中的author属性值，不要进行转换。特别要求:以"
+"Markdown格式返回。\n"
+"{}"
+msgstr ""
+
+#: core/llm/client/deepseek.py:20 core/llm/client/openai.py:19
+#: core/llm/client/zhipuai.py:18
+msgid ""
+"API key is required. Please provide it or set it in the environment "
+"variables."
+msgstr ""
+
+#: core/llm/client/deepseek.py:31
+#, python-brace-format
+msgid "Sending request to DeepSeek API. Model: {model}, Messages: {messages}"
+msgstr ""
+
+#: core/llm/client/deepseek.py:39
+msgid "Empty response from DeepSeek API"
+msgstr ""
+
+#: core/llm/client/deepseek.py:40
+msgid "AI服务返回为空，请稍后重试"
+msgstr ""
+
+#: core/llm/client/deepseek.py:45
+#, python-brace-format
+msgid "DeepSeek API error: {e}"
+msgstr ""
+
+#: core/llm/client/deepseek.py:48
+msgid "DeepSeek API认证失败，请检查API密钥是否正确"
+msgstr ""
+
+#: core/llm/client/deepseek.py:50
+msgid "DeepSeek API接口未找到，请检查API地址是否正确"
+msgstr ""
+
+#: core/llm/client/deepseek.py:52
+#, python-brace-format
+msgid "调用DeepSeek API时出错: {e}"
+msgstr ""
+
+#: core/llm/factory.py:29
+#, python-brace-format
+msgid "Unknown chat model provider: {provider}"
+msgstr ""
+
+#: ui.py:55 ui.py:70
+msgid "登录"
+msgstr "登录"
+
+#: ui.py:59
+msgid ""
+"安全提示：检测到默认用户名和密码为 'admin'，存在安全风险！\n"
+"\n"
+"请立即修改：\n"
+"1. 打开 `.env` 文件\n"
+"2. 修改 `DASHBOARD_USER` 和 `DASHBOARD_PASSWORD` 变量\n"
+"3. 保存并重启应用"
+msgstr ""
+
+#: ui.py:65
+msgid "当前用户名: `{}`, 当前密码: `{}`"
+msgstr ""
+
+#: ui.py:67 ui.py:111
+msgid "用户名"
+msgstr ""
+
+#: ui.py:68
+msgid "密码"
+msgstr ""
+
+#: ui.py:76
+msgid "用户名或密码错误"
+msgstr ""
+
+#: ui.py:81
+msgid "#### 审查日志"
+msgstr ""
+
+#: ui.py:90
+msgid "Merge Request"
+msgstr ""
+
+#: ui.py:90
+msgid "Push"
+msgstr ""
+
+#: ui.py:98
+msgid "开始日期"
+msgstr ""
+
+#: ui.py:100
+msgid "结束日期"
+msgstr ""
+
+#: ui.py:125
+msgid "**总记录数:** {}，**平均分:** {}"
+msgstr ""
+
+#: ui.py:139
+msgid "查看"
+msgstr ""
