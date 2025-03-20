@@ -15,7 +15,7 @@ class WeComNotifier:
         self.default_webhook_url = webhook_url or os.environ.get('WECOM_WEBHOOK_URL', '')
         self.enabled = os.environ.get('WECOM_ENABLED', '0') == '1'
 
-    def _get_webhook_url(self, project_name=None):
+    def _get_webhook_url(self, project_name=None, url_base=None):
         """
         获取项目对应的 Webhook URL
         :param project_name: 项目名称
@@ -31,8 +31,16 @@ class WeComNotifier:
 
         # 遍历所有环境变量（忽略大小写），找到项目对应的 Webhook URL
         target_key = f"WECOM_WEBHOOK_URL_{project_name.upper()}"
+
+        # 仓库名称优先级高，先匹配
         for env_key, env_value in os.environ.items():
-            if env_key.upper() == target_key:
+            if env_key.upper() == target_key :
+                return env_value  # 找到匹配项，直接返回
+        
+        # url_base 优先级次之
+        target_key_url_base = f"WECOM_WEBHOOK_URL_{url_base.upper()}"
+        for env_key, env_value in os.environ.items():
+            if target_key_url_base !=None and  env_key.upper() == target_key_url_base:
                 return env_value  # 找到匹配项，直接返回
 
         # 如果未找到匹配的环境变量，降级使用全局的 Webhook URL
@@ -61,7 +69,7 @@ class WeComNotifier:
         formatted_content += content
         return formatted_content
 
-    def send_message(self, content, msg_type='text', title=None, is_at_all=False, project_name=None):
+    def send_message(self, content, msg_type='text', title=None, is_at_all=False, project_name=None, url_base=None):
         """
         发送企业微信消息
         :param content: 消息内容
@@ -74,7 +82,7 @@ class WeComNotifier:
             return
 
         try:
-            post_url = self._get_webhook_url(project_name=project_name)
+            post_url = self._get_webhook_url(project_name=project_name, url_base=url_base)
             if msg_type == 'markdown':
                 formatted_content = self.format_markdown_content(content, title)
                 data = {
@@ -100,6 +108,30 @@ class WeComNotifier:
 
             if response.status_code != 200:
                 logger.error(_("企业微信消息发送失败! webhook_url:{}, error_msg:{}").format(post_url, response.text))
+
+                try:
+                    data = json.loads(response.text)
+                    errmsg = data.get("errmsg")
+                    if errmsg and "markdown.content exceed max length" in errmsg:
+                        # markdown渲染过长了，尝试text发送
+                        data = {
+                            "msgtype": "text",
+                            "text": {
+                                "content": content,
+                                "mentioned_list": ["@all"] if is_at_all else []
+                            }
+                        }
+
+                        response = requests.post(
+                            url=post_url,
+                            json=data,
+                            headers={'Content-Type': 'application/json'}
+                        )
+
+                except json.JSONDecodeError as e:
+                    print(f"JSON 解析失败: {e}")
+                except Exception as e:
+                    logger.error(_("企业微信消息发送失败! {}").format(e))
                 return
 
             result = response.json()

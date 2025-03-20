@@ -27,7 +27,12 @@ class OllamaClient(BaseClient):
         Returns:
             str: 提取后的内容。
         """
-        if re.search(r'<think>.*?</think>', content, re.DOTALL):
+        if "<think>" in content and "</think>" not in content:
+            # 大模型回复的时候，思考链有可能截断，那么果断忽略回复，返回空
+            return "COT ABORT!"
+        elif "<think>" not in content and "</think>" in content:
+            return content.split("</think>", 1)[1].strip()
+        elif re.search(r'<think>.*?</think>', content, re.DOTALL):
             return re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
         return content
 
