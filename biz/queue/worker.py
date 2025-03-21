@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity
 from biz.event.event_manager import event_manager
-from biz.gitlab.webhook_handler import filter_changes, MergeRequestHandler, PushHandler, slugify_url
+from biz.gitlab.webhook_handler import filter_changes, MergeRequestHandler, PushHandler
 from biz.utils.code_reviewer import CodeReviewer
 from biz.utils.im import im_notifier
 from biz.utils.log import logger
@@ -53,7 +53,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             commits=commits,
             score=score,
             review_result=review_result,
-            gitlab_url_slug=gitlab_url_slug
+            gitlab_url_slug=gitlab_url_slug,
         ))
 
     except Exception as e:
@@ -112,7 +112,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
                     score=CodeReviewer.parse_review_score(review_text=review_result),
                     url=webhook_data['object_attributes']['url'],
                     review_result=review_result,
-                    gitlab_url_slug= gitlab_url_slug,
+                    gitlab_url_slug=gitlab_url_slug,
                 )
             )
 

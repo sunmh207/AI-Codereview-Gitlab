@@ -34,17 +34,23 @@ def filter_changes(changes: list):
     return filtered_changes
 
 
-def slugify_url(original: str) -> str:
+def slugify_url(original_url: str) -> str:
+    """
+    将原始URL转换为适合作为文件名的字符串，其中非字母或数字的字符会被替换为下划线，举例：
+    slugify_url("http://example.com/path/to/repo/") => example_com_path_to_repo
+    slugify_url("https://gitlab.com/user/repo.git") => gitlab_com_user_repo_git
+    """
     # Remove URL scheme (http, https, etc.) if present
-    original = re.sub(r'^https?://', '', original)
+    original_url = re.sub(r'^https?://', '', original_url)
 
     # Replace non-alphanumeric characters (except underscore) with underscores
-    target = re.sub(r'[^a-zA-Z0-9]', '_', original)
+    target = re.sub(r'[^a-zA-Z0-9]', '_', original_url)
 
     # Remove trailing underscore if present
     target = target.rstrip('_')
 
     return target
+
 
 
 class MergeRequestHandler:
