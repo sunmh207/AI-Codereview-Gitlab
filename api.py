@@ -144,15 +144,19 @@ def handle_webhook():
             # 创建一个新进程进行异步处理
             handle_queue(handle_merge_request_event, data, gitlab_token, gitlab_url, gitlab_domain_slug)
             # 立马返回响应
-            return jsonify({'message': _('Request received(object_kind={}), will process asynchronously.').format(object_kind)}), 200
+            return jsonify({'message': _('Request received(object_kind={}), will process asynchronously.').format(
+                object_kind)}), 200
         elif object_kind == "push":
             # 创建一个新进程进行异步处理
             # TODO check if PUSH_REVIEW_ENABLED is needed here
             handle_queue(handle_push_event, data, gitlab_token, gitlab_url, gitlab_domain_slug)
             # 立马返回响应
-            return jsonify({'message': _('Request received(object_kind={}), will process asynchronously.').format(object_kind)}), 200
+            return jsonify({'message': _('Request received(object_kind={}), will process asynchronously.').format(
+                object_kind)}), 200
         else:
-            error_message = _('Only merge_request and push events are supported (both Webhook and System Hook), but received: {}.').format(object_kind)
+            error_message = _(
+                'Only merge_request and push events are supported (both Webhook and System Hook), but received: {}.').format(
+                object_kind)
             logger.error(error_message)
             return jsonify(error_message), 400
     else:

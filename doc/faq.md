@@ -53,7 +53,24 @@ DINGTALK_WEBHOOK_URL=https://oapi.dingtalk.com/robot/send?access_token={access_t
 
 飞书和企业微信的配置方式类似。
 
-#### 4.docker 容器部署时，连接Ollama失败
+#### 4.如何让不同的Gitlab服务器的消息发送到不同的群？
+
+在项目的 .env 文件中，配置不同Gitlab服务器的群机器人的 Webhook 地址。
+以 DingTalk 为例，配置如下：
+
+```
+DINGTALK_ENABLED=1
+# Gitlab服务器A(http://192.168.30.164)的群机器人的Webhook地址
+DINGTALK_WEBHOOK_192_168_30_164=https://oapi.dingtalk.com/robot/send?access_token={access_token_of_gitlab_server_a}
+# Gitlab服务器B(http://example.gitlab.com)的群机器人的Webhook地址
+DINGTALK_WEBHOOK_example_gitlab_com=https://oapi.dingtalk.com/robot/send?access_token={access_token_of_gitlab_server_b}
+```
+
+飞书和企业微信的配置方式类似。
+
+**优先级：** 优先根据仓库名称匹配webhook地址，其次根据Gitlab服务器地址匹配webhook地址，如果都没有匹配到，则最后使用默认服务器地址
+
+#### 5.docker 容器部署时，连接Ollama失败
 
 **可能原因**
 
@@ -68,21 +85,6 @@ DINGTALK_WEBHOOK_URL=https://oapi.dingtalk.com/robot/send?access_token={access_t
 OLLAMA_API_BASE_URL=http://127.0.0.1:11434  # 错误
 OLLAMA_API_BASE_URL=http://{宿主机/外网IP地址}:11434  # 正确
 ```
-
-#### 5.如何支持多个git服务器及对应的不通webhook地址
-
-在项目的 .env 文件中，配置不同GIT项目对应的群机器人的 Webhook 地址。替换
-以 DingTalk 为例，配置如下：
-
-```
-DINGTALK_ENABLED=1
-# git服务器A实际地址 http://192.168.30.164/
-DINGTALK_WEBHOOK_192_168_30_164=https://oapi.dingtalk.com/robot/send?access_token={access_token_of_project_a}
-# git服务器A实际地址 http://192.168.35.164/
-DINGTALK_WEBHOOK_192_168_35_164=https://oapi.dingtalk.com/robot/send?access_token={access_token_of_project_a}
-```
-
-飞书和企业微信的配置方式类似，GIT服务器的群机器人优先级，仓库名字>特定服务器地址>默认服务器地址
 
 #### 6. 翻译
 

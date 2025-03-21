@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-03-20 01:45+0100\n"
+"POT-Creation-Date: 2025-03-21 16:33+0100\n"
 "PO-Revision-Date: 2025-03-18 15:05+0100\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -16,51 +16,51 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: api.py:52 api.py:53
+#: api.py:51 api.py:52
 msgid "No data to process."
 msgstr "No data to process."
 
-#: api.py:63
+#: api.py:62
 msgid "代码提交日报"
 msgstr "Code Submission Daily Report"
 
-#: api.py:68
+#: api.py:67
 msgid "Failed to generate daily report: {}"
 msgstr "Failed to generate daily report: {}"
 
-#: api.py:96
+#: api.py:95
 msgid "Scheduler started successfully."
 msgstr "Scheduler started successfully."
 
-#: api.py:101
+#: api.py:100
 msgid "Error setting up scheduler: {}"
 msgstr "Error setting up scheduler: {}"
 
-#: api.py:112
+#: api.py:111
 msgid "Invalid JSON"
 msgstr "Invalid JSON"
 
-#: api.py:121 api.py:124
+#: api.py:120 api.py:123
 msgid "Missing GitLab URL"
 msgstr "Missing GitLab URL"
 
-#: api.py:135
+#: api.py:134
 msgid "Missing GitLab access token"
 msgstr "Missing GitLab access token"
 
-#: api.py:140
+#: api.py:139
 msgid "Received event: {}"
 msgstr "Received event: {}"
 
-#: api.py:141
+#: api.py:140
 msgid "Payload: {}"
 msgstr "Payload: {}"
 
-#: api.py:148 api.py:154
+#: api.py:147 api.py:154
 msgid "Request received(object_kind={}), will process asynchronously."
 msgstr "Request received(object_kind={}), will process asynchronously."
 
-#: api.py:156
+#: api.py:158
 msgid ""
 "Only merge_request and push events are supported (both Webhook and System "
 "Hook), but received: {}."
@@ -68,7 +68,7 @@ msgstr ""
 "Only merge_request and push events are supported (both Webhook and System "
 "Hook), but received: {}."
 
-#: api.py:160
+#: api.py:163
 msgid "Invalid data format"
 msgstr "Invalid data format"
 
@@ -115,7 +115,7 @@ msgstr ""
 msgid "Merge Request Review"
 msgstr "Merge Request Review"
 
-#: biz/event/event_manager.py:55
+#: biz/event/event_manager.py:56
 #, python-brace-format
 msgid ""
 "### 🚀 {project_name}: Push\n"
@@ -124,15 +124,15 @@ msgstr ""
 "### 🚀 {project_name}: Push\n"
 "\n"
 
-#: biz/event/event_manager.py:56
+#: biz/event/event_manager.py:57
 msgid "#### 提交记录:\n"
 msgstr "#### Commit Records:\n"
 
-#: biz/event/event_manager.py:60
+#: biz/event/event_manager.py:61
 msgid "Unknown Author"
 msgstr "Unknown Author"
 
-#: biz/event/event_manager.py:64
+#: biz/event/event_manager.py:65
 #, python-brace-format
 msgid ""
 "- **提交信息**: {message}\n"
@@ -147,18 +147,21 @@ msgstr ""
 "- [View Commit Details]({url})\n"
 "\n"
 
-#: biz/event/event_manager.py:76
+#: biz/event/event_manager.py:77
 #, python-brace-format
 msgid ""
 "#### AI Review 结果: \n"
 " {review_result}\n"
 "\n"
 msgstr ""
+"#### AI Review 结果: \n"
+" {review_result}\n"
+"\n"
 
-#: biz/event/event_manager.py:78
+#: biz/event/event_manager.py:79
 #, python-brace-format
 msgid "{project_name} Push Event"
-msgstr ""
+msgstr "{project_name} Push Event"
 
 #: biz/gitlab/webhook_handler.py:78
 msgid "Invalid event type: {}. Only 'merge_request' event is supported now."
@@ -232,7 +235,7 @@ msgstr "Failed to get changes for repository_compare: {}, {}"
 msgid "No commits found in push event."
 msgstr "No commits found in push event."
 
-#: biz/queue/worker.py:26 biz/queue/worker.py:89
+#: biz/queue/worker.py:26 biz/queue/worker.py:91
 msgid "Failed to get commits"
 msgstr "Failed to retrieve commits"
 
@@ -246,7 +249,7 @@ msgstr ""
 msgid "关注的文件没有修改"
 msgstr "No changes in the monitored files"
 
-#: biz/queue/worker.py:45 biz/queue/worker.py:97
+#: biz/queue/worker.py:45 biz/queue/worker.py:99
 msgid ""
 "Auto Review Result: \n"
 "{}"
@@ -254,33 +257,33 @@ msgstr ""
 "Auto Review Result: \n"
 "{}"
 
-#: biz/queue/worker.py:59
+#: biz/queue/worker.py:60
 msgid "服务出现未知错误: {}"
 msgstr "An unknown error occurred in the service: {}"
 
-#: biz/queue/worker.py:61 biz/queue/worker.py:121
+#: biz/queue/worker.py:62 biz/queue/worker.py:125
 msgid "出现未知错误: {}"
 msgstr "An unknown error occurred: {}"
 
-#: biz/queue/worker.py:75
+#: biz/queue/worker.py:77
 msgid "Merge Request Hook event received"
 msgstr "Merge Request Hook event received"
 
-#: biz/queue/worker.py:80
+#: biz/queue/worker.py:82
 msgid "changes: {}"
 msgstr "Changes: {}"
 
-#: biz/queue/worker.py:83
+#: biz/queue/worker.py:85
 msgid "未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。"
 msgstr ""
 "No relevant code changes detected. The modified files may not meet "
 "SUPPORTED_EXTENSIONS."
 
-#: biz/queue/worker.py:116
+#: biz/queue/worker.py:120
 msgid "Merge Request Hook event, action={}, ignored."
 msgstr "Merge Request Hook event, action={}, ignored."
 
-#: biz/queue/worker.py:119
+#: biz/queue/worker.py:123
 msgid "AI Code Review 服务出现未知错误: {}"
 msgstr "AI Code Review service encountered an unknown error: {}"
 
@@ -316,29 +319,29 @@ msgstr "Received AI response: {}"
 msgid "总分[:：]\\s*(\\d+)分?"
 msgstr "Total Score[:：]\\s*(\\d+)? points"
 
-#: biz/utils/im/dingtalk.py:28
+#: biz/utils/im/dingtalk.py:30
 msgid "未提供项目名称，且未设置默认的钉钉 Webhook URL。"
 msgstr "Project name not provided, and no default DingTalk Webhook URL set."
 
-#: biz/utils/im/dingtalk.py:41
+#: biz/utils/im/dingtalk.py:49
 msgid "未找到项目 '{}' 对应的钉钉Webhook URL，且未设置默认的 Webhook URL。"
 msgstr ""
 "No DingTalk Webhook URL found for project '{}', and no default Webhook URL "
 "set."
 
-#: biz/utils/im/dingtalk.py:45
+#: biz/utils/im/dingtalk.py:53
 msgid "钉钉推送未启用"
 msgstr "DingTalk notifications are not enabled."
 
-#: biz/utils/im/dingtalk.py:78
+#: biz/utils/im/dingtalk.py:86
 msgid "钉钉消息发送成功! webhook_url: {}"
 msgstr "DingTalk message sent successfully! Webhook URL: {}"
 
-#: biz/utils/im/dingtalk.py:80
+#: biz/utils/im/dingtalk.py:88
 msgid "钉钉消息发送失败! webhook_url: {}, errmsg: {}"
 msgstr "DingTalk message failed to send! Webhook URL: {}, error message: {}"
 
-#: biz/utils/im/dingtalk.py:82
+#: biz/utils/im/dingtalk.py:90
 msgid "钉钉消息发送失败!"
 msgstr "DingTalk message failed to send!"
 
@@ -346,7 +349,7 @@ msgstr "DingTalk message failed to send!"
 msgid "未提供项目名称，且未设置默认的 飞书 Webhook URL。"
 msgstr "Project name not provided, and no default Feishu Webhook URL set."
 
-#: biz/utils/im/feishu.py:41
+#: biz/utils/im/feishu.py:47
 #, python-brace-format
 msgid ""
 "未找到项目 '{project_name}' 对应的 Feishu Webhook URL，且未设置默认的 "
@@ -355,33 +358,33 @@ msgstr ""
 "No Feishu Webhook URL found for project '{project_name}', and no default "
 "Webhook URL set."
 
-#: biz/utils/im/feishu.py:53
+#: biz/utils/im/feishu.py:59
 msgid "飞书推送未启用"
 msgstr "Feishu push is not enabled"
 
-#: biz/utils/im/feishu.py:113
+#: biz/utils/im/feishu.py:119
 #, python-brace-format
 msgid "飞书消息发送失败! webhook_url: {post_url}, error_msg: {post_url}"
 msgstr ""
 "Feishu message failed to send! Webhook URL: {post_url}, error message: "
 "{post_url}"
 
-#: biz/utils/im/feishu.py:118
+#: biz/utils/im/feishu.py:124
 #, python-brace-format
 msgid "发送飞书消息失败! webhook_url: {post_url}, errmsg: {result}"
 msgstr ""
 "Feishu message failed to send! webhook_url: {post_url}, errmsg: {post_url}"
 
-#: biz/utils/im/feishu.py:120
+#: biz/utils/im/feishu.py:126
 #, python-brace-format
 msgid "飞书消息发送成功! webhook_url: {post_url}"
 msgstr "Feishu message sent successfully! Webhook URL: {post_url}"
 
-#: biz/utils/im/feishu.py:123
+#: biz/utils/im/feishu.py:129
 msgid "飞书消息发送失败!"
 msgstr "Feishu message failed to send!"
 
-#: biz/utils/im/im_notifier.py:7
+#: biz/utils/im/im_notifier.py:9
 msgid "通知"
 msgstr "Notification"
 
@@ -389,34 +392,48 @@ msgstr "Notification"
 msgid "未提供项目名称，且未设置默认的企业微信 Webhook URL。"
 msgstr "Project name not provided, and no default WeCom Webhook URL set."
 
-#: biz/utils/im/wecom.py:43
+#: biz/utils/im/wecom.py:49
 msgid ""
 "未找到项目 '{}' 对应的企业微信 Webhook URL，且未设置默认的 Webhook URL。"
 msgstr ""
 "No WeCom Webhook URL found for project '{}', and no default Webhook URL set."
 
-#: biz/utils/im/wecom.py:73
+#: biz/utils/im/wecom.py:82
 msgid "企业微信推送未启用"
 msgstr "WeCom notifications are not enabled."
 
-#: biz/utils/im/wecom.py:102
+#: biz/utils/im/wecom.py:90
+#, python-brace-format
+msgid "发送企业微信消息: url={post_url}, data={data}"
+msgstr "Send enterprise WeChat message: url={post_url}, data={data}"
+
+#: biz/utils/im/wecom.py:94
 msgid "企业微信消息发送失败! webhook_url:{}, error_msg:{}"
 msgstr "WeCom message failed to send! Webhook URL: {}, error message: {}"
 
-#: biz/utils/im/wecom.py:107
-#, python-brace-format
-msgid "企业微信消息发送失败! webhook_url: {post_url}, errmsg: {result}"
-msgstr ""
-"WeCom message failed to send! Webhook URL: {post_url}, error message: "
-"{result}"
+#: biz/utils/im/wecom.py:96
+msgid "Markdown 消息过长，尝试发送纯文本"
+msgstr "Markdown message is too long, trying sending plain text"
 
-#: biz/utils/im/wecom.py:109
+#: biz/utils/im/wecom.py:100
 msgid "企业微信消息发送成功! webhook_url: {}"
 msgstr "WeCom message sent successfully! Webhook URL: {}"
 
-#: biz/utils/im/wecom.py:112
+#: biz/utils/im/wecom.py:103
 msgid "企业微信消息发送失败!"
 msgstr "WeCom message failed to send!"
+
+#: biz/utils/im/wecom.py:112
+#, python-brace-format
+msgid "企业微信消息发送请求失败! url:{url}, error: {e}"
+msgstr ""
+"Enterprise WeChat message sending request failed! url:{url}, error: {e}"
+
+#: biz/utils/im/wecom.py:114
+#, python-brace-format
+msgid "企业微信返回的 JSON 解析失败! url:{url}, error: {e}"
+msgstr ""
+"Failed to parse the JSON returned by WeChat Enterprise! url:{url}, error: {e}"
 
 #: biz/utils/reporter.py:13
 msgid ""

@@ -17,7 +17,7 @@ PUSH_REVIEW_ENABLED = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
 from biz.utils.i18n import get_translator
 _ = get_translator()
 
-def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_domain_slug: str):
+def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_url_slug: str):
     try:
         handler = PushHandler(webhook_data, gitlab_token, gitlab_url)
         logger.info('Push Hook event received')
@@ -53,7 +53,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             commits=commits,
             score=score,
             review_result=review_result,
-            gitlab_domain_slug=gitlab_domain_slug
+            gitlab_url_slug=gitlab_url_slug
         ))
 
     except Exception as e:
@@ -62,13 +62,13 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
         logger.error(_('出现未知错误: {}').format(error_message))
 
 
-def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_domain_slug: str):
+def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_url_slug: str):
     '''
     处理Merge Request Hook事件
     :param webhook_data:
     :param gitlab_token:
     :param gitlab_url:
-    :param gitlab_domain_slug:
+    :param gitlab_url_slug:
     :return:
     '''
     try:
@@ -112,7 +112,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
                     score=CodeReviewer.parse_review_score(review_text=review_result),
                     url=webhook_data['object_attributes']['url'],
                     review_result=review_result,
-                    gitlab_domain_slug= gitlab_domain_slug,
+                    gitlab_url_slug= gitlab_url_slug,
                 )
             )
 
