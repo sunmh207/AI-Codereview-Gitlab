@@ -5,8 +5,8 @@ from typing import Dict, List, Optional
 from ollama import ChatResponse
 from ollama import Client
 
-from core.llm.client.base import BaseClient
-from core.llm.types import NotGiven, NOT_GIVEN
+from biz.llm.client.base import BaseClient
+from biz.llm.types import NotGiven, NOT_GIVEN
 
 
 class OllamaClient(BaseClient):

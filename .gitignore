@@ -2,14 +2,13 @@
 venv/
 test/
 .idea/
-docker
 
 log/*
 !log/.gitkeep
 data/*
 !data/.gitkeep
 
-.env
+conf/.env
 .pyc
 __pycache__/
 .cursorignore

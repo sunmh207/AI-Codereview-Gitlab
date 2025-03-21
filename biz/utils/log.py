@@ -2,9 +2,6 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 
-from dotenv import load_dotenv
-
-load_dotenv()
 log_file = os.environ.get("LOG_FILE", "log/app.log")
 log_max_bytes = int(os.environ.get("LOG_MAX_BYTES", 10 * 1024 * 1024))  # 默认10MB
 log_backup_count = int(os.environ.get("LOG_BACKUP_COUNT", 5))  # 默认保留5个备份文件

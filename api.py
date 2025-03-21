@@ -18,7 +18,7 @@ from biz.utils.log import logger
 from biz.utils.queue import handle_queue
 from biz.utils.reporter import Reporter
 
-load_dotenv()
+load_dotenv("conf/.env")
 api_app = Flask(__name__)
 
 from biz.utils.i18n import get_translator

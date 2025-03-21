@@ -12,7 +12,7 @@ services:
       - data:/app/data
       - log:/app/log
     env_file:
-      - .env
+      - ./conf/.env
     depends_on:
       redis:
         condition: service_started
@@ -27,7 +27,7 @@ services:
     volumes_from:
       - app
     env_file:
-      - .env
+      - ./conf/.env
 #    environment:
 #      - WORKER_QUEUE=git_test1_com
 #      - OLLAMA_API_BASE_URL=https://ollama.test1.com:11434
@@ -45,7 +45,7 @@ services:
 #    volumes_from:
 #      - app
 #    env_file:
-#      - .env
+#      - ./conf/.env
 #    environment:
 #      - WORKER_QUEUE=git_test2_com
 #      - OLLAMA_API_BASE_URL=https://ollama.test2.com:11434
@@ -56,8 +56,6 @@ services:
 
   redis:
     image: redis:alpine
-#    ports:
-#      - "${REDIS_PORT}:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped

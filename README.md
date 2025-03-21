@@ -17,9 +17,9 @@
 
 ![MR图片](./doc/img/mr.png)
 
-![Note图片](./doc/img/note.jpeg)
+![Note图片](./doc/img/note.jpg)
 
-![Dashboard图片](./doc/img/dashboard.png)
+![Dashboard图片](./doc/img/dashboard.jpg)
 
 ## 原理
 

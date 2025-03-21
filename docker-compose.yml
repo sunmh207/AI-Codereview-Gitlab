@@ -10,15 +10,14 @@ services:
       - "5002:5002"
     volumes:
       - ./biz:/app/biz
-      - ./core:/app/core
       - ./data:/app/data
+      - ./locales:/app/locales
       - ./log:/app/log
       - ./api.py:/app/api.py
-      - ./prompt_templates.yml:/app/prompt_templates.yml
       - ./requirements.txt:/app/requirements.txt
       - ./ui.py:/app/ui.py
     env_file:
-      - .env
+      - ./conf/.env
     depends_on:
       redis:
         condition: service_started
@@ -33,7 +32,7 @@ services:
     volumes_from:
       - app
     env_file:
-      - .env
+      - ./conf/.env
     depends_on:
       redis:
         condition: service_started
@@ -41,8 +40,10 @@ services:
 
   redis:
     image: redis:alpine
-#    ports:
-#      - "${REDIS_PORT}:6379"
+    env_file:
+      - ./conf/.env
+    ports:
+      - "6379:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped

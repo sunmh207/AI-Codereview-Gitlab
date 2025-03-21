@@ -4,7 +4,7 @@ import re
 import yaml
 
 from biz.utils.log import logger
-from core.llm.factory import Factory
+from biz.llm.factory import Factory
 from biz.utils.i18n import get_translator
 _ = get_translator()
 
@@ -85,7 +85,7 @@ class CodeReviewer:
         """解析AI返回的Review结果，返回评分"""
         if not review_text:
             return 0  # 如果review_text为空，返回 0
-        match = re.search(_("总分[:：]\s*(\d+)分?"), review_text)
+        match = re.search(_("总分[:：]\\s*\\**(\\d+)分?"), review_text)
 
         if match:
             return int(match.group(1))  # 提取数值部分并转换为整数

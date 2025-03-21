@@ -8,4 +8,5 @@ httpx[socks]
 ollama==0.4.7
 pandas==2.2.3
 streamlit==1.42.2
+matplotlib==3.10.1
 rq==2.1.0

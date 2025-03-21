@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-03-21 16:33+0100\n"
+"POT-Creation-Date: 2025-03-21 17:44+0100\n"
 "PO-Revision-Date: 2025-03-18 15:05+0100\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -163,77 +163,128 @@ msgstr ""
 msgid "{project_name} Push Event"
 msgstr "{project_name} Push Event"
 
-#: biz/gitlab/webhook_handler.py:78
+#: biz/gitlab/webhook_handler.py:84
 msgid "Invalid event type: {}. Only 'merge_request' event is supported now."
 msgstr "Invalid event type: {}. Only 'merge_request' event is supported now."
 
-#: biz/gitlab/webhook_handler.py:93
+#: biz/gitlab/webhook_handler.py:99
 msgid "Get changes response from GitLab (attempt {}): {}, {}, URL: {}"
 msgstr "Get changes response from GitLab (attempt {}): {}, {}, URL: {}"
 
-#: biz/gitlab/webhook_handler.py:101
+#: biz/gitlab/webhook_handler.py:107
 msgid "Changes is empty, retrying in {} seconds... (attempt {}/{}), URL: {}"
 msgstr "Changes are empty, retrying in {} seconds... (attempt {}/{}), URL: {}"
 
-#: biz/gitlab/webhook_handler.py:104
+#: biz/gitlab/webhook_handler.py:110
 msgid "Failed to get changes from GitLab (URL: {}): {}, {}"
 msgstr "Failed to retrieve changes from GitLab (URL: {}): {}, {}"
 
-#: biz/gitlab/webhook_handler.py:107
+#: biz/gitlab/webhook_handler.py:113
 msgid "Max retries ({}) reached. Changes is still empty."
 msgstr "Max retries ({}) reached. Changes are still empty."
 
-#: biz/gitlab/webhook_handler.py:122
+#: biz/gitlab/webhook_handler.py:128
 msgid "Get commits response from gitlab: {}, {}"
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:126
+#: biz/gitlab/webhook_handler.py:132
 msgid "Failed to get commits: {}, {}"
 msgstr "Failed to get commits: {}, {}"
 
-#: biz/gitlab/webhook_handler.py:140
+#: biz/gitlab/webhook_handler.py:146
 msgid "Add notes to gitlab {}: {}, {}"
 msgstr "Add notes to gitlab {}: {}, {}"
 
-#: biz/gitlab/webhook_handler.py:144
+#: biz/gitlab/webhook_handler.py:150
 msgid "Failed to add note: {}"
 msgstr "Failed to add note: {}"
 
-#: biz/gitlab/webhook_handler.py:174 biz/gitlab/webhook_handler.py:263
+#: biz/gitlab/webhook_handler.py:180 biz/gitlab/webhook_handler.py:269
 msgid "Invalid event type: {}. Only 'push' event is supported now."
 msgstr "Invalid event type: {}. Only 'push' event is supported now."
 
-#: biz/gitlab/webhook_handler.py:188
+#: biz/gitlab/webhook_handler.py:194
 msgid "Collected {} commits from push event."
 msgstr "Collected {} commits from push event."
 
-#: biz/gitlab/webhook_handler.py:194
+#: biz/gitlab/webhook_handler.py:200
 msgid "No commits found to add notes to."
 msgstr "No commits found to add notes to."
 
-#: biz/gitlab/webhook_handler.py:200
+#: biz/gitlab/webhook_handler.py:206
 msgid "Last commit ID not found."
 msgstr "Last commit ID not found."
 
-#: biz/gitlab/webhook_handler.py:228
+#: biz/gitlab/webhook_handler.py:234
 msgid ""
 "Get commits response from GitLab for repository_commits: {response."
 "status_code}, {}, URL: {url}"
 msgstr ""
+"Get commits response from GitLab for repository_commits: {response."
+"status_code}, {}, URL: {url}"
 
-#: biz/gitlab/webhook_handler.py:251
+#: biz/gitlab/webhook_handler.py:257
 msgid ""
 "Get changes response from GitLab for repository_compare: {}, {response."
 "text}, URL: {}"
 msgstr ""
+"Get changes response from GitLab for repository_compare: {}, {response."
+"text}, URL: {}"
 
-#: biz/gitlab/webhook_handler.py:257
+#: biz/gitlab/webhook_handler.py:263
 msgid "Failed to get changes for repository_compare: {}, {}"
 msgstr "Failed to get changes for repository_compare: {}, {}"
 
-#: biz/gitlab/webhook_handler.py:268
+#: biz/gitlab/webhook_handler.py:274
 msgid "No commits found in push event."
 msgstr "No commits found in push event."
+
+#: biz/llm/client/deepseek.py:19 biz/llm/client/openai.py:18
+#: biz/llm/client/zhipuai.py:17
+msgid ""
+"API key is required. Please provide it or set it in the environment "
+"variables."
+msgstr ""
+"API key is required. Please provide it or set it in the environment "
+"variables."
+
+#: biz/llm/client/deepseek.py:30
+#, python-brace-format
+msgid "Sending request to DeepSeek API. Model: {model}, Messages: {messages}"
+msgstr "Sending request to DeepSeek API. Model: {model}, Messages: {messages}"
+
+#: biz/llm/client/deepseek.py:39
+msgid "Empty response from DeepSeek API"
+msgstr "Empty response from DeepSeek API"
+
+#: biz/llm/client/deepseek.py:40
+msgid "AI服务返回为空，请稍后重试"
+msgstr "AI service returned empty, please try again later"
+
+#: biz/llm/client/deepseek.py:45
+#, python-brace-format
+msgid "DeepSeek API error: {e}"
+msgstr "DeepSeek API error: {e}"
+
+#: biz/llm/client/deepseek.py:48
+msgid "DeepSeek API认证失败，请检查API密钥是否正确"
+msgstr ""
+"DeepSeek API authentication failed, please check if the API key is correct"
+
+#: biz/llm/client/deepseek.py:50
+msgid "DeepSeek API接口未找到，请检查API地址是否正确"
+msgstr ""
+"DeepSeek API endpoint not found, please check if the API address is correct"
+
+#: biz/llm/client/deepseek.py:52
+#, python-brace-format
+msgid "调用DeepSeek API时出错: {e}"
+msgstr "Error occurred while calling DeepSeek API: {e}"
+
+#: biz/llm/factory.py:28
+#, python-brace-format
+msgid "Unknown chat model provider: {provider}"
+msgstr "Unknown chat model provider: {provider}"
 
 #: biz/queue/worker.py:26 biz/queue/worker.py:91
 msgid "Failed to get commits"
@@ -316,8 +367,8 @@ msgid "收到AI返回结果: {}"
 msgstr "Received AI response: {}"
 
 #: biz/utils/code_reviewer.py:88
-msgid "总分[:：]\\s*(\\d+)分?"
-msgstr "Total Score[:：]\\s*(\\d+)? points"
+msgid "总分[:：]\\s*\\**(\\d+)分?"
+msgstr "Total [sS]core[:：]\\s*\\**(\\d+)? points"
 
 #: biz/utils/im/dingtalk.py:30
 msgid "未提供项目名称，且未设置默认的钉钉 Webhook URL。"
@@ -448,58 +499,11 @@ msgstr ""
 "without conversion. Special requirement: Return in Markdown format.\n"
 "{}"
 
-#: core/llm/client/deepseek.py:20 core/llm/client/openai.py:19
-#: core/llm/client/zhipuai.py:18
-msgid ""
-"API key is required. Please provide it or set it in the environment "
-"variables."
-msgstr ""
-"API key is required. Please provide it or set it in the environment "
-"variables."
-
-#: core/llm/client/deepseek.py:31
-#, python-brace-format
-msgid "Sending request to DeepSeek API. Model: {model}, Messages: {messages}"
-msgstr "Sending request to DeepSeek API. Model: {model}, Messages: {messages}"
-
-#: core/llm/client/deepseek.py:39
-msgid "Empty response from DeepSeek API"
-msgstr "Empty response from DeepSeek API"
-
-#: core/llm/client/deepseek.py:40
-msgid "AI服务返回为空，请稍后重试"
-msgstr "AI service returned empty, please try again later"
-
-#: core/llm/client/deepseek.py:45
-#, python-brace-format
-msgid "DeepSeek API error: {e}"
-msgstr "DeepSeek API error: {e}"
-
-#: core/llm/client/deepseek.py:48
-msgid "DeepSeek API认证失败，请检查API密钥是否正确"
-msgstr ""
-"DeepSeek API authentication failed, please check if the API key is correct"
-
-#: core/llm/client/deepseek.py:50
-msgid "DeepSeek API接口未找到，请检查API地址是否正确"
-msgstr ""
-"DeepSeek API endpoint not found, please check if the API address is correct"
-
-#: core/llm/client/deepseek.py:52
-#, python-brace-format
-msgid "调用DeepSeek API时出错: {e}"
-msgstr "Error occurred while calling DeepSeek API: {e}"
-
-#: core/llm/factory.py:29
-#, python-brace-format
-msgid "Unknown chat model provider: {provider}"
-msgstr "Unknown chat model provider: {provider}"
-
-#: ui.py:55 ui.py:70
+#: ui.py:56 ui.py:71
 msgid "登录"
 msgstr "Login"
 
-#: ui.py:59
+#: ui.py:60
 msgid ""
 "安全提示：检测到默认用户名和密码为 'admin'，存在安全风险！\n"
 "\n"
@@ -516,46 +520,70 @@ msgstr ""
 "2. Change the `DASHBOARD_USER` and `DASHBOARD_PASSWORD` variables\n"
 "3. Save and restart the application"
 
-#: ui.py:65
+#: ui.py:66
 msgid "当前用户名: `{}`, 当前密码: `{}`"
 msgstr "Current Username: `{}`, Current Password: `{}`"
 
-#: ui.py:67 ui.py:111
+#: ui.py:68 ui.py:211
 msgid "用户名"
 msgstr "Username"
 
-#: ui.py:68
+#: ui.py:69
 msgid "密码"
 msgstr "Password"
 
-#: ui.py:76
+#: ui.py:77
 msgid "用户名或密码错误"
 msgstr "Incorrect username or password"
 
-#: ui.py:81
+#: ui.py:83 ui.py:108 ui.py:133 ui.py:157
+msgid "没有数据可供展示"
+msgstr ""
+
+#: ui.py:180
 msgid "#### 审查日志"
 msgstr "#### Review Log"
 
-#: ui.py:90
+#: ui.py:189
 msgid "Merge Request"
 msgstr "Merge Request"
 
-#: ui.py:90
+#: ui.py:189
 msgid "Push"
 msgstr "Push"
 
-#: ui.py:98
+#: ui.py:197
 msgid "开始日期"
 msgstr "Start Date"
 
-#: ui.py:100
+#: ui.py:199
 msgid "结束日期"
 msgstr "End Date"
 
-#: ui.py:125
+#: ui.py:213
+msgid "项目名"
+msgstr "Project name"
+
+#: ui.py:228
 msgid "**总记录数:** {}，**平均分:** {}"
 msgstr "**Total Records:** {}，**Average Score:** {}"
 
-#: ui.py:139
+#: ui.py:233
+msgid "项目提交次数"
+msgstr "Number of project submissions"
+
+#: ui.py:236
+msgid "项目平均分数"
+msgstr "Average project score"
+
+#: ui.py:239
+msgid "人员提交次数"
+msgstr "Number of personnel submissions"
+
+#: ui.py:242
+msgid "人员平均分数"
+msgstr "Personnel average score"
+
+#: ui.py:257
 msgid "查看"
 msgstr "Open"
