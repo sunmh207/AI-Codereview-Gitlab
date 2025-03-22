@@ -1,6 +1,12 @@
 <template>
   <div class="dashboard">
-    <h2>审查日志</h2>
+    <div class="header">
+      <h2>审查日志</h2>
+      <button class="config-button" @click="goToConfig">
+        <span class="config-icon">⚙️</span>
+        配置
+      </button>
+    </div>
     
     <!-- 标签页 -->
     <div class="tabs">
@@ -11,7 +17,6 @@
         Merge Request
       </button>
       <button 
-        v-if="showPushTab"
         :class="['tab-button', { active: activeTab === 'push' }]"
         @click="activeTab = 'push'"
       >
@@ -118,6 +123,8 @@
 <script>
 import Chart from 'chart.js/auto'
 import DetailModal from './DetailModal.vue'
+import axios from 'axios'
+import router from '@/router'
 
 export default {
   name: 'Dashboard',
@@ -127,7 +134,6 @@ export default {
   data() {
     return {
       activeTab: 'mr',
-      showPushTab: false,
       startDate: this.getDefaultStartDate(),
       endDate: new Date().toISOString().split('T')[0],
       selectedAuthors: [],
@@ -190,6 +196,12 @@ export default {
     }
   },
   methods: {
+    goToConfig() {
+      this.$router.push({
+        path: '/config',
+        replace: true
+      })
+    },
     getDefaultStartDate() {
       const date = new Date()
       date.setDate(date.getDate() - 7)
@@ -197,13 +209,6 @@ export default {
     },
     async fetchData() {
       try {
-        // 获取 push tab 状态
-        const configResponse = await fetch('/api/config')
-        if (configResponse.ok) {
-          const config = await configResponse.json()
-          this.showPushTab = config.push_review_enabled
-        }
-        
         const endpoint = this.activeTab === 'mr' ? '/api/mr-logs' : '/api/push-logs'
         const params = new URLSearchParams({
           start_date: this.startDate,
@@ -408,6 +413,35 @@ export default {
 <style scoped>
 .dashboard {
   padding: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.config-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.config-button:hover {
+  background-color: #45a049;
+}
+
+.config-icon {
+  font-size: 16px;
 }
 
 .tabs {

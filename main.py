@@ -8,7 +8,7 @@ from multiprocessing import Process
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 from flask import Flask, request, jsonify, send_from_directory
 
 from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity
@@ -426,11 +426,95 @@ def get_mr_data():
         logger.error(f"Error in get_mr_data: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@api_app.route('/api/config')
+@api_app.route('/api/config', methods=['GET'])
 def get_config():
-    return jsonify({
-        'push_review_enabled': PUSH_REVIEW_ENABLED
-    })
+    """
+    获取当前配置的API端点
+    """
+    if not session.get('authenticated'):
+        return jsonify({'message': '未授权访问'}), 401
+        
+    try:
+        # 读取当前.env文件内容
+        env_path = find_dotenv("conf/.env")
+        config = {}
+        config_order = []  # 用于保存配置项的顺序
+        
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip()
+                    config[key] = value
+                    config_order.append(key)  # 保存配置项的顺序
+                    
+        # 创建一个有序的配置对象
+        ordered_config = {
+            'config': config,
+            'order': config_order
+        }
+        return jsonify(ordered_config)
+    except Exception as e:
+        logger.error(f"Failed to read config: {str(e)}")
+        return jsonify({'message': '读取配置失败'}), 500
+
+@api_app.route('/api/save-config', methods=['POST'])
+def save_config():
+    """
+    保存配置的API端点
+    """
+    if not session.get('authenticated'):
+        return jsonify({'message': '未授权访问'}), 401
+        
+    try:
+        config = request.get_json()
+        if not config:
+            return jsonify({'message': '无效的配置数据'}), 400
+            
+        # 读取当前.env文件内容
+        env_path = find_dotenv("conf/.env")
+        current_config = {}
+        lines = []
+        
+        # 读取现有配置并保存所有行
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    key, value = line.split('=', 1)
+                    current_config[key.strip()] = value.strip()
+                lines.append(line)
+        
+        # 更新配置，如果某个key在新的config中不存在，则从current_config中删除
+        for key in list(current_config.keys()):
+            if key not in config:
+                del current_config[key]
+        current_config.update(config)
+        
+        # 写入新的配置，保留注释和空行
+        with open(env_path, 'w', encoding='utf-8') as f:
+            # 首先写入所有注释和空行
+            for line in lines:
+                if line.startswith('#') or not line:
+                    f.write(f"{line}\n")
+            
+            # 然后写入所有配置项
+            for key, value in current_config.items():
+                f.write(f"{key}={value}\n")
+                
+        logger.info("Successfully saved config")
+        
+        # 重新加载配置
+        if reload_env():
+            return jsonify({'message': '配置保存并重新加载成功'})
+        else:
+            return jsonify({'message': '配置保存成功但重新加载失败'}), 500
+            
+    except Exception as e:
+        logger.error(f"Failed to save config: {str(e)}")
+        return jsonify({'message': '保存配置失败'}), 500
 
 # 登录路由
 @api_app.route('/login', methods=['GET', 'POST'])
@@ -462,6 +546,40 @@ def authenticate(username, password):
     DASHBOARD_USER = os.getenv("DASHBOARD_USER", "admin")
     DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "admin")
     return username == DASHBOARD_USER and password == DASHBOARD_PASSWORD
+
+def reload_env():
+    """
+    重新加载.env文件并更新全局变量
+    """
+    try:
+        # 重新加载.env文件
+        load_dotenv(find_dotenv("conf/.env"), override=True)
+        
+        # 更新全局变量
+        global PUSH_REVIEW_ENABLED
+        PUSH_REVIEW_ENABLED = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
+        
+        # 更新Flask secret key
+        api_app.secret_key = os.getenv('FLASK_SECRET_KEY', 'ai123456789!!!')
+        
+        logger.info("Successfully reloaded .env file")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to reload .env file: {str(e)}")
+        return False
+
+@api_app.route('/api/reload-config', methods=['POST'])
+def reload_config():
+    """
+    重新加载配置文件的API端点
+    """
+    if not session.get('authenticated'):
+        return jsonify({'message': '未授权访问'}), 401
+        
+    if reload_env():
+        return jsonify({'message': '配置重新加载成功'})
+    else:
+        return jsonify({'message': '配置重新加载失败'}), 500
 
 if __name__ == '__main__':
     # 启动定时任务调度器
