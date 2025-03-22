@@ -38,7 +38,7 @@
           </div>
           <div>
             <p><strong>审查结果：</strong></p>
-            <pre class="border p-2 bg-light">{{ mrData.review_result }}</pre>
+            <div class="markdown-content" v-html="renderMarkdown(mrData.review_result)"></div>
           </div>
         </div>
         <div class="modal-footer">
@@ -53,6 +53,8 @@
 </template>
 
 <script>
+import { marked } from 'marked';
+
 export default {
   name: 'DetailModal',
   props: {
@@ -64,15 +66,45 @@ export default {
   methods: {
     formatDate(timestamp) {
       return new Date(timestamp * 1000).toLocaleString()
+    },
+    renderMarkdown(content) {
+      return marked(content || '');
     }
   }
 }
 </script>
 
 <style scoped>
-.modal-body pre {
+.modal-body :deep(.markdown-content) {
   max-height: 600px;
   overflow-y: auto;
+}
+
+.modal-body :deep(.markdown-content) h1,
+.modal-body :deep(.markdown-content) h2,
+.modal-body :deep(.markdown-content) h3,
+.modal-body :deep(.markdown-content) h4,
+.modal-body :deep(.markdown-content) h5,
+.modal-body :deep(.markdown-content) h6 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.modal-body :deep(.markdown-content) p {
+  margin-bottom: 1rem;
+}
+
+.modal-body :deep(.markdown-content) code {
+  background-color: #f8f9fa;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+}
+
+.modal-body :deep(.markdown-content) pre {
+  background-color: #f8f9fa;
+  padding: 1rem;
+  border-radius: 0.25rem;
+  overflow-x: auto;
 }
 
 .modal-xl {
@@ -88,7 +120,7 @@ export default {
   .modal-xl {
     max-width: 95vw;
   }
-  .modal-body pre {
+  .modal-body :deep(.markdown-content) {
     font-size: 0.9rem;
   }
 }
