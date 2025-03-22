@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Dashboard from '../components/Dashboard.vue'
 import ConfigManager from '../components/ConfigManager.vue'
+import Chat from '../components/Chat.vue'
 
 const routes = [
   {
@@ -13,6 +14,12 @@ const routes = [
     path: '/config',
     name: 'Config',
     component: ConfigManager,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/chat',
+    name: 'Chat',
+    component: Chat,
     meta: { requiresAuth: true }
   },
   {

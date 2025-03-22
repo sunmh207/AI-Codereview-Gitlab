@@ -23,6 +23,8 @@
     "@vue/cli-plugin-babel": "~5.0.0",
     "@vue/cli-plugin-eslint": "~5.0.0",
     "@vue/cli-service": "~5.0.0",
+    "@babel/preset-typescript": "^7.12.16",
+    "@babel/preset-react": "^7.12.16",
     "eslint": "^7.32.0",
     "eslint-plugin-vue": "^8.0.3"
   }

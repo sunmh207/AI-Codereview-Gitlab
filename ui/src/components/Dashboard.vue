@@ -2,10 +2,16 @@
   <div class="dashboard">
     <div class="header">
       <h2>审查日志</h2>
-      <button class="config-button" @click="goToConfig">
-        <span class="config-icon">⚙️</span>
-        配置
-      </button>
+      <div class="header-buttons">
+        <button class="chat-button" @click="goToChat">
+          <span class="chat-icon">💬</span>
+          CHAT
+        </button>
+        <button class="config-button" @click="goToConfig">
+          <span class="config-icon">⚙️</span>
+          配置
+        </button>
+      </div>
     </div>
     
     <!-- 标签页 -->
@@ -196,6 +202,12 @@ export default {
     }
   },
   methods: {
+    goToChat() {
+      this.$router.push({
+        path: '/chat',
+        replace: true
+      })
+    },
     goToConfig() {
       this.$router.push({
         path: '/config',
@@ -420,6 +432,34 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+}
+
+.header-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.chat-button:hover {
+  background-color: #45a049;
+}
+
+.chat-icon {
+  font-size: 16px;
 }
 
 .config-button {

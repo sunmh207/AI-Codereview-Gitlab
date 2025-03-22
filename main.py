@@ -1,15 +1,16 @@
 import atexit
 import json
-import os
 import re
+import os
 import traceback
 from datetime import datetime
 from multiprocessing import Process
+import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from dotenv import load_dotenv, find_dotenv
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response
 
 from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity
 from biz.event.event_manager import event_manager
@@ -26,6 +27,8 @@ import pandas as pd
 from biz.service.review_service import ReviewService
 from datetime import datetime, timedelta
 from flask_cors import CORS
+from biz.llm.factory import Factory
+from biz.llm.types import NOT_GIVEN
 
 load_dotenv("conf/.env")
 api_app = Flask(__name__)
@@ -580,6 +583,60 @@ def reload_config():
         return jsonify({'message': '配置重新加载成功'})
     else:
         return jsonify({'message': '配置重新加载失败'}), 500
+
+@api_app.route('/api/chat', methods=['POST'])
+def chat():
+    """
+    处理聊天请求的API端点，支持流式响应
+    """
+    if not session.get('authenticated'):
+        return jsonify({'message': '未授权访问'}), 401
+        
+    try:
+        data = request.get_json()
+        if not data or 'message' not in data:
+            return jsonify({'message': '无效的请求数据'}), 400
+            
+        message = data['message']
+        system_message = data.get('system_message', '')
+        user_message = data.get('user_message', '')
+        use_context = data.get('use_context', False)  # 获取上下文开关参数，默认不启用
+        
+        def generate():
+            try:
+                # 获取 LLM 客户端
+                client = Factory.getClient()
+                
+                # 构建消息
+                messages = []
+                if system_message:
+                    messages.append({"role": "system", "content": system_message})
+                
+                # 如果提供了 user_message 模板，使用模板格式化消息
+                if user_message:
+                    formatted_message = user_message.format(message=message)
+                else:
+                    formatted_message = message
+                    
+                messages.append({"role": "user", "content": formatted_message})
+                
+                # 调用 LLM 客户端获取响应
+                response = client.stream_completions(messages=messages)
+                
+                # 流式返回响应
+                for chunk in response:
+                    yield f"data: {json.dumps({'content': chunk})}\n\n"
+                    time.sleep(0.05)  # 控制打字速度
+                    
+            except Exception as e:
+                logger.error(f"LLM API error: {str(e)}")
+                yield f"data: {json.dumps({'content': '抱歉，AI 服务出现错误，请稍后重试。'})}\n\n"
+                
+        return Response(generate(), mimetype='text/event-stream')
+        
+    except Exception as e:
+        logger.error(f"Chat API error: {str(e)}")
+        return jsonify({'message': '处理请求时发生错误'}), 500
 
 if __name__ == '__main__':
     # 启动定时任务调度器
