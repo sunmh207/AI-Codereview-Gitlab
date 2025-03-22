@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Dict, List, Optional
 
 from openai import OpenAI
@@ -46,3 +47,16 @@ class OpenAIClient(BaseClient):
             messages=messages,
         )
         return self._extract_content(completion.choices[0].message.content)
+
+    def stream_completions(self,
+                           messages: List[Dict[str, str]],
+                           model: Optional[str] | NotGiven = NOT_GIVEN,
+                           ) -> str:
+        model = model or self.default_model
+        response = self.client.chat.completions.create(
+            model=model,
+            messages=messages,
+            stream=True
+        )
+        for chunk in response:
+            yield chunk.choices[0].delta.content
