@@ -120,6 +120,81 @@ def setup_scheduler():
         logger.error(traceback.format_exc())
 
 
+# 提示词模板库 CRUD API
+import yaml
+
+prompts = []
+
+@api_app.route('/api/prompt-templates', methods=['GET'])
+def get_prompt_templates():
+    try:
+        with open('conf/prompt_templates.yml', 'r', encoding='utf-8') as file:
+            templates = yaml.safe_load(file)
+        return jsonify(templates)
+    except Exception as e:
+        logger.error(f"Error reading prompt templates: {str(e)}")
+        return jsonify({'error': 'Failed to read prompt templates'}), 500
+
+@api_app.route('/api/prompt-templates', methods=['PUT'])
+def update_prompt_templates():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        # 读取现有的模板
+        with open('conf/prompt_templates.yml', 'r', encoding='utf-8') as file:
+            existing_templates = yaml.safe_load(file) or {}
+            
+        # 更新特定的模板
+        for key, value in data.items():
+            existing_templates[key] = value
+            
+        # 保存更新后的所有模板，使用自定义格式化
+        with open('conf/prompt_templates.yml', 'w', encoding='utf-8') as file:
+            for key, value in existing_templates.items():
+                # 使用 |- 来保持原始格式
+                file.write(f"{key}: |-\n")
+                # 确保内容有正确的缩进
+                for line in value.split('\n'):
+                    file.write(f"  {line}\n")
+                file.write('\n')  # 在每个模板之间添加空行
+            
+        return jsonify({'message': 'Successfully updated prompt templates'})
+    except Exception as e:
+        logger.error(f"Error updating prompt templates: {str(e)}")
+        return jsonify({'error': 'Failed to update prompt templates'}), 500
+
+@api_app.route('/api/prompts', methods=['GET'])
+def get_prompts():
+    return jsonify(prompts)
+
+@api_app.route('/api/prompts', methods=['POST'])
+def create_prompt():
+    data = request.get_json()
+    if not data or 'content' not in data:
+        return jsonify({'error': 'Invalid data'}), 400
+    new_prompt = {'id': len(prompts) + 1, 'content': data['content']}
+    prompts.append(new_prompt)
+    return jsonify(new_prompt), 201
+
+@api_app.route('/api/prompts/<int:id>', methods=['PUT'])
+def update_prompt(id):
+    data = request.get_json()
+    if not data or 'content' not in data:
+        return jsonify({'error': 'Invalid data'}), 400
+    for prompt in prompts:
+        if prompt['id'] == id:
+            prompt['content'] = data['content']
+            return jsonify(prompt)
+    return jsonify({'error': 'Prompt not found'}), 404
+
+@api_app.route('/api/prompts/<int:id>', methods=['DELETE'])
+def delete_prompt(id):
+    global prompts
+    prompts = [prompt for prompt in prompts if prompt['id'] != id]
+    return jsonify({'message': 'Prompt deleted'}), 200
+
 # 处理 GitLab Merge Request Webhook
 @api_app.route('/review/webhook', methods=['POST'])
 def handle_webhook():
@@ -347,13 +422,6 @@ def review_code(changes_text: str, commits_text: str = '') -> str:
         return review_result[11:-3].strip()
     return review_result
 
-
-# 新增 UI 路由
-@api_app.route('/ui')
-def ui_home():
-    if not session.get('authenticated'):
-        return redirect(url_for('login'))
-    return render_template('index.html')
 
 @api_app.route('/api/push-logs')
 def get_push_data():

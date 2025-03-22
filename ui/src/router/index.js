@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Dashboard from '../components/Dashboard.vue'
 import ConfigManager from '../components/ConfigManager.vue'
 import Chat from '../components/Chat.vue'
+import PromptView from '../views/Prompt.vue'
 
 const routes = [
   {
@@ -20,6 +21,12 @@ const routes = [
     path: '/chat',
     name: 'Chat',
     component: Chat,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/prompt',
+    name: 'PromptView',
+    component: PromptView,
     meta: { requiresAuth: true }
   },
   {
@@ -48,4 +55,4 @@ router.beforeEach((to, from, next) => {
   }
 })
 
-export default router 
+export default router

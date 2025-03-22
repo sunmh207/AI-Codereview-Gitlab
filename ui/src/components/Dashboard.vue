@@ -7,9 +7,13 @@
           <span class="chat-icon">💬</span>
           CHAT
         </button>
+        <button class="prompt-button" @click="goToPrompt">
+          <span class="prompt-icon">📜</span>
+          提示词
+        </button>
         <button class="config-button" @click="goToConfig">
           <span class="config-icon">⚙️</span>
-          配置
+          环境配置
         </button>
       </div>
     </div>
@@ -129,11 +133,9 @@
 <script>
 import Chart from 'chart.js/auto'
 import DetailModal from './DetailModal.vue'
-import axios from 'axios'
-import router from '@/router'
 
 export default {
-  name: 'Dashboard',
+  name: 'DashboardComponent',
   components: {
     DetailModal
   },
@@ -211,6 +213,12 @@ export default {
     goToConfig() {
       this.$router.push({
         path: '/config',
+        replace: true
+      })
+    },
+    goToPrompt() {
+      this.$router.push({
+        path: '/prompt',
         replace: true
       })
     },
@@ -600,4 +608,21 @@ th {
   margin-top: 0;
   text-align: center;
 }
-</style> 
+.prompt-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.prompt-button:hover {
+  background-color: #45a049;
+}
+</style>
