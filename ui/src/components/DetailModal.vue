@@ -107,6 +107,33 @@ export default {
   overflow-x: auto;
 }
 
+.modal-body :deep(.markdown-content) table {
+  width: 100%;
+  margin-bottom: 1rem;
+  border-collapse: collapse;
+  border: 1px solid #dee2e6;
+}
+
+.modal-body :deep(.markdown-content) th,
+.modal-body :deep(.markdown-content) td {
+  padding: 0.75rem;
+  border: 1px solid #dee2e6;
+  text-align: left;
+}
+
+.modal-body :deep(.markdown-content) th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+.modal-body :deep(.markdown-content) tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+
+.modal-body :deep(.markdown-content) tr:hover {
+  background-color: #f2f2f2;
+}
+
 .modal-xl {
   max-width: 90vw;
 }
