@@ -2,7 +2,7 @@ from blinker import Signal
 
 from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity
 from biz.service.review_service import ReviewService
-from biz.utils.im import im_notifier
+from biz.utils.im import notifier
 
 from biz.utils.i18n import get_translator
 _ = get_translator()
@@ -43,7 +43,7 @@ def on_merge_request_reviewed(mr_review_entity: MergeRequestReviewEntity):
         url=mr_review_entity.url,
         review_result=mr_review_entity.review_result
     )
-    im_notifier.send_notification(content=im_msg, msg_type='markdown', title=_('Merge Request Review'),
+    notifier.send_notification(content=im_msg, msg_type='markdown', title=_('Merge Request Review'),
                                   project_name=mr_review_entity.project_name,
                                   gitlab_url_slug=mr_review_entity.gitlab_url_slug)
 
@@ -75,7 +75,7 @@ def on_push_reviewed(entity: PushReviewEntity):
 
     if entity.review_result:
         im_msg += _("#### AI Review 结果: \n {review_result}\n\n").format(review_result=entity.review_result)
-    im_notifier.send_notification(content=im_msg, msg_type='markdown',
+    notifier.send_notification(content=im_msg, msg_type='markdown',
                                   title=_("{project_name} Push Event").format(project_name=entity.project_name),
                                   project_name=entity.project_name,
                                   gitlab_url_slug=entity.gitlab_url_slug)

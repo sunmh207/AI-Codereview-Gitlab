@@ -5,6 +5,7 @@ import traceback
 from datetime import datetime
 from urllib.parse import urlparse
 
+from biz.utils.token_util import count_tokens, truncate_text_by_tokens
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from dotenv import load_dotenv
@@ -13,7 +14,7 @@ from flask import Flask, request, jsonify
 from biz.gitlab.webhook_handler import slugify_url
 from biz.queue.worker import handle_merge_request_event, handle_push_event
 from biz.service.review_service import ReviewService
-from biz.utils.im import im_notifier
+from biz.utils.im import notifier
 from biz.utils.log import logger
 from biz.utils.queue import handle_queue
 from biz.utils.reporter import Reporter
@@ -59,7 +60,7 @@ def daily_report():
         # 生成日报内容
         report_txt = Reporter().generate_report(json.dumps(commits))
         # 发送钉钉通知
-        im_notifier.send_notification(content=report_txt, msg_type="markdown", title=_("代码提交日报"))
+        notifier.send_notification(content=report_txt, msg_type="markdown", title=_("代码提交日报"))
 
         # 返回生成的日报内容
         return json.dumps(report_txt, ensure_ascii=False, indent=4)

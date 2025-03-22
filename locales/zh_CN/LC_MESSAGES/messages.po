@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-03-21 17:50+0100\n"
+"POT-Creation-Date: 2025-03-22 17:29+0100\n"
 "PO-Revision-Date: 2025-03-18 15:05+0100\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -16,58 +16,118 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: api.py:51 api.py:52
+#: api.py:52 api.py:53
 msgid "No data to process."
 msgstr ""
 
-#: api.py:62
+#: api.py:63
 msgid "代码提交日报"
 msgstr ""
 
-#: api.py:67
+#: api.py:68
 msgid "Failed to generate daily report: {}"
 msgstr ""
 
-#: api.py:95
+#: api.py:96
 msgid "Scheduler started successfully."
 msgstr ""
 
-#: api.py:100
+#: api.py:101
 msgid "Error setting up scheduler: {}"
 msgstr ""
 
-#: api.py:111
+#: api.py:112
 msgid "Invalid JSON"
 msgstr ""
 
-#: api.py:120 api.py:123
+#: api.py:121 api.py:124
 msgid "Missing GitLab URL"
 msgstr ""
 
-#: api.py:134
+#: api.py:135
 msgid "Missing GitLab access token"
 msgstr ""
 
-#: api.py:139
+#: api.py:140
 msgid "Received event: {}"
 msgstr ""
 
-#: api.py:140
+#: api.py:141
 msgid "Payload: {}"
 msgstr ""
 
-#: api.py:147 api.py:154
+#: api.py:148 api.py:155
 msgid "Request received(object_kind={}), will process asynchronously."
 msgstr ""
 
-#: api.py:158
+#: api.py:159
 msgid ""
 "Only merge_request and push events are supported (both Webhook and System "
 "Hook), but received: {}."
 msgstr ""
 
-#: api.py:163
+#: api.py:164
 msgid "Invalid data format"
+msgstr ""
+
+#: biz/cmd/review.py:54
+msgid "输入无效，请输入 {} 类型的值。"
+msgstr ""
+
+#: biz/cmd/review.py:64
+msgid "请选择开发语言:"
+msgstr ""
+
+#: biz/cmd/review.py:70
+msgid "请输入数字 (1-{}): "
+msgstr ""
+
+#: biz/cmd/review.py:74
+msgid "❌ 无效的选择，请输入 1 到 {} 之间的数字"
+msgstr ""
+
+#: biz/cmd/review.py:78
+msgid "请输入代码项目的根目录路径: "
+msgstr ""
+
+#: biz/cmd/review.py:81
+msgid "❌ 目录不存在，请输入有效路径"
+msgstr ""
+
+#: biz/cmd/review.py:83
+msgid "请输入目录树的最大深度"
+msgstr ""
+
+#: biz/cmd/review.py:84
+msgid "是否仅获取目录？(y/n)"
+msgstr ""
+
+#: biz/cmd/review.py:107 biz/utils/code_reviewer.py:67
+msgid "代码为空, diffs_text = {}"
+msgstr ""
+
+#: biz/cmd/review.py:108 biz/utils/code_reviewer.py:68
+msgid "代码为空"
+msgstr ""
+
+#: biz/cmd/review.py:129
+msgid "请输入 'y' 或 'n' 确认。"
+msgstr ""
+
+#: biz/cmd/review.py:138
+msgid "目录结构:\n"
+msgstr ""
+
+#: biz/cmd/review.py:141
+msgid "是否确认发送 Review 请求？(y/n): "
+msgstr ""
+
+#: biz/cmd/review.py:147
+msgid "Review 结果:\n"
+msgstr ""
+
+#: biz/cmd/review.py:149
+msgid "用户取消操作，退出程序。"
 msgstr ""
 
 #: biz/event/event_manager.py:20
@@ -295,35 +355,32 @@ msgstr ""
 msgid "AI Code Review 服务出现未知错误: {}"
 msgstr ""
 
-#: biz/utils/code_reviewer.py:27
-msgid "未找到提示词配置{}"
+#: biz/utils/code_reviewer.py:33
+#, python-brace-format
+msgid "提示词配置 `{prompt_key}` 为空或格式不正确"
 msgstr ""
 
-#: biz/utils/code_reviewer.py:29
-msgid "未找到提示词配置{}，或配置格式不正确"
+#: biz/utils/code_reviewer.py:40
+#, python-brace-format
+msgid "加载提示词配置失败: {e}"
 msgstr ""
 
-#: biz/utils/code_reviewer.py:49
-msgid "代码为空, diffs_text = {}"
+#: biz/utils/code_reviewer.py:41
+#, python-brace-format
+msgid "提示词配置加载失败: {e}"
 msgstr ""
 
-#: biz/utils/code_reviewer.py:50
-msgid "代码为空"
+#: biz/utils/code_reviewer.py:45
+#, python-brace-format
+msgid "向 AI 发送代码 Review 请求, messages: {messages}"
 msgstr ""
 
-#: biz/utils/code_reviewer.py:54
-msgid "文本超长，截段后content: {}"
+#: biz/utils/code_reviewer.py:47
+#, python-brace-format
+msgid "收到 AI 返回结果: {review_result}"
 msgstr ""
 
-#: biz/utils/code_reviewer.py:76
-msgid "向AI发送代码Review请求, message: {}"
-msgstr ""
-
-#: biz/utils/code_reviewer.py:80
-msgid "收到AI返回结果: {}"
-msgstr ""
-
-#: biz/utils/code_reviewer.py:88
+#: biz/utils/code_reviewer.py:99
 msgid "总分[:：]\\s*\\**(\\d+)分?"
 msgstr ""
 
@@ -385,7 +442,7 @@ msgstr ""
 msgid "飞书消息发送失败!"
 msgstr ""
 
-#: biz/utils/im/im_notifier.py:9
+#: biz/utils/im/notifier.py:9
 msgid "通知"
 msgstr ""
 

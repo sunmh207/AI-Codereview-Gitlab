@@ -158,7 +158,19 @@ streamlit run ui.py --server.port=5002 --server.address=0.0.0.0
   FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/xxx #替换为你的Webhook URL
   ```
 
-## 常见问题
+## 其它
+
+**1.如何review代码结构?**
+
+可通过命令工具对代码结构进行检查，命令如下：
+
+```aiignore
+python -m biz.cmd.review
+```
+
+然后按照提示进行操作即可。
+
+**2.其它问题**
 
 参见 [常见问题](doc/faq.md)
 

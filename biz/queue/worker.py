@@ -8,7 +8,7 @@ from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity
 from biz.event.event_manager import event_manager
 from biz.gitlab.webhook_handler import filter_changes, MergeRequestHandler, PushHandler
 from biz.utils.code_reviewer import CodeReviewer
-from biz.utils.im import im_notifier
+from biz.utils.im import notifier
 from biz.utils.log import logger
 
 load_dotenv()
@@ -58,7 +58,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
 
     except Exception as e:
         error_message = _('服务出现未知错误: {}').format(f'{str(e)}\n{traceback.format_exc()}')
-        im_notifier.send_notification(content=error_message)
+        notifier.send_notification(content=error_message)
         logger.error(_('出现未知错误: {}').format(error_message))
 
 
@@ -121,5 +121,5 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
 
     except Exception as e:
         error_message = _('AI Code Review 服务出现未知错误: {}').format(f'{str(e)}\n{traceback.format_exc()}')
-        im_notifier.send_notification(content=error_message)
+        notifier.send_notification(content=error_message)
         logger.error(_('出现未知错误: {}').format(error_message))
