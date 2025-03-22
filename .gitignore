@@ -12,3 +12,64 @@ conf/.env
 .pyc
 __pycache__/
 .cursorignore
+node_modules
+
+# Vue.js 相关
+ui/dist/
+ui/.env.local
+ui/.env.*.local
+ui/npm-debug.log*
+ui/yarn-debug.log*
+ui/yarn-error.log*
+ui/.cache/
+ui/.temp/
+ui/.vscode/
+ui/.idea/
+
+# 系统文件
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Python 相关
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 环境相关
+.env
+.env.*
+!.env.example
+
+# 测试覆盖率
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# 静态文件目录
+static/*
+!static/.gitkeep

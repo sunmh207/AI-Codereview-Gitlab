@@ -9,7 +9,7 @@ from multiprocessing import Process
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 
 from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity
 from biz.event.event_manager import event_manager
@@ -37,12 +37,19 @@ PUSH_REVIEW_ENABLED = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
 
 @api_app.route('/')
 def home():
-    return """<h2>The code review api server is running.</h2>
-              <p>GitHub project address: <a href="https://github.com/sunmh207/AI-Codereview-Gitlab" target="_blank">
-              https://github.com/sunmh207/AI-Codereview-Gitlab</a></p>
-              <p>Gitee project address: <a href="https://gitee.com/sunminghui/ai-codereview-gitlab" target="_blank">https://gitee.com/sunminghui/ai-codereview-gitlab</a></p>
-              """
+    return send_from_directory('static', 'index.html')
 
+@api_app.route('/js/<path:filename>')
+def serve_js(filename):
+    return send_from_directory('static/js', filename)
+
+@api_app.route('/css/<path:filename>')
+def serve_css(filename):
+    return send_from_directory('static/css', filename)
+
+@api_app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('static', filename)
 
 @api_app.route('/review/daily_report', methods=['GET'])
 def daily_report():
@@ -345,71 +352,103 @@ def ui_home():
         return redirect(url_for('login'))
     return render_template('index.html')
 
-@api_app.route('/ui/data/mr')
-def get_mr_data():
-    # 获取参数
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
+@api_app.route('/api/push-logs')
+def get_push_data():
+    # 获取参数，设置默认值为当前日期
+    start_date = request.args.get('start_date', datetime.now().strftime('%Y-%m-%d'))
+    end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
     authors = request.args.getlist('authors[]')
     projects = request.args.getlist('projects[]')
     
-    # 转换时间戳
-    start_ts = pd.to_datetime(start_date).timestamp()
-    end_ts = pd.to_datetime(end_date).timestamp() + 86399  # 包含当天23:59:59
+    try:
+        # 转换时间戳
+        start_ts = pd.to_datetime(start_date).timestamp()
+        end_ts = pd.to_datetime(end_date).timestamp() + 86399  # 包含当天23:59:59
 
-    # 查询 MR 数据
-    mr_df = ReviewService().get_mr_review_logs(
-        authors=authors,
-        project_names=projects,
-        updated_at_gte=start_ts,
-        updated_at_lte=end_ts
-    )
+        # 查询 Push 数据
+        push_df = ReviewService().get_push_review_logs(
+            authors=authors if authors else None,
+            project_names=projects if projects else None,
+            updated_at_gte=start_ts,
+            updated_at_lte=end_ts
+        )
 
-    # 查询 Push 数据
-    push_df = ReviewService().get_push_review_logs(
-        authors=authors,
-        updated_at_gte=start_ts,
-        updated_at_lte=end_ts
-    )
+        # 添加类型标记
+        push_df['type'] = 'Push'
+        push_df['target_branch'] = None
+        push_df['source_branch'] = None
+        push_df['url'] = None
 
-    # 字段对齐与合并
-    mr_df['type'] = 'MR'
-    push_df['type'] = 'Push'
+        # 确保所有必需的字段都存在
+        required_columns = ['project_name', 'author', 'branch', 'updated_at', 'commit_messages', 'score']
+        for col in required_columns:
+            if col not in push_df.columns:
+                push_df[col] = None
+
+        return push_df.to_json(orient='records')
+    except Exception as e:
+        logger.error(f"Error in get_push_data: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@api_app.route('/api/mr-logs')
+def get_mr_data():
+    # 获取参数，设置默认值为当前日期
+    start_date = request.args.get('start_date', datetime.now().strftime('%Y-%m-%d'))
+    end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
+    authors = request.args.getlist('authors[]')
+    projects = request.args.getlist('projects[]')
     
-    # 统一字段名（处理分支字段差异）
-    mr_df.rename(columns={
-        'source_branch': 'branch',
-        'target_branch': 'target_branch'  # 保留目标分支信息
-    }, inplace=True)
-    
-    push_df['target_branch'] = None  # Push 事件无目标分支
+    try:
+        # 转换时间戳
+        start_ts = pd.to_datetime(start_date).timestamp()
+        end_ts = pd.to_datetime(end_date).timestamp() + 86399  # 包含当天23:59:59
 
-    # 合并数据
-    combined_df = pd.concat([mr_df, push_df], ignore_index=True)
-    combined_df.sort_values(by='updated_at', ascending=False, inplace=True)
+        # 查询 MR 数据
+        mr_df = ReviewService().get_mr_review_logs(
+            authors=authors if authors else None,
+            project_names=projects if projects else None,
+            updated_at_gte=start_ts,
+            updated_at_lte=end_ts
+        )
 
-    # 修改字段对齐逻辑（不要重命名 source_branch）
-    mr_df.rename(columns={
-        'source_branch': 'source_branch',  # 不要改为 'branch'
-        'target_branch': 'target_branch'
-    }, inplace=True)
+        # 添加类型标记
+        mr_df['type'] = 'MR'
+        mr_df['branch'] = None  # 为 MR 添加 branch 字段，保持与 Push 数据结构一致
 
-    # Push 数据保持原有字段
-    push_df['target_branch'] = None
+        # 确保所有必需的字段都存在
+        required_columns = ['project_name', 'author', 'source_branch', 'target_branch', 'updated_at', 'commit_messages', 'score', 'url']
+        for col in required_columns:
+            if col not in mr_df.columns:
+                mr_df[col] = None
 
-    return combined_df.to_json(orient='records')
+        return mr_df.to_json(orient='records')
+    except Exception as e:
+        logger.error(f"Error in get_mr_data: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@api_app.route('/api/config')
+def get_config():
+    return jsonify({
+        'push_review_enabled': PUSH_REVIEW_ENABLED
+    })
 
 # 登录路由
 @api_app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        if authenticate(username, password):
-            session['authenticated'] = True  # 需要 secret_key 支持
-            return redirect(url_for('ui_home'))
+        if request.is_json:
+            data = request.get_json()
+            username = data.get('username')
+            password = data.get('password')
         else:
-            return "Invalid credentials", 401
+            username = request.form.get('username')
+            password = request.form.get('password')
+            
+        if authenticate(username, password):
+            session['authenticated'] = True
+            return jsonify({'message': '登录成功'})
+        else:
+            return jsonify({'message': '用户名或密码错误'}), 401
     return render_template('login.html')
 
 # 登出路由
