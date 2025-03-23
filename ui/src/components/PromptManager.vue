@@ -22,6 +22,13 @@
         >
           删除Agent
         </el-button>
+        <el-button 
+          type="success" 
+          @click="showDefaultTemplateDialog" 
+          style="margin-right: 10px;"
+        >
+          默认模板
+        </el-button>
         <el-button icon="el-icon-back" @click="handleBack">返回</el-button>
       </div>
     </div>
@@ -158,6 +165,59 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 默认模板对话框 -->
+    <el-dialog
+      title="默认模板管理"
+      v-model="defaultTemplateDialogVisible"
+      width="60%"
+      @close="resetDefaultTemplateForm"
+    >
+      <el-form :model="defaultTemplate" :rules="defaultTemplateRules" ref="defaultTemplateForm" label-width="100px">
+        <el-form-item label="系统提示词" prop="system_prompt">
+          <el-input
+            v-model="defaultTemplate.system_prompt"
+            type="textarea"
+            :rows="6"
+            placeholder="请输入系统提示词"
+          ></el-input>
+        </el-form-item>
+        <el-form-item label="用户提示词" prop="user_prompt">
+          <el-input
+            v-model="defaultTemplate.user_prompt"
+            type="textarea"
+            :rows="6"
+            placeholder="请输入用户提示词"
+          ></el-input>
+        </el-form-item>
+        <el-form-item label="支持的文件类型" prop="supported_extensions">
+          <el-select
+            v-model="defaultTemplate.supported_extensions"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            placeholder="请选择支持的文件类型"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in commonExtensions"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="defaultTemplateDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="saveDefaultTemplate" :loading="submitting">
+            保存
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -199,7 +259,46 @@ export default {
         description: [
           { required: true, message: '请输入Agent描述', trigger: 'blur' }
         ]
-      }
+      },
+      defaultTemplateDialogVisible: false,
+      defaultTemplate: {
+        system_prompt: '',
+        user_prompt: '',
+        supported_extensions: []
+      },
+      defaultTemplateRules: {
+        system_prompt: [
+          { required: true, message: '请输入系统提示词', trigger: 'blur' }
+        ],
+        user_prompt: [
+          { required: true, message: '请输入用户提示词', trigger: 'blur' }
+        ],
+        supported_extensions: [
+          { required: true, message: '请选择支持的文件类型', trigger: 'change' }
+        ]
+      },
+      commonExtensions: [
+        '.java',
+        '.py',
+        '.js',
+        '.ts',
+        '.vue',
+        '.html',
+        '.css',
+        '.php',
+        '.go',
+        '.rb',
+        '.cs',
+        '.cpp',
+        '.c',
+        '.h',
+        '.hpp',
+        '.swift',
+        '.kt',
+        '.scala',
+        '.rs',
+        '.dart'
+      ]
     };
   },
   created() {
@@ -537,6 +636,86 @@ export default {
             message: '删除失败: ' + error.message
           });
         });
+    },
+    
+    // 显示默认模板对话框
+    showDefaultTemplateDialog() {
+      this.fetchDefaultTemplate();
+      this.defaultTemplateDialogVisible = true;
+    },
+    
+    // 重置默认模板表单
+    resetDefaultTemplateForm() {
+      if (this.$refs.defaultTemplateForm) {
+        this.$refs.defaultTemplateForm.resetFields();
+      }
+      this.defaultTemplate = {
+        system_prompt: '',
+        user_prompt: '',
+        supported_extensions: []
+      };
+    },
+    
+    // 获取默认模板
+    fetchDefaultTemplate() {
+      fetch('/api/prompt-templates/default')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          this.defaultTemplate = {
+            system_prompt: data.system_prompt || '',
+            user_prompt: data.user_prompt || '',
+            supported_extensions: data.supported_extensions || []
+          };
+        })
+        .catch(error => {
+          console.error('Error fetching default template:', error);
+          this.$message({
+            type: 'error',
+            message: '获取默认模板失败: ' + error.message
+          });
+        });
+    },
+    
+    // 保存默认模板
+    saveDefaultTemplate() {
+      this.$refs.defaultTemplateForm.validate(valid => {
+        if (!valid) return;
+        
+        this.submitting = true;
+        
+        fetch('/api/prompt-templates/default', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(this.defaultTemplate),
+        })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            this.defaultTemplateDialogVisible = false;
+            this.$message({
+              type: 'success',
+              message: '默认模板保存成功!'
+            });
+          })
+          .catch(error => {
+            console.error('Error saving default template:', error);
+            this.$message({
+              type: 'error',
+              message: '保存失败: ' + error.message
+            });
+          })
+          .finally(() => {
+            this.submitting = false;
+          });
+      });
     }
   }
 };
@@ -595,5 +774,9 @@ h1 {
 .el-table {
   max-height: calc(100vh - 200px);
   overflow-y: auto;
+}
+
+.el-select {
+  width: 100%;
 }
 </style>

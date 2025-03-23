@@ -1083,6 +1083,57 @@ def delete_agent(agent):
         logger.error(f"Error deleting agent: {str(e)}")
         return jsonify({'error': '删除Agent失败'}), 500
 
+@api_app.route('/api/prompt-templates/default', methods=['GET'])
+def get_default_template():
+    """获取默认提示词模板"""
+    try:
+        prompt_file = os.path.join('conf', 'prompt_templates.yml')
+        if not os.path.exists(prompt_file):
+            return jsonify({
+                'system_prompt': '',
+                'user_prompt': '',
+                'supported_extensions': []
+            })
+            
+        with open(prompt_file, 'r', encoding='utf-8') as file:
+            templates = yaml.safe_load(file) or {}
+            
+        return jsonify({
+            'system_prompt': templates.get('system_prompt', ''),
+            'user_prompt': templates.get('user_prompt', ''),
+            'supported_extensions': templates.get('supported_extensions', [])
+        })
+    except Exception as e:
+        logger.error(f"Error reading default prompt template: {str(e)}")
+        return jsonify({'error': 'Failed to read default prompt template'}), 500
+
+@api_app.route('/api/prompt-templates/default', methods=['PUT'])
+def update_default_template():
+    """更新默认提示词模板"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        prompt_file = os.path.join('conf', 'prompt_templates.yml')
+        os.makedirs(os.path.dirname(prompt_file), exist_ok=True)
+            
+        # 构建新的模板内容
+        template_content = {
+            'system_prompt': data.get('system_prompt', ''),
+            'user_prompt': data.get('user_prompt', ''),
+            'supported_extensions': data.get('supported_extensions', [])
+        }
+            
+        # 保存更新后的模板
+        with open(prompt_file, 'w', encoding='utf-8') as file:
+            yaml.dump(template_content, file, allow_unicode=True, default_flow_style=False)
+            
+        return jsonify({'message': 'Successfully updated default prompt template'})
+    except Exception as e:
+        logger.error(f"Error updating default prompt template: {str(e)}")
+        return jsonify({'error': 'Failed to update default prompt template'}), 500
+
 if __name__ == '__main__':
     # 启动定时任务调度器
     setup_scheduler()
