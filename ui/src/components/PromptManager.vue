@@ -3,6 +3,25 @@
     <div class="header">
       <h1>Prompt Templates</h1>
       <div class="header-right">
+        <el-select v-model="currentAgent" placeholder="选择Agent" style="margin-right: 20px;">
+          <el-option
+            v-for="agent in agents"
+            :key="agent"
+            :label="agent"
+            :value="agent"
+          />
+        </el-select>
+        <el-button type="primary" @click="showCreateAgentDialog" style="margin-right: 10px;">
+          新增Agent
+        </el-button>
+        <el-button 
+          type="danger" 
+          @click="confirmDeleteAgent" 
+          :disabled="currentAgent === 'default'"
+          style="margin-right: 10px;"
+        >
+          删除Agent
+        </el-button>
         <el-button icon="el-icon-back" @click="handleBack">返回</el-button>
       </div>
     </div>
@@ -109,6 +128,36 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 创建Agent对话框 -->
+    <el-dialog
+      title="创建新Agent"
+      v-model="agentDialogVisible"
+      width="40%"
+      @close="resetAgentForm"
+    >
+      <el-form :model="newAgent" :rules="agentRules" ref="agentForm" label-width="80px">
+        <el-form-item label="名称" prop="name">
+          <el-input v-model="newAgent.name" placeholder="请输入Agent名称"></el-input>
+        </el-form-item>
+        <el-form-item label="描述" prop="description">
+          <el-input
+            v-model="newAgent.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入Agent描述"
+          ></el-input>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="agentDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="createAgent" :loading="submitting">
+            创建
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -121,9 +170,16 @@ export default {
       submitting: false,
       error: '',
       dialogVisible: false,
+      agentDialogVisible: false,
+      currentAgent: 'default',
+      agents: ['default'],
       newPrompt: {
         name: '',
         content: ''
+      },
+      newAgent: {
+        name: '',
+        description: ''
       },
       rules: {
         name: [
@@ -133,16 +189,55 @@ export default {
         content: [
           { required: true, message: '请输入模板内容', trigger: 'blur' }
         ]
+      },
+      agentRules: {
+        name: [
+          { required: true, message: '请输入Agent名称', trigger: 'blur' },
+          { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' },
+          { pattern: /^[a-zA-Z0-9_-]+$/, message: '只能包含字母、数字、下划线和连字符', trigger: 'blur' }
+        ],
+        description: [
+          { required: true, message: '请输入Agent描述', trigger: 'blur' }
+        ]
       }
     };
   },
   created() {
+    this.fetchAgents();
     this.fetchPrompts();
+  },
+  watch: {
+    currentAgent: {
+      handler(newVal) {
+        this.fetchPrompts();
+      }
+    }
   },
   methods: {
     // 处理返回操作
     handleBack() {
-        this.$router.push('/');
+      this.$router.push('/');
+    },
+    
+    // 获取所有可用的agents
+    fetchAgents() {
+      fetch('/api/agents')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          this.agents = data;
+          if (this.agents.length > 0) {
+            this.currentAgent = this.agents[0];
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching agents:', error);
+          this.error = '获取Agent列表失败: ' + error.message;
+        });
     },
     
     // 获取所有提示模板
@@ -150,7 +245,7 @@ export default {
       this.loading = true;
       this.error = '';
       
-      fetch('/api/prompt-templates')
+      fetch(`/api/prompt-templates/${this.currentAgent}`)
         .then(response => {
           if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
@@ -204,7 +299,7 @@ export default {
         const templateData = {};
         templateData[this.newPrompt.name] = this.newPrompt.content;
         
-        fetch('/api/prompt-templates', {
+        fetch(`/api/prompt-templates/${this.currentAgent}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -257,7 +352,7 @@ export default {
       const templateData = {};
       templateData[prompt.name] = prompt.content;
       
-      fetch('/api/prompt-templates', {
+      fetch(`/api/prompt-templates/${this.currentAgent}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -309,7 +404,7 @@ export default {
     
     // 删除提示模板
     deletePrompt(id, showMessage = true) {
-      return fetch(`/api/prompt-templates/${id}`, {
+      return fetch(`/api/prompt-templates/${this.currentAgent}/${id}`, {
         method: 'DELETE',
       })
         .then(response => {
@@ -332,6 +427,115 @@ export default {
             message: '删除失败: ' + error.message
           });
           return Promise.reject(error);
+        });
+    },
+    
+    // 显示创建Agent对话框
+    showCreateAgentDialog() {
+      this.agentDialogVisible = true;
+    },
+    
+    // 重置Agent表单
+    resetAgentForm() {
+      if (this.$refs.agentForm) {
+        this.$refs.agentForm.resetFields();
+      }
+      this.newAgent = {
+        name: '',
+        description: ''
+      };
+    },
+    
+    // 创建新Agent
+    createAgent() {
+      this.$refs.agentForm.validate(valid => {
+        if (!valid) return;
+        
+        this.submitting = true;
+        
+        fetch('/api/agents', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(this.newAgent),
+        })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+          })
+          .then(() => {
+            this.agents.push(this.newAgent.name);
+            this.currentAgent = this.newAgent.name;
+            this.agentDialogVisible = false;
+            this.$message({
+              type: 'success',
+              message: 'Agent创建成功!'
+            });
+          })
+          .catch(error => {
+            console.error('Error creating agent:', error);
+            this.$message({
+              type: 'error',
+              message: '创建失败: ' + error.message
+            });
+          })
+          .finally(() => {
+            this.submitting = false;
+          });
+      });
+    },
+    
+    // 确认删除Agent
+    confirmDeleteAgent() {
+      if (this.currentAgent === 'default') {
+        this.$message({
+          type: 'warning',
+          message: '默认Agent不能删除'
+        });
+        return;
+      }
+      
+      this.$confirm(`确定要删除Agent "${this.currentAgent}" 吗? 这将删除该Agent下的所有模板。`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.deleteAgent();
+      }).catch(() => {
+        this.$message({
+          type: 'info',
+          message: '已取消删除'
+        });
+      });
+    },
+    
+    // 删除Agent
+    deleteAgent() {
+      fetch(`/api/agents/${this.currentAgent}`, {
+        method: 'DELETE',
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          // 从列表中移除当前Agent
+          this.agents = this.agents.filter(agent => agent !== this.currentAgent);
+          // 切换到default Agent
+          this.currentAgent = 'default';
+          this.$message({
+            type: 'success',
+            message: 'Agent删除成功!'
+          });
+        })
+        .catch(error => {
+          console.error('Error deleting agent:', error);
+          this.$message({
+            type: 'error',
+            message: '删除失败: ' + error.message
+          });
         });
     }
   }

@@ -125,33 +125,69 @@ import yaml
 
 prompts = []
 
-@api_app.route('/api/prompt-templates', methods=['GET'])
-def get_prompt_templates():
+def get_agent_prompt_file(agent):
+    """获取指定agent的提示词模板文件路径"""
+    return os.path.join('conf', 'agents', agent, 'prompt_templates.yml')
+
+@api_app.route('/api/agents', methods=['GET'])
+def get_agents():
+    """获取所有可用的agents列表"""
     try:
-        with open('conf/prompt_templates.yml', 'r', encoding='utf-8') as file:
-            templates = yaml.safe_load(file)
+        agents_dir = os.path.join('conf', 'agents')
+        if not os.path.exists(agents_dir):
+            return jsonify(['default'])
+            
+        agents = []
+        for item in os.listdir(agents_dir):
+            if os.path.isdir(os.path.join(agents_dir, item)):
+                agents.append(item)
+                
+        if not agents:
+            return jsonify(['default'])
+            
+        return jsonify(agents)
+    except Exception as e:
+        logger.error(f"Error getting agents list: {str(e)}")
+        return jsonify({'error': 'Failed to get agents list'}), 500
+
+@api_app.route('/api/prompt-templates/<agent>', methods=['GET'])
+def get_prompt_templates(agent):
+    """获取指定agent的提示词模板"""
+    try:
+        prompt_file = get_agent_prompt_file(agent)
+        if not os.path.exists(prompt_file):
+            return jsonify({})
+            
+        with open(prompt_file, 'r', encoding='utf-8') as file:
+            templates = yaml.safe_load(file) or {}
         return jsonify(templates)
     except Exception as e:
-        logger.error(f"Error reading prompt templates: {str(e)}")
+        logger.error(f"Error reading prompt templates for agent {agent}: {str(e)}")
         return jsonify({'error': 'Failed to read prompt templates'}), 500
 
-@api_app.route('/api/prompt-templates', methods=['PUT'])
-def update_prompt_templates():
+@api_app.route('/api/prompt-templates/<agent>', methods=['PUT'])
+def update_prompt_templates(agent):
+    """更新指定agent的提示词模板"""
     try:
         data = request.get_json()
         if not data:
             return jsonify({'error': 'No data provided'}), 400
             
+        prompt_file = get_agent_prompt_file(agent)
+        os.makedirs(os.path.dirname(prompt_file), exist_ok=True)
+            
         # 读取现有的模板
-        with open('conf/prompt_templates.yml', 'r', encoding='utf-8') as file:
-            existing_templates = yaml.safe_load(file) or {}
+        existing_templates = {}
+        if os.path.exists(prompt_file):
+            with open(prompt_file, 'r', encoding='utf-8') as file:
+                existing_templates = yaml.safe_load(file) or {}
             
         # 更新特定的模板
         for key, value in data.items():
             existing_templates[key] = value
             
         # 保存更新后的所有模板，使用自定义格式化
-        with open('conf/prompt_templates.yml', 'w', encoding='utf-8') as file:
+        with open(prompt_file, 'w', encoding='utf-8') as file:
             for key, value in existing_templates.items():
                 # 使用 |- 来保持原始格式
                 file.write(f"{key}: |-\n")
@@ -162,8 +198,74 @@ def update_prompt_templates():
             
         return jsonify({'message': 'Successfully updated prompt templates'})
     except Exception as e:
-        logger.error(f"Error updating prompt templates: {str(e)}")
+        logger.error(f"Error updating prompt templates for agent {agent}: {str(e)}")
         return jsonify({'error': 'Failed to update prompt templates'}), 500
+
+@api_app.route('/api/prompt-templates/<agent>', methods=['POST'])
+def create_prompt_template(agent):
+    """创建新的提示词模板"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        prompt_file = get_agent_prompt_file(agent)
+        os.makedirs(os.path.dirname(prompt_file), exist_ok=True)
+            
+        # 读取现有的模板
+        existing_templates = {}
+        if os.path.exists(prompt_file):
+            with open(prompt_file, 'r', encoding='utf-8') as file:
+                existing_templates = yaml.safe_load(file) or {}
+            
+        # 添加新的模板
+        for key, value in data.items():
+            existing_templates[key] = value
+            
+        # 保存更新后的所有模板
+        with open(prompt_file, 'w', encoding='utf-8') as file:
+            for key, value in existing_templates.items():
+                file.write(f"{key}: |-\n")
+                for line in value.split('\n'):
+                    file.write(f"  {line}\n")
+                file.write('\n')
+            
+        return jsonify({'message': 'Successfully created prompt template'})
+    except Exception as e:
+        logger.error(f"Error creating prompt template for agent {agent}: {str(e)}")
+        return jsonify({'error': 'Failed to create prompt template'}), 500
+
+@api_app.route('/api/prompt-templates/<agent>/<template_id>', methods=['DELETE'])
+def delete_prompt_template(agent, template_id):
+    """删除指定的提示词模板"""
+    try:
+        prompt_file = get_agent_prompt_file(agent)
+        if not os.path.exists(prompt_file):
+            return jsonify({'error': 'Template file not found'}), 404
+            
+        # 读取现有的模板
+        with open(prompt_file, 'r', encoding='utf-8') as file:
+            templates = yaml.safe_load(file) or {}
+            
+        # 删除指定的模板
+        if template_id in templates:
+            del templates[template_id]
+            
+            # 保存更新后的模板
+            with open(prompt_file, 'w', encoding='utf-8') as file:
+                for key, value in templates.items():
+                    file.write(f"{key}: |-\n")
+                    for line in value.split('\n'):
+                        file.write(f"  {line}\n")
+                    file.write('\n')
+                    
+            return jsonify({'message': 'Successfully deleted prompt template'})
+        else:
+            return jsonify({'error': 'Template not found'}), 404
+            
+    except Exception as e:
+        logger.error(f"Error deleting prompt template for agent {agent}: {str(e)}")
+        return jsonify({'error': 'Failed to delete prompt template'}), 500
 
 @api_app.route('/api/prompts', methods=['GET'])
 def get_prompts():
@@ -436,7 +538,7 @@ def review_code(changes_text: str, commits_text: str = '') -> str:
             
         try:
             # 直接读取 YAML 文件
-            prompt_file = os.path.join('conf', 'agents', agent, 'prompt_templates.yml')
+            prompt_file = get_agent_prompt_file(agent)
             if not os.path.exists(prompt_file):
                 logger.error(f"Prompt templates file not found for agent {agent}: {prompt_file}")
                 continue
@@ -698,11 +800,6 @@ def save_config():
                 # 保留注释和空行
                 new_content.append(line)
         
-        # 添加新配置项
-        for key, value in config.items():
-            if key not in [k.split('=', 1)[0].strip() for k in new_content if k.strip() and not k.startswith('#')]:
-                new_content.append(f"{key}={value}\n")
-        
         # 写入新的配置文件，保持原有换行符
         with open(env_path, 'w', encoding='utf-8', newline='') as f:
             f.writelines(new_content)
@@ -915,6 +1012,70 @@ def chat():
     except Exception as e:
         logger.error(f"Chat API error: {str(e)}")
         return jsonify({'message': '处理请求时发生错误'}), 500
+
+@api_app.route('/api/agents', methods=['POST'])
+def create_agent():
+    """创建新的Agent"""
+    try:
+        data = request.get_json()
+        if not data or 'name' not in data:
+            return jsonify({'error': 'Invalid data'}), 400
+            
+        agent_name = data['name']
+        description = data.get('description', '')
+        
+        # 验证agent名称格式
+        if not re.match(r'^[a-zA-Z0-9_-]+$', agent_name):
+            return jsonify({'error': 'Agent名称只能包含字母、数字、下划线和连字符'}), 400
+            
+        # 检查agent是否已存在
+        agent_dir = os.path.join('conf', 'agents', agent_name)
+        if os.path.exists(agent_dir):
+            return jsonify({'error': 'Agent已存在'}), 400
+            
+        # 创建agent目录
+        os.makedirs(agent_dir, exist_ok=True)
+        
+        # 创建配置文件
+        config_file = os.path.join(agent_dir, 'config.yml')
+        config = {
+            'name': agent_name,
+            'description': description,
+            'created_at': datetime.now().isoformat()
+        }
+        with open(config_file, 'w', encoding='utf-8') as f:
+            yaml.dump(config, f, allow_unicode=True)
+            
+        # 创建空的提示词模板文件
+        prompt_file = get_agent_prompt_file(agent_name)
+        with open(prompt_file, 'w', encoding='utf-8') as f:
+            f.write('# Agent提示词模板\n')
+            
+        return jsonify({'message': 'Agent创建成功'})
+    except Exception as e:
+        logger.error(f"Error creating agent: {str(e)}")
+        return jsonify({'error': '创建Agent失败'}), 500
+
+@api_app.route('/api/agents/<agent>', methods=['DELETE'])
+def delete_agent(agent):
+    """删除指定的Agent"""
+    try:
+        # 不允许删除default agent
+        if agent == 'default':
+            return jsonify({'error': '不能删除默认Agent'}), 400
+            
+        agent_dir = os.path.join('conf', 'agents', agent)
+        if not os.path.exists(agent_dir):
+            return jsonify({'error': 'Agent不存在'}), 404
+            
+        # 删除agent目录及其所有内容
+        import shutil
+        shutil.rmtree(agent_dir)
+        
+        return jsonify({'message': 'Agent删除成功'})
+    except Exception as e:
+        logger.error(f"Error deleting agent: {str(e)}")
+        return jsonify({'error': '删除Agent失败'}), 500
 
 if __name__ == '__main__':
     # 启动定时任务调度器
