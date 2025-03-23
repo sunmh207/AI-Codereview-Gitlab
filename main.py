@@ -546,34 +546,45 @@ def save_config():
             
         # 读取当前.env文件内容
         env_path = find_dotenv("conf/.env")
-        current_config = {}
         lines = []
+        config_dict = {}
         
-        # 读取现有配置并保存所有行
-        with open(env_path, 'r', encoding='utf-8') as f:
+        # 读取并解析现有配置
+        with open(env_path, 'r', encoding='utf-8', newline='') as f:
             for line in f:
-                line = line.strip()
-                if line and not line.startswith('#'):
-                    key, value = line.split('=', 1)
-                    current_config[key.strip()] = value.strip()
+                # 保留原始行，包括注释和空行，保持原有换行符
                 lines.append(line)
+                # 如果是配置项，解析键值对
+                if line.strip() and not line.startswith('#'):
+                    key, value = line.split('=', 1)
+                    config_dict[key.strip()] = value.strip()
         
-        # 更新配置，如果某个key在新的config中不存在，则从current_config中删除
-        for key in list(current_config.keys()):
-            if key not in config:
-                del current_config[key]
-        current_config.update(config)
+        # 更新配置
+        config_dict.update(config)
         
-        # 写入新的配置，保留注释和空行
-        with open(env_path, 'w', encoding='utf-8') as f:
-            # 首先写入所有注释和空行
-            for line in lines:
-                if line.startswith('#') or not line:
-                    f.write(f"{line}\n")
-            
-            # 然后写入所有配置项
-            for key, value in current_config.items():
-                f.write(f"{key}={value}\n")
+        # 构建新的配置文件内容
+        new_content = []
+        for line in lines:
+            if line.strip() and not line.startswith('#'):
+                # 如果是配置项，替换为新值
+                key = line.split('=', 1)[0].strip()
+                if key in config_dict:
+                    new_content.append(f"{key}={config_dict[key]}\n")
+                else:
+                    # 删除不存在的配置项
+                    continue
+            else:
+                # 保留注释和空行
+                new_content.append(line)
+        
+        # 添加新配置项
+        for key, value in config.items():
+            if key not in [k.split('=', 1)[0].strip() for k in new_content if k.strip() and not k.startswith('#')]:
+                new_content.append(f"{key}={value}\n")
+        
+        # 写入新的配置文件，保持原有换行符
+        with open(env_path, 'w', encoding='utf-8', newline='') as f:
+            f.writelines(new_content)
                 
         logger.info("Successfully saved config")
         
@@ -586,6 +597,84 @@ def save_config():
     except Exception as e:
         logger.error(f"Failed to save config: {str(e)}")
         return jsonify({'message': '保存配置失败'}), 500
+
+@api_app.route('/api/delete-config', methods=['POST'])
+def delete_config():
+    """
+    删除配置项的API端点
+    """
+    if not session.get('authenticated'):
+        return jsonify({'message': '未授权访问'}), 401
+        
+    try:
+        data = request.get_json()
+        if not data or 'key' not in data:
+            return jsonify({'message': '无效的配置数据'}), 400
+            
+        key_to_delete = data['key']
+            
+        # 读取当前.env文件内容
+        env_path = find_dotenv("conf/.env")
+        lines = []
+        config_dict = {}
+        config_order = []  # 用于保存配置项的顺序
+        
+        # 读取并解析现有配置
+        with open(env_path, 'r', encoding='utf-8', newline='') as f:
+            for line in f:
+                # 保留原始行，包括注释和空行，保持原有换行符
+                lines.append(line)
+                # 如果是配置项，解析键值对
+                if line.strip() and not line.startswith('#'):
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip()
+                    config_dict[key] = value
+                    config_order.append(key)  # 保存配置项的顺序
+        
+        # 删除指定的配置项
+        if key_to_delete in config_dict:
+            del config_dict[key_to_delete]
+            # 从order数组中移除该key
+            if key_to_delete in config_order:
+                config_order.remove(key_to_delete)
+        else:
+            return jsonify({'message': '配置项不存在'}), 404
+        
+        # 构建新的配置文件内容
+        new_content = []
+        for line in lines:
+            if line.strip() and not line.startswith('#'):
+                # 如果是配置项，替换为新值
+                key = line.split('=', 1)[0].strip()
+                if key in config_dict:
+                    new_content.append(f"{key}={config_dict[key]}\n")
+                else:
+                    # 删除不存在的配置项
+                    continue
+            else:
+                # 保留注释和空行
+                new_content.append(line)
+        
+        # 写入新的配置文件，保持原有换行符
+        with open(env_path, 'w', encoding='utf-8', newline='') as f:
+            f.writelines(new_content)
+                
+        logger.info(f"Successfully deleted config key: {key_to_delete}")
+        
+        # 重新加载配置
+        if reload_env():
+            return jsonify({
+                'message': '配置删除并重新加载成功',
+                'config': config_dict,
+                'order': config_order
+            })
+        else:
+            return jsonify({'message': '配置删除成功但重新加载失败'}), 500
+            
+    except Exception as e:
+        logger.error(f"Failed to delete config: {str(e)}")
+        return jsonify({'message': '删除配置失败'}), 500
 
 # 登录路由
 @api_app.route('/login', methods=['GET', 'POST'])

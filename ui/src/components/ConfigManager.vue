@@ -87,8 +87,37 @@ export default {
       })
     },
     async handleDelete(index) {
-      this.configList.splice(index, 1)
-      await this.handleSave()
+      try {
+        const keyToDelete = this.configList[index].key
+        if (!keyToDelete) {
+          ElMessage.warning('无法删除空的配置项')
+          return
+        }
+
+        // 调用删除API
+        const response = await axios.post('/api/delete-config', { key: keyToDelete })
+        
+        // 使用返回的数据更新前端状态
+        const { config, order } = response.data
+        this.configList = order.map(key => ({
+          key: key || '',
+          value: config[key] || ''
+        }))
+        
+        ElMessage({
+          message: '配置项删除成功！',
+          type: 'success',
+          duration: 3000,
+          showClose: true
+        })
+      } catch (error) {
+        console.error('Error deleting config item:', error)
+        if (error.response && error.response.status === 404) {
+          ElMessage.error('配置项不存在')
+        } else {
+          ElMessage.error('删除配置项失败')
+        }
+      }
     },
     async handleSave() {
       try {
