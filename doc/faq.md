@@ -86,7 +86,53 @@ OLLAMA_API_BASE_URL=http://127.0.0.1:11434  # 错误
 OLLAMA_API_BASE_URL=http://{宿主机/外网IP地址}:11434  # 正确
 ```
 
-#### 6. 翻译
+#### 6.如何使用Redis Queue队列？
+
+**操作步骤**
+
+1.开发调试模式下，启动容器：
+
+```
+docker compose -f docker-compose.rq.yml up -d
+```
+
+2.生产模式下，启动容器：
+```
+docker compose -f docker-compose.prod.yml up -d
+```
+
+**特别说明：**
+
+在 .env 文件中配置 WORKER_QUEUE，其值为 GitLab 域名，并将域名中的点（.）替换为下划线（_）。如果域名为 gitlab.test.cn，则配置为：
+
+```
+WORKER_QUEUE=gitlab_test_cn
+```
+
+#### 7. 如何配置企业微信和飞书消息推送？
+
+**1.配置企业微信推送**
+
+- 在企业微信群中添加一个自定义机器人，获取 Webhook URL。
+
+- 更新 .env 中的配置：
+  ```
+  #企业微信配置
+  WECOM_ENABLED=1  #0不发送企业微信消息，1发送企业微信消息
+  WECOM_WEBHOOK_URL=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx  #替换为你的Webhook URL
+  ```
+
+**2.配置飞书推送**
+
+- 在飞书群中添加一个自定义机器人，获取 Webhook URL。
+- 更新 .env 中的配置：
+  ```
+  #飞书配置
+  FEISHU_ENABLED=1
+  FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/xxx #替换为你的Webhook URL
+  ```
+
+#### 8. 翻译
 
 更改翻译后无法正确应用，我该怎么办？
 该应用程序使用 python 原生 gettext 实现来加载各种语言的翻译。如果您更改了翻译文件，但是应用程序没有正确应用新的翻译，您可以尝试以下步骤：

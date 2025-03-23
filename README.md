@@ -23,7 +23,9 @@
 
 ## 原理
 
-当用户在 GitLab 上提交代码（如 Merge Request 或 Push 操作）时，GitLab 将自动触发 webhook 事件，调用本系统的接口。系统随后通过第三方大模型对代码进行审查，并将审查结果直接反馈到对应的 Merge Request 或 Commit 的 Note 中，便于团队查看和处理。
+当用户在 GitLab 上提交代码（如 Merge Request 或 Push 操作）时，GitLab 将自动触发 webhook
+事件，调用本系统的接口。系统随后通过第三方大模型对代码进行审查，并将审查结果直接反馈到对应的 Merge Request 或 Commit 的
+Note 中，便于团队查看和处理。
 
 ![流程图](./doc/img/process.png)
 
@@ -137,26 +139,7 @@ streamlit run ui.py --server.port=5002 --server.address=0.0.0.0
   DINGTALK_WEBHOOK_URL=https://oapi.dingtalk.com/robot/send?access_token=xxx #替换为你的Webhook URL
   ```
 
-#### 2.配置企业微信推送
-
-- 在企业微信群中添加一个自定义机器人，获取 Webhook URL。
-
-- 更新 .env 中的配置：
-  ```
-  #企业微信配置
-  WECOM_ENABLED=1  #0不发送企业微信消息，1发送企业微信消息
-  WECOM_WEBHOOK_URL=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx  #替换为你的Webhook URL
-  ```
-
-#### 3.配置飞书推送
-
-- 在飞书群中添加一个自定义机器人，获取 Webhook URL。
-- 更新 .env 中的配置：
-  ```
-  #飞书配置
-  FEISHU_ENABLED=1
-  FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/xxx #替换为你的Webhook URL
-  ```
+企业微信和飞书推送配置类似，具体参见 [常见问题](doc/faq.md)
 
 ## 其它
 
@@ -164,7 +147,7 @@ streamlit run ui.py --server.port=5002 --server.address=0.0.0.0
 
 可通过命令工具对代码结构进行检查，命令如下：
 
-```aiignore
+```bash
 python -m biz.cmd.review
 ```
 

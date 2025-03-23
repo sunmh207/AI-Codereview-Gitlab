@@ -22,5 +22,28 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    image: ghcr.io/mashb1t/ai-codereview-gitlab:1-worker
+    volumes_from:
+      - app
+    env_file:
+      - ./conf/.env
+    depends_on:
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
 volumes:
   redis_data:

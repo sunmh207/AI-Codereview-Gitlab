@@ -1,12 +1,13 @@
+import abc
 import os
 import re
-import yaml
-import abc
 from typing import Dict, Any, List
 
-from biz.utils.log import logger
+import yaml
+
 from biz.llm.factory import Factory
 from biz.utils.i18n import get_translator
+from biz.utils.log import logger
 from biz.utils.token_util import count_tokens, truncate_text_by_tokens
 
 _ = get_translator()
@@ -24,7 +25,8 @@ class BaseReviewer(abc.ABC):
         lang = os.environ.get('LANGUAGE', 'zh_CN')
         prompt_templates_file = os.path.join("locales", lang, "prompt_templates.yml")
         try:
-            with open(prompt_templates_file, "r") as file:
+            # 在打开 YAML 文件时显式指定编码为 UTF-8，避免使用系统默认的 GBK 编码。
+            with open(prompt_templates_file, "r", encoding="utf-8") as file:
                 prompts = yaml.safe_load(file).get(prompt_key, {})
                 system_prompt = prompts.get("system_prompt")
                 user_prompt = prompts.get("user_prompt")
@@ -60,6 +62,13 @@ class CodeReviewer(BaseReviewer):
         super().__init__("code_review_prompt")
 
     def review_and_strip_code(self, changes_text: str, commits_text: str = '') -> str:
+        """
+        Review判断changes_text超出取前REVIEW_MAX_TOKENS个token，超出则截断changes_text，
+        调用review_code方法，返回review_result，如果review_result是markdown格式，则去掉头尾的```
+        :param changes_text:
+        :param commits_text:
+        :return:
+        """
         # 如果超长，取前REVIEW_MAX_TOKENS个token
         review_max_tokens = int(os.getenv('REVIEW_MAX_TOKENS', 10000))
         # 如果changes为空,打印日志
@@ -72,7 +81,8 @@ class CodeReviewer(BaseReviewer):
         if tokens_count > review_max_tokens:
             changes_text = truncate_text_by_tokens(changes_text, review_max_tokens)
 
-        review_result = CodeReviewer().review_code(changes_text, commits_text).strip()
+        review_result = self.review_code(changes_text, commits_text).strip()
+
         if review_result.startswith("```markdown") and review_result.endswith("```"):
             return review_result[11:-3].strip()
         return review_result
@@ -84,8 +94,7 @@ class CodeReviewer(BaseReviewer):
             {
                 "role": "user",
                 "content": self.prompts["user_message"]["content"].format(
-                    diffs_text=diffs_text,
-                    commits_text=commits_text
+                    diffs_text=diffs_text, commits_text=commits_text
                 ),
             },
         ]
