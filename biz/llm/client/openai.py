@@ -1,18 +1,17 @@
 import os
 from typing import Dict, List, Optional
 
-from dotenv import load_dotenv
 from openai import OpenAI
 
-from core.llm.client.base import BaseClient
-from core.llm.types import NotGiven, NOT_GIVEN
+from biz.llm.client.base import BaseClient
+from biz.llm.types import NotGiven, NOT_GIVEN
 from biz.utils.i18n import get_translator
+
 _ = get_translator()
+
 
 class OpenAIClient(BaseClient):
     def __init__(self, api_key: str = None):
-        if not os.getenv("OPENAI_API_KEY"):
-            load_dotenv()
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.base_url = os.getenv("OPENAI_API_BASE_URL", "https://api.openai.com")
         if not self.api_key:

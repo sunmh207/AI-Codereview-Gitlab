@@ -13,21 +13,24 @@ COPY requirements.txt .
 # 安装依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
+RUN mkdir -p log data
 COPY biz ./biz
-COPY core ./core
 COPY locales ./locales
 COPY api.py ./api.py
 COPY ui.py ./ui.py
-RUN mkdir -p log data
-
-# 暴露 Flask 和 Streamlit 的端口
-EXPOSE 5001 5002
 
 # 使用 supervisord 作为启动命令
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 
 FROM base AS dev
-COPY supervisord.dev.conf /etc/supervisor/conf.d/supervisord.conf
+COPY ./conf/supervisord.dev.conf /etc/supervisor/conf.d/supervisord.conf
+# 暴露 Flask 和 Streamlit 的端口
+EXPOSE 5001 5002
 
 FROM base AS prod
-COPY supervisord.prod.conf /etc/supervisor/conf.d/supervisord.conf
+COPY ./conf/supervisord.prod.conf /etc/supervisor/conf.d/supervisord.conf
+# 暴露 Flask 和 Streamlit 的端口
+EXPOSE 5001 5002
+
+FROM base AS worker
+COPY ./conf/supervisord.worker.conf /etc/supervisor/conf.d/supervisord.conf

@@ -17,13 +17,15 @@
 
 ![MR图片](./doc/img/mr.png)
 
-![Note图片](./doc/img/note.jpeg)
+![Note图片](./doc/img/note.jpg)
 
-![Dashboard图片](./doc/img/dashboard.png)
+![Dashboard图片](./doc/img/dashboard.jpg)
 
 ## 原理
 
-当用户在 GitLab 上提交代码（如 Merge Request 或 Push 操作）时，GitLab 将自动触发 webhook 事件，调用本系统的接口。系统随后通过第三方大模型对代码进行审查，并将审查结果直接反馈到对应的 Merge Request 或 Commit 的 Note 中，便于团队查看和处理。
+当用户在 GitLab 上提交代码（如 Merge Request 或 Push 操作）时，GitLab 将自动触发 webhook
+事件，调用本系统的接口。系统随后通过第三方大模型对代码进行审查，并将审查结果直接反馈到对应的 Merge Request 或 Commit 的
+Note 中，便于团队查看和处理。
 
 ![流程图](./doc/img/process.png)
 
@@ -61,8 +63,8 @@ GITLAB_ACCESS_TOKEN={YOUR_GITLAB_ACCESS_TOKEN}
 **2. 启动docker容器**
 
 ```bash
-git clone https://github.com/sunmh207/AI-Codereview-Gitlab.git
-cd AI-Codereview-Gitlab
+git clone https://github.com/sunmh207/ai-codereview-gitlab.git
+cd ai-codereview-gitlab
 docker-compose up -d
 ```
 
@@ -77,8 +79,8 @@ docker-compose up -d
 **1. 获取源码**
 
 ```bash
-git clone https://github.com/sunmh207/AI-Codereview-Gitlab.git
-cd AI-Codereview-Gitlab
+git clone https://github.com/sunmh207/ai-codereview-gitlab.git
+cd ai-codereview-gitlab
 ```
 
 **2. 安装依赖**
@@ -137,28 +139,21 @@ streamlit run ui.py --server.port=5002 --server.address=0.0.0.0
   DINGTALK_WEBHOOK_URL=https://oapi.dingtalk.com/robot/send?access_token=xxx #替换为你的Webhook URL
   ```
 
-#### 2.配置企业微信推送
+企业微信和飞书推送配置类似，具体参见 [常见问题](doc/faq.md)
 
-- 在企业微信群中添加一个自定义机器人，获取 Webhook URL。
+## 其它
 
-- 更新 .env 中的配置：
-  ```
-  #企业微信配置
-  WECOM_ENABLED=1  #0不发送企业微信消息，1发送企业微信消息
-  WECOM_WEBHOOK_URL=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx  #替换为你的Webhook URL
-  ```
+**1.如何review代码结构?**
 
-#### 3.配置飞书推送
+可通过命令工具对代码结构进行检查，命令如下：
 
-- 在飞书群中添加一个自定义机器人，获取 Webhook URL。
-- 更新 .env 中的配置：
-  ```
-  #飞书配置
-  FEISHU_ENABLED=1
-  FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/xxx #替换为你的Webhook URL
-  ```
+```bash
+python -m biz.cmd.review
+```
 
-## 常见问题
+然后按照提示进行操作即可。
+
+**2.其它问题**
 
 参见 [常见问题](doc/faq.md)
 

@@ -1,12 +1,57 @@
-import json
+import os
+import re
 import time
 from urllib.parse import urljoin
 
 import requests
+from dotenv import load_dotenv
 
 from biz.utils.log import logger
 from biz.utils.i18n import get_translator
 _ = get_translator()
+
+
+load_dotenv()
+# 从环境变量中获取支持的文件扩展名
+SUPPORTED_EXTENSIONS = os.getenv('SUPPORTED_EXTENSIONS', '.java,.py,.php').split(',')
+
+
+def filter_changes(changes: list):
+    '''
+    过滤数据，只保留支持的文件类型以及必要的字段信息
+    '''
+    filter_deleted_files_changes = [change for change in changes if change.get("deleted_file") == False]
+
+    # 过滤 `new_path` 以支持的扩展名结尾的元素, 仅保留diff和new_path字段
+    filtered_changes = [
+        {
+            'diff': item.get('diff', ''),
+            'new_path': item['new_path']
+        }
+        for item in filter_deleted_files_changes
+        if any(item.get('new_path', '').endswith(ext) for ext in SUPPORTED_EXTENSIONS)
+    ]
+    return filtered_changes
+
+
+def slugify_url(original_url: str) -> str:
+    """
+    将原始URL转换为适合作为文件名的字符串，其中非字母或数字的字符会被替换为下划线，举例：
+    slugify_url("http://example.com/path/to/repo/") => example_com_path_to_repo
+    slugify_url("https://gitlab.com/user/repo.git") => gitlab_com_user_repo_git
+    """
+    # Remove URL scheme (http, https, etc.) if present
+    original_url = re.sub(r'^https?://', '', original_url)
+
+    # Replace non-alphanumeric characters (except underscore) with underscores
+    target = re.sub(r'[^a-zA-Z0-9]', '_', original_url)
+
+    # Remove trailing underscore if present
+    target = target.rstrip('_')
+
+    return target
+
+
 
 class MergeRequestHandler:
     def __init__(self, webhook_data: dict, gitlab_token: str, gitlab_url: str):

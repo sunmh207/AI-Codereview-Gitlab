@@ -16,8 +16,8 @@ def send_notification(content, msg_type='text', title=_("通知"), is_at_all=Fal
     :param gitlab_url_slug: 由gitlab服务器的url地址(如:http://www.gitlab.com)转换成的slug格式，如: www_gitlab_com
     """
     # 钉钉推送
-    notifier = DingTalkNotifier()
-    notifier.send_message(content=content, msg_type=msg_type, title=title, is_at_all=is_at_all,
+    dingtalk_notifier = DingTalkNotifier()
+    dingtalk_notifier.send_message(content=content, msg_type=msg_type, title=title, is_at_all=is_at_all,
                           project_name=project_name, gitlab_url_slug=gitlab_url_slug)
 
     # 企业微信推送

@@ -4,20 +4,23 @@ services:
       context: .
       dockerfile: Dockerfile
       target: dev
-    image: sunmh207/ai-codereview-gitlab:1.2.3
+    image: ghcr.io/sunmh207/ai-codereview-gitlab:1
     ports:
       - "5001:5001"
       - "5002:5002"
     volumes:
       - ./biz:/app/biz
-      - ./core:/app/core
       - ./data:/app/data
+      - ./locales:/app/locales
       - ./log:/app/log
       - ./api.py:/app/api.py
-      - ./prompt_templates.yml:/app/prompt_templates.yml
-      - ./requirements.txt:/app/requirements.txt
-      - ./supervisord.dev.conf:/etc/supervisor/conf.d/supervisord.conf
       - ./ui.py:/app/ui.py
     env_file:
-      - .env
+      - ./conf/.env
+    depends_on:
+      redis:
+        condition: service_started
     restart: unless-stopped
+
+volumes:
+  redis_data:

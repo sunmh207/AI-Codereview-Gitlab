@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import List, Dict, Optional
 
-from core.llm.types import NotGiven, NOT_GIVEN, CompletionMessage
+from biz.llm.types import NotGiven, NOT_GIVEN
 
 
 class BaseClient:

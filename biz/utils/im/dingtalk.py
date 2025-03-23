@@ -3,8 +3,9 @@ import os
 
 import requests
 
-from biz.utils.log import logger
 from biz.utils.i18n import get_translator
+from biz.utils.log import logger
+
 _ = get_translator()
 
 

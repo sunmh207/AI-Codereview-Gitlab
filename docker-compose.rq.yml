@@ -3,14 +3,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: prod
+      target: dev
     image: ghcr.io/sunmh207/ai-codereview-gitlab:1
     ports:
       - "5001:5001"
       - "5002:5002"
     volumes:
-      - data:/app/data
-      - log:/app/log
+      - ./biz:/app/biz
+      - ./data:/app/data
+      - ./locales:/app/locales
+      - ./log:/app/log
+      - ./api.py:/app/api.py
+      - ./ui.py:/app/ui.py
     env_file:
       - ./conf/.env
     depends_on:
@@ -28,39 +32,18 @@ services:
       - app
     env_file:
       - ./conf/.env
-#    environment:
-#      - WORKER_QUEUE=git_test1_com
-#      - OLLAMA_API_BASE_URL=https://ollama.test1.com:11434
     depends_on:
       redis:
         condition: service_started
     restart: unless-stopped
 
-#  worker2:
-#    build:
-#      context: .
-#      dockerfile: Dockerfile
-#      target: worker
-#    image: ghcr.io/sunmh207/ai-codereview-gitlab:1-worker
-#    volumes_from:
-#      - app
-#    env_file:
-#      - ./conf/.env
-#    environment:
-#      - WORKER_QUEUE=git_test2_com
-#      - OLLAMA_API_BASE_URL=https://ollama.test2.com:11434
-#    depends_on:
-#      redis:
-#        condition: service_started
-#    restart: unless-stopped
-
   redis:
     image: redis:alpine
+    ports:
+      - "6379:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped
 
 volumes:
-  data:
-  log:
   redis_data:

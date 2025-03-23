@@ -45,6 +45,17 @@ jobs:
             type=semver,pattern={{major}}
             type=edge,branch=main
 
+      - name: Extract metadata (tags, labels) for Docker (worker)
+        id: meta_worker
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+          tags: |
+            type=semver,pattern={{version}},suffix=-worker
+            type=semver,pattern={{major}}.{{minor}},suffix=-worker
+            type=semver,pattern={{major}},suffix=-worker
+            type=edge,branch=main,suffix=-worker
+
       # Build and push multi-arch prod image
       - name: Build and push prod Docker image (Multi-Arch)
         uses: docker/build-push-action@v6
@@ -56,3 +67,15 @@ jobs:
           tags: ${{ steps.meta_prod.outputs.tags }}
           labels: ${{ steps.meta_prod.outputs.labels }}
           target: prod
+
+      # Build and push multi-arch worker image
+      - name: Build and push worker Docker image (Multi-Arch)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64/v8
+          tags: ${{ steps.meta_worker.outputs.tags }}
+          labels: ${{ steps.meta_worker.outputs.labels }}
+          target: worker

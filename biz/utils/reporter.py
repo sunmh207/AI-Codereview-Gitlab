@@ -1,4 +1,4 @@
-from core.llm.factory import Factory
+from biz.llm.factory import Factory
 from biz.utils.i18n import get_translator
 _ = get_translator()
 
