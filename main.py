@@ -42,6 +42,12 @@ PUSH_REVIEW_ENABLED = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
 def home():
     return send_from_directory('static', 'index.html')
 
+@api_app.route('/<path:path>')
+def catch_all(path):
+    if path.startswith('api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+    return send_from_directory('static', 'index.html')
+
 @api_app.route('/js/<path:filename>')
 def serve_js(filename):
     return send_from_directory('static/js', filename)
