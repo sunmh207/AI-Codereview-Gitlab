@@ -417,10 +417,131 @@ def review_code(changes_text: str, commits_text: str = '') -> str:
     if len(changes_text) > review_max_length:
         changes_text = changes_text[:review_max_length]
         logger.info(f'文本超长，截段后content: {changes_text}')
-    review_result = CodeReviewer().review_code(changes_text, commits_text).strip()
-    if review_result.startswith("```markdown") and review_result.endswith("```"):
-        return review_result[11:-3].strip()
-    return review_result
+
+    # 获取启用的评审者列表
+    enabled_agents = os.getenv('ENABLED_AGENTS', '').split(',')
+    if not enabled_agents or enabled_agents[0] == '':
+        enabled_agents = ['code_reviewer']  # 默认使用 code_reviewer
+
+    logger.info(f"Enabled agents: {enabled_agents}")
+    logger.info(f"Changes text type: {type(changes_text)}")
+    logger.info(f"Changes text content: {changes_text}")
+
+    # 按顺序进行代码评审
+    all_reviews = []
+    for agent in enabled_agents:
+        agent = agent.strip()
+        if not agent:
+            continue
+            
+        try:
+            # 直接读取 YAML 文件
+            prompt_file = os.path.join('conf', 'agents', agent, 'prompt_templates.yml')
+            if not os.path.exists(prompt_file):
+                logger.error(f"Prompt templates file not found for agent {agent}: {prompt_file}")
+                continue
+                
+            with open(prompt_file, 'r', encoding='utf-8') as f:
+                prompt_templates = yaml.safe_load(f)
+                system_prompt = prompt_templates.get('system_prompt')
+                user_prompt = prompt_templates.get('user_prompt')
+                supported_extensions = prompt_templates.get('supported_extensions', [])
+                
+                if not system_prompt or not user_prompt:
+                    logger.error(f"Invalid prompt templates for agent {agent}")
+                    continue
+                    
+                # 检查是否有支持的文件类型
+                if supported_extensions:
+                    # 从 changes_text 中获取文件路径
+                    file_paths = []
+                    
+                    try:
+                        # 尝试解析 changes_text
+                        logger.info(f"Attempting to parse changes_text for agent {agent}")
+                        if isinstance(changes_text, str):
+                            # 如果是字符串，尝试先解析为 Python 对象
+                            try:
+                                # 使用 ast.literal_eval 安全地解析 Python 字面量
+                                import ast
+                                changes = ast.literal_eval(changes_text)
+                            except (SyntaxError, ValueError):
+                                # 如果失败，尝试作为 JSON 解析
+                                changes = json.loads(changes_text)
+                        else:
+                            logger.info("Changes text is not string, using as is")
+                            changes = changes_text
+                            
+                        logger.info(f"Parsed changes type: {type(changes)}")
+                        logger.info(f"Parsed changes content: {changes}")
+                            
+                        # 从 changes 中获取文件路径
+                        for change in changes:
+                            if isinstance(change, dict):
+                                logger.info(f"Processing change: {change}")
+                                if 'new_path' in change:
+                                    file_paths.append(change['new_path'])
+                                    logger.info(f"Added new_path: {change['new_path']}")
+                                if 'old_path' in change:
+                                    file_paths.append(change['old_path'])
+                                    logger.info(f"Added old_path: {change['old_path']}")
+                    except Exception as e:
+                        logger.error(f"Error parsing changes data: {str(e)}")
+                        logger.error(f"Changes text that caused error: {changes_text}")
+                        # 如果解析失败，尝试从 changes_text 中获取文件路径
+                        if isinstance(changes_text, list):
+                            logger.info("Changes text is list, processing directly")
+                            for change in changes_text:
+                                if isinstance(change, dict):
+                                    if 'new_path' in change:
+                                        file_paths.append(change['new_path'])
+                                        logger.info(f"Added new_path from list: {change['new_path']}")
+                                    if 'old_path' in change:
+                                        file_paths.append(change['old_path'])
+                                        logger.info(f"Added old_path from list: {change['old_path']}")
+                    
+                    # 去重
+                    file_paths = list(set(file_paths))
+                    logger.info(f"Final file paths for agent {agent}: {file_paths}")
+                    
+                    # 检查是否有任何文件匹配支持的文件类型
+                    has_supported_files = False
+                    for file_path in file_paths:
+                        logger.info(f"Checking file path: {file_path}")
+                        for ext in supported_extensions:
+                            if file_path.lower().endswith(ext.lower()):
+                                has_supported_files = True
+                                logger.info(f"Found supported extension {ext} in file {file_path}")
+                                break
+                        if has_supported_files:
+                            break
+                    
+                    if not has_supported_files:
+                        logger.info(f"Agent {agent} skipped: No supported file types found. File paths: {file_paths}, Supported extensions: {supported_extensions}")
+                        continue
+                    
+                review_result = CodeReviewer().review_code(
+                    str(changes_text),  # 确保传入字符串
+                    commits_text,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt
+                ).strip()
+                
+                if review_result.startswith("```markdown") and review_result.endswith("```"):
+                    review_result = review_result[11:-3].strip()
+                    
+                all_reviews.append(f"## {agent.replace('_', ' ').title()} 评审结果\n\n{review_result}\n")
+                
+        except Exception as e:
+            logger.error(f"Error in {agent} review: {str(e)}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            continue
+
+    # 合并所有评审结果
+    if not all_reviews:
+        return "代码评审失败，请检查配置和日志"
+        
+    return "\n\n".join(all_reviews)
 
 
 @api_app.route('/api/push-logs')
