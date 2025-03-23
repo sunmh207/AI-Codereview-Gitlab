@@ -42,11 +42,20 @@ class OpenAIClient(BaseClient):
                     model: Optional[str] | NotGiven = NOT_GIVEN,
                     ) -> str:
         model = model or self.default_model
-        completion = self.client.chat.completions.create(
+        stream = os.getenv("OPENAI_API_STREAM", "false").lower() == "true"
+        response = self.client.chat.completions.create(
             model=model,
             messages=messages,
+            stream=stream
         )
-        return self._extract_content(completion.choices[0].message.content)
+        if stream:
+            content = ""
+            for chunk in response:
+                if chunk.choices[0].delta.content:
+                    content += chunk.choices[0].delta.content
+            return self._extract_content(content)
+        else:
+            return self._extract_content(response.choices[0].message.content)
 
     def stream_completions(self,
                            messages: List[Dict[str, str]],
