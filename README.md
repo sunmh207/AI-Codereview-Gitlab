@@ -76,6 +76,8 @@ GITLAB_ACCESS_TOKEN={YOUR_GITLAB_ACCESS_TOKEN}
 **2. 启动服务**
 
 ```bash
+git clone https://github.com/mashb1t/ai-codereview-gitlab.git
+cd ai-codereview-gitlab
 docker-compose up -d
 ```
 
