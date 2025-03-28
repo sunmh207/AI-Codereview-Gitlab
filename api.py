@@ -41,6 +41,10 @@ def daily_report():
     start_time = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
     end_time = datetime.now().replace(hour=23, minute=59, second=59, microsecond=0).timestamp()
 
+    # import translator once more due to separate cronjob process
+    from biz.utils.i18n import get_translator
+    _ = get_translator()
+
     try:
         if PUSH_REVIEW_ENABLED:
             df = ReviewService().get_push_review_logs(updated_at_gte=start_time, updated_at_lte=end_time)
