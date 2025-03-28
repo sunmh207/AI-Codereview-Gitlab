@@ -13,7 +13,7 @@ code_review_prompt:
     Please output the code review report in Markdown format, including the following:
     1. Issue Description & Optimization Suggestions (if any): List issues found in the code, briefly explain their impact, and provide optimization recommendations.
     2. Scoring Breakdown: Provide specific scores for each evaluation criterion.
-    3. Total score: Format as "Total score: XX points" (example: Total score: 80 points), and ensure it can be parsed by the regular expression r"总分[:：]\s*(\d+)分?".
+    3. Total score: Format as "Total score: XX points" (example: Total score: 80 points), and ensure it can be parsed by the regular expression r"Total score[:：]\s*(\d+) points".
   user_prompt: |-
     Below is the code submitted by an employee to the GitLab repository. Please conduct a strict review of any critical issues and evaluate the code quality with a brief assessment and scoring.
     Code changes:
