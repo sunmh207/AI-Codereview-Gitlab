@@ -1,6 +1,6 @@
-### 常见问题
+## 常见问题
 
-#### 1.Docker 容器部署时，更新 .env 文件后不生效
+### Docker 容器部署时，更新 .env 文件后不生效
 
 **可能原因**
 
@@ -22,7 +22,7 @@ docker-compose up -d
 
 或参考说明文档启动容器。
 
-#### 2. GitLab 配置 Webhooks 时提示 "Invalid url given"
+### GitLab 配置 Webhooks 时提示 "Invalid url given"
 
 **可能原因**
 
@@ -34,7 +34,7 @@ GitLab 默认禁止 Webhooks 访问本地网络地址。
 - 在 Outbound requests 部分，勾选 Allow requests to the local network from webhooks and integrations。
 - 保存。
 
-#### 3.如何让不同项目的消息发送到不同的群？
+### 如何让不同项目的消息发送到不同的群？
 
 **解决方案**
 
@@ -53,7 +53,7 @@ DINGTALK_WEBHOOK_URL=https://oapi.dingtalk.com/robot/send?access_token={access_t
 
 飞书和企业微信的配置方式类似。
 
-#### 4.如何让不同的Gitlab服务器的消息发送到不同的群？
+### 如何让不同的Gitlab服务器的消息发送到不同的群？
 
 在项目的 .env 文件中，配置不同Gitlab服务器的群机器人的 Webhook 地址。
 以 DingTalk 为例，配置如下：
@@ -70,7 +70,7 @@ DINGTALK_WEBHOOK_example_gitlab_com=https://oapi.dingtalk.com/robot/send?access_
 
 **优先级：** 优先根据仓库名称匹配webhook地址，其次根据Gitlab服务器地址匹配webhook地址，如果都没有匹配到，则最后使用默认服务器地址
 
-#### 5.docker 容器部署时，连接Ollama失败
+### docker 容器部署时，连接Ollama失败
 
 **可能原因**
 
@@ -86,7 +86,7 @@ OLLAMA_API_BASE_URL=http://127.0.0.1:11434  # 错误
 OLLAMA_API_BASE_URL=http://{宿主机/外网IP地址}:11434  # 正确
 ```
 
-#### 6.如何使用Redis Queue队列？
+### 如何使用Redis Queue队列？
 
 **操作步骤**
 
@@ -97,6 +97,7 @@ docker compose -f docker-compose.rq.yml up -d
 ```
 
 2.生产模式下，启动容器：
+
 ```
 docker compose -f docker-compose.prod.yml up -d
 ```
@@ -109,7 +110,8 @@ docker compose -f docker-compose.prod.yml up -d
 WORKER_QUEUE=gitlab_test_cn
 ```
 
-#### 7. 如何配置企业微信和飞书消息推送？
+<<<<<<< HEAD
+### 如何配置企业微信和飞书消息推送？
 
 **1.配置企业微信推送**
 
@@ -132,10 +134,40 @@ WORKER_QUEUE=gitlab_test_cn
   FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/xxx #替换为你的Webhook URL
   ```
 
-#### 8. 翻译
+### 是否支持对 GitHub 代码库的 Review？
+
+是的，支持。 需完成以下配置：
+
+**1.配置Github Webhook**
+
+- 进入你的 GitHub 仓库 → Settings → Webhooks → Add webhook。
+    - Payload URL: http://your-server-ip:5001/review/webhook（替换为你的服务器地址）
+    - Content type选择application/json
+    - 在 Which events would you like to trigger this webhook? 中选择 Just the push event（或按需勾选其他事件）
+    - 点击 Add webhook 完成配置。
+
+**2.生成 GitHub Personal Access Token**
+
+- 进入 GitHub 个人设置 → Developer settings → Personal access tokens → Generate new token。
+- 选择 Fine-grained tokens 或 tokens (classic) 都可以
+- 点击 Create new token
+- Repository access根据需要选择
+- Permissions需要选择Commit statuses、Contents、Discussions、Issues、Metadata和Pull requests
+- 点击 Generate token 完成配置。
+
+**3.配置.env文件**
+
+- 在.env文件中，配置GITHUB_ACCESS_TOKEN：
+  ```
+  GITHUB_ACCESS_TOKEN=your-access-token  #替换为你的Access Token
+  ```
+
+### 翻译
 
 更改翻译后无法正确应用，我该怎么办？
+
 该应用程序使用 python 原生 gettext 实现来加载各种语言的翻译。如果您更改了翻译文件，但是应用程序没有正确应用新的翻译，您可以尝试以下步骤：
+
 1. 更新翻译: `bash translations_update.sh`
 2. 通过向具有空 msgstr 的新行添加值来手动调整 `locales/<locale>/LC_Messages/messages.po` 中缺失的翻译
 3. 编译翻译：`bash translations_compile.sh`

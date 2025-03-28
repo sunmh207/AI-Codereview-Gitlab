@@ -6,14 +6,21 @@
 
 ## 功能
 
-- 多大模型支持：兼容 DeepSeek、ZhipuAI、OpenAI 和 Ollama。
-- 消息推送：审查结果可自动推送至钉钉、企业微信和飞书;
-- 自动化日报生成：基于 GitLab Commit 记录，自动整理开发日报；
-- 可视化 Dashboard：集中展示 Code Review 记录。
+- 🚀 多模型支持
+  - 兼容 DeepSeek、ZhipuAI、OpenAI 和 Ollama，想用哪个就用哪个。
+- 📢 消息即时推送
+  - 审查结果一键直达 钉钉、企业微信 或 飞书，代码问题无处可藏！
+- 📅 自动化日报生成
+  - 基于 GitLab & GitHub Commit 记录，自动整理每日开发进展，谁在摸鱼、谁在卷，一目了然 😼。
+- 📊 可视化 Dashboard
+  - 集中展示所有 Code Review 记录，项目统计、开发者统计，数据说话，甩锅无门！
+- 🎭 Review Style 任你选
+  - 专业型 🤵：严谨细致，正式专业。 
+  - 讽刺型 😈：毒舌吐槽，专治不服（"这代码是用脚写的吗？"） 
+  - 绅士型 🌸：温柔建议，如沐春风（"或许这里可以再优化一下呢~"） 
+  - 幽默型 🤪：搞笑点评，快乐改码（"这段 if-else 比我的相亲经历还曲折！"）
 
 **效果图:**
-
-![Push图片](./doc/img/push.jpeg)
 
 ![MR图片](./doc/img/mr.png)
 
@@ -33,24 +40,30 @@ Note 中，便于团队查看和处理。
 
 ### 方案一：Docker 部署
 
-**1. 创建.env文件**
+**1. 准备环境文件**
 
-复制本项目 .env.dist 文件内容到本地 .env 文件，并根据实际情况修改, 部分内容如下：
+- 克隆项目仓库：
+```aiignore
+git clone https://github.com/sunmh207/AI-Codereview-Gitlab.git
+cd AI-Codereview-Gitlab
+```
+
+- 创建配置文件：
+```aiignore
+cp conf/.env.dist conf/.env
+```
+
+- 编辑 conf/.env 文件，配置以下关键参数：
 
 ```bash
-#服务端口
-SERVER_PORT=5001
-
-#大模型供应商配置,支持 zhipuai , openai , deepseek or ollama
+#大模型供应商配置,支持 zhipuai , openai , deepseek 和 ollama
 LLM_PROVIDER=deepseek
 
 #DeepSeek
 DEEPSEEK_API_KEY={YOUR_DEEPSEEK_API_KEY}
 
 #支持review的文件类型(未配置的文件类型不会被审查)
-SUPPORTED_EXTENSIONS=.java,.py,.php,.yml
-#提交给大模型的最长字符数,超出的部分会截断,防止大模型处理内容过长或Token消耗过多
-REVIEW_MAX_LENGTH=20000
+SUPPORTED_EXTENSIONS=.java,.py,.php,.yml,.vue,.go,.c,.cpp,.h,.js,.css,.md,.sql
 
 #钉钉消息推送: 0不发送钉钉消息,1发送钉钉消息
 DINGTALK_ENABLED=0
@@ -60,19 +73,20 @@ DINGTALK_WEBHOOK_URL={YOUR_WDINGTALK_WEBHOOK_URL}
 GITLAB_ACCESS_TOKEN={YOUR_GITLAB_ACCESS_TOKEN}
 ```
 
-**2. 启动docker容器**
+**2. 启动服务**
 
 ```bash
-git clone https://github.com/sunmh207/ai-codereview-gitlab.git
-cd ai-codereview-gitlab
 docker-compose up -d
 ```
 
-**3. 验证服务**
+**3. 验证部署**
 
-访问 http://your-server-ip:5001 显示 "The code review server is running." 说明服务启动成功。
-
-访问 http://your-server-ip:5002 看到一个审查日志页面，说明 Dashboard 启动成功。
+- 主服务验证：
+  - 访问 http://your-server-ip:5001
+  - 显示 "The code review server is running." 说明服务启动成功。
+- Dashboard 验证：
+  - 访问 http://your-server-ip:5002
+  - 看到一个审查日志页面，说明 Dashboard 启动成功。
 
 ### 方案二：本地Python环境部署
 
@@ -93,7 +107,7 @@ pip install -r requirements.txt
 
 **3. 配置环境变量**
 
-同 Docker 部署方案中的 【创建.env文件】
+同 Docker 部署方案中的.env 文件配置。
 
 **4. 启动服务**
 
@@ -111,13 +125,13 @@ streamlit run ui.py --server.port=5002 --server.address=0.0.0.0
 
 ### 配置 GitLab Webhook
 
-#### 1. 创建Access Token**
+#### 1. 创建Access Token
 
 方法一：在 GitLab 个人设置中，创建一个 Personal Access Token。
 
 方法二：在 GitLab 项目设置中，创建Project Access Token
 
-#### 2. 配置 Webhook**
+#### 2. 配置 Webhook
 
 在 GitLab 项目设置中，配置 Webhook：
 
@@ -125,7 +139,14 @@ streamlit run ui.py --server.port=5002 --server.address=0.0.0.0
 - Trigger Events：勾选 Push Events 和 Merge Request Events (不要勾选其它Event)
 - Secret Token：上面配置的 Access Token(可选)
 
-备注：系统会优先使用.env中的GITLAB_ACCESS_TOKEN，如果未找到，则使用Webhook 传递的Secret Token
+**备注**
+
+1. Token使用优先级
+  - 系统优先使用 .env 文件中的 GITLAB_ACCESS_TOKEN。
+  - 如果 .env 文件中没有配置 GITLAB_ACCESS_TOKEN，则使用 Webhook 传递的Secret Token。
+2. 网络访问要求
+  - 请确保 GitLab 能够访问本系统。
+  - 若内网环境受限，建议将系统部署在外网服务器上。
 
 ### 配置消息推送
 
@@ -143,15 +164,15 @@ streamlit run ui.py --server.port=5002 --server.address=0.0.0.0
 
 ## 其它
 
-**1.如何review代码结构?**
+**1.如何对整个代码库进行Review?**
 
-可通过命令工具对代码结构进行检查，命令如下：
+可以通过命令行工具对整个代码库进行审查。当前功能仍在不断完善中，欢迎试用并反馈宝贵意见！具体操作如下：
 
 ```bash
 python -m biz.cmd.review
 ```
 
-然后按照提示进行操作即可。
+运行后，请按照命令行中的提示进行操作即可。
 
 **2.其它问题**
 
@@ -168,3 +189,6 @@ python -m biz.cmd.review
   <img src="doc/img/wechat_group.jpg" width="400" /> 
 </p>
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=sunmh207/AI-Codereview-Gitlab&type=Timeline)](https://www.star-history.com/#sunmh207/AI-Codereview-Gitlab&Timeline)

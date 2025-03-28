@@ -15,7 +15,7 @@ class WeComNotifier:
         self.default_webhook_url = webhook_url or os.environ.get('WECOM_WEBHOOK_URL', '')
         self.enabled = os.environ.get('WECOM_ENABLED', '0') == '1'
 
-    def _get_webhook_url(self, project_name=None, gitlab_url_slug=None):
+    def _get_webhook_url(self, project_name=None, url_slug=None):
         """
         获取项目对应的 Webhook URL
         :param project_name: 项目名称
@@ -31,7 +31,7 @@ class WeComNotifier:
 
         # 构造目标键
         target_key_project = f"WECOM_WEBHOOK_URL_{project_name.upper()}"
-        target_key_url_slug = f"WECOM_WEBHOOK_URL_{gitlab_url_slug.upper()}"
+        target_key_url_slug = f"WECOM_WEBHOOK_URL_{url_slug.upper()}"
 
         # 遍历环境变量
         for env_key, env_value in os.environ.items():
@@ -68,7 +68,7 @@ class WeComNotifier:
         return formatted_content
 
     def send_message(self, content, msg_type='text', title=None, is_at_all=False, project_name=None,
-                     gitlab_url_slug=None):
+                     url_slug=None):
         """
         发送企业微信消息
         :param content: 消息内容
@@ -76,14 +76,14 @@ class WeComNotifier:
         :param title: 消息标题 (markdown 类型时使用)
         :param is_at_all: 是否 @所有人
         :param project_name: 关联项目名称
-        :param gitlab_url_slug: GitLab URL Slug
+        :param url_slug: GitLab URL Slug
         """
         if not self.enabled:
             logger.info(_("企业微信推送未启用"))
             return
 
         try:
-            post_url = self._get_webhook_url(project_name=project_name, gitlab_url_slug=gitlab_url_slug)
+            post_url = self._get_webhook_url(project_name=project_name, url_slug=url_slug)
             data = self._build_markdown_message(content, title) if msg_type == 'markdown' else self._build_text_message(
                 content, is_at_all)
 
