@@ -42,7 +42,7 @@ services:
 #      context: .
 #      dockerfile: Dockerfile
 #      target: worker
-#    image: ghcr.io/mashb1t/ai-codereview-gitlab:1-worker
+#    image: ghcr.io/sunmh207/ai-codereview-gitlab:1-worker
 #    volumes_from:
 #      - app
 #    env_file:
