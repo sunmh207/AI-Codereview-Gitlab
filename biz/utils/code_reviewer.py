@@ -4,6 +4,7 @@ import re
 from typing import Dict, Any, List
 
 import yaml
+from jinja2 import Template
 
 from biz.llm.factory import Factory
 from biz.utils.i18n import get_translator
@@ -18,9 +19,9 @@ class BaseReviewer(abc.ABC):
 
     def __init__(self, prompt_key: str):
         self.client = Factory().getClient()
-        self.prompts = self._load_prompts(prompt_key)
+        self.prompts = self._load_prompts(prompt_key,os.getenv("REVIEW_STYLE", "professional"))
 
-    def _load_prompts(self, prompt_key: str) -> Dict[str, Any]:
+    def _load_prompts(self, prompt_key: str, style="professional") -> Dict[str, Any]:
         """加载提示词配置"""
         lang = os.environ.get('LANGUAGE', 'zh_CN')
         prompt_templates_file = os.path.join("locales", lang, "prompt_templates.yml")
@@ -28,11 +29,13 @@ class BaseReviewer(abc.ABC):
             # 在打开 YAML 文件时显式指定编码为 UTF-8，避免使用系统默认的 GBK 编码。
             with open(prompt_templates_file, "r", encoding="utf-8") as file:
                 prompts = yaml.safe_load(file).get(prompt_key, {})
-                system_prompt = prompts.get("system_prompt")
-                user_prompt = prompts.get("user_prompt")
 
-                if not system_prompt or not user_prompt:
-                    raise ValueError(_("提示词配置 `{prompt_key}` 为空或格式不正确").format(prompt_key=prompt_key))
+                # 使用Jinja2渲染模板
+                def render_template(template_str: str) -> str:
+                    return Template(template_str).render(style=style)
+
+                system_prompt = render_template(prompts["system_prompt"])
+                user_prompt = render_template(prompts["user_prompt"])
 
                 return {
                     "system_message": {"role": "system", "content": system_prompt},
@@ -108,23 +111,3 @@ class CodeReviewer(BaseReviewer):
         match = re.search(_("总分[:：]\\s*\\**(\\d+)分?"), review_text)
         return int(match.group(1)) if match else 0
 
-
-class CodeBaseReviewer(BaseReviewer):
-    """代码库级别的审查"""
-
-    def __init__(self):
-        super().__init__("codebase_review_prompt")
-
-    def review_code(self, language: str, directory_structure: str) -> str:
-        """Review 代码库并返回结果"""
-        messages = [
-            self.prompts["system_message"],
-            {
-                "role": "user",
-                "content": self.prompts["user_message"]["content"].format(
-                    language=language,
-                    directory_structure=directory_structure,
-                ),
-            },
-        ]
-        return self.call_llm(messages)

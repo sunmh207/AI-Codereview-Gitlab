@@ -3,24 +3,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: dev
+      target: app
     image: ghcr.io/mashb1t/ai-codereview-gitlab:1
     ports:
       - "5001:5001"
       - "5002:5002"
     volumes:
-      - ./biz:/app/biz
       - ./data:/app/data
       - ./locales:/app/locales
       - ./log:/app/log
-      - ./api.py:/app/api.py
-      - ./ui.py:/app/ui.py
     env_file:
       - ./conf/.env
-    depends_on:
-      redis:
-        condition: service_started
     restart: unless-stopped
-
-volumes:
-  redis_data:

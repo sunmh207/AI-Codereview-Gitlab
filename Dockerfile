@@ -22,13 +22,8 @@ COPY ui.py ./ui.py
 # 使用 supervisord 作为启动命令
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 
-FROM base AS dev
-COPY ./conf/supervisord.dev.conf /etc/supervisor/conf.d/supervisord.conf
-# 暴露 Flask 和 Streamlit 的端口
-EXPOSE 5001 5002
-
-FROM base AS prod
-COPY ./conf/supervisord.prod.conf /etc/supervisor/conf.d/supervisord.conf
+FROM base AS app
+COPY conf/supervisord.app.conf /etc/supervisor/conf.d/supervisord.conf
 # 暴露 Flask 和 Streamlit 的端口
 EXPOSE 5001 5002
 

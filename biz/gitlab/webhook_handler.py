@@ -4,14 +4,12 @@ import time
 from urllib.parse import urljoin
 
 import requests
-from dotenv import load_dotenv
 
 from biz.utils.log import logger
 from biz.utils.i18n import get_translator
 _ = get_translator()
 
 
-load_dotenv()
 # 从环境变量中获取支持的文件扩展名
 SUPPORTED_EXTENSIONS = os.getenv('SUPPORTED_EXTENSIONS', '.java,.py,.php').split(',')
 

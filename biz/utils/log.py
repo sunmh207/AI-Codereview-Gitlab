@@ -2,6 +2,19 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 
+# 自定义 Logger 类，重写 warn 和 error 方法
+class CustomLogger(logging.Logger):
+    def warn(self, msg, *args, **kwargs):
+        # 在 warn 消息前添加 ⚠️
+        msg_with_emoji = f"⚠️ {msg}"
+        super().warning(msg_with_emoji, *args, **kwargs)  # 注意：warn 是 warning 的别名
+
+    def error(self, msg, *args, **kwargs):
+        # 在 error 消息前添加 ❌
+        msg_with_emoji = f"❌ {msg}"
+        super().error(msg_with_emoji, *args, **kwargs)
+
+
 log_file = os.environ.get("LOG_FILE", "log/app.log")
 log_max_bytes = int(os.environ.get("LOG_MAX_BYTES", 10 * 1024 * 1024))  # 默认10MB
 log_backup_count = int(os.environ.get("LOG_BACKUP_COUNT", 5))  # 默认保留5个备份文件
@@ -25,6 +38,8 @@ console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(
 console_handler.setLevel(LOG_LEVEL)
 
 
-logger = logging.Logger(__name__)
+# 使用自定义的 Logger 类
+logger = CustomLogger(__name__)
+logger.setLevel(LOG_LEVEL)  # 设置 Logger 的日志级别
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)

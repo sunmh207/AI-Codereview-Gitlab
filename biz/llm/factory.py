@@ -6,6 +6,7 @@ from biz.llm.client.ollama_client import OllamaClient
 from biz.llm.client.openai import OpenAIClient
 from biz.llm.client.zhipuai import ZhipuAIClient
 from biz.utils.i18n import get_translator
+from biz.utils.log import logger
 
 _ = get_translator()
 
@@ -23,6 +24,7 @@ class Factory:
 
         provider_func = chat_model_providers.get(provider)
         if provider_func:
+            logger.info(_("Successfully loaded LLM provider: {provider}").format(provider=provider))
             return provider_func()
         else:
-            raise Exception(_('Unknown chat model provider: {provider}'))
+            raise Exception(_('Unknown chat model provider: {provider}'.format(provider=provider)))
