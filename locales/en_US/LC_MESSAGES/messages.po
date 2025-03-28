@@ -427,7 +427,7 @@ msgstr "Received AI return result: {review_result}"
 
 #: biz/utils/code_reviewer.py:99
 msgid "总分[:：]\\s*\\**(\\d+)分?"
-msgstr "Total [sS]core[:：]\\s*\\**(\\d+)? points"
+msgstr "Total [sS]core[:：]\\s*\\**(\\d+) points"
 
 #: biz/utils/im/dingtalk.py:30
 msgid "未提供项目名称，且未设置默认的钉钉 Webhook URL。"
