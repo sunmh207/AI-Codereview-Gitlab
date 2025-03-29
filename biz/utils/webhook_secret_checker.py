@@ -8,8 +8,6 @@ from biz.utils.log import logger
 def verify_github_signature(payload_body, secret_token, signature_header):
     """Verify that the payload was sent from GitHub by validating SHA256.
 
-    Raise and return 403 if not authorized.
-
     Args:
         payload_body: original request body to verify (request.body())
         secret_token: GitHub app webhook token (WEBHOOK_SECRET)
