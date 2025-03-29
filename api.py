@@ -138,7 +138,6 @@ def handle_github_webhook(event_type, data):
     github_webhook_secret_token_env = os.getenv('GITHUB_WEBHOOK_SECRET_TOKEN')
     github_webhook_secret_token_request = request.headers.get('X-Hub-Signature-256')
     if not verify_github_signature(payload_body, github_webhook_secret_token_env, github_webhook_secret_token_request):
-        logger.error(f"GitHub Webhook Secret Token mismatch")
         return jsonify({'message': 'GitHub Webhook Secret Token mismatch'}), 403
 
     github_url = os.getenv('GITHUB_URL') or 'https://github.com'
