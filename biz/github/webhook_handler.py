@@ -156,7 +156,7 @@ class PullRequestHandler:
             return []
 
     def add_pull_request_notes(self, review_result):
-        url = f"https://api.github.com/repos/{self.repo_full_name}/issues/{self.pull_request_number}/comments"
+        url = f"https://api.github.com/repos/{self.repo_full_name}/pulls/{self.pull_request_number}/comments"
         headers = {
             'Authorization': f'token {self.github_token}',
             'Accept': 'application/vnd.github.v3+json'
