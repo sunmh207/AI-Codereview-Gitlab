@@ -13,6 +13,7 @@ from flask import Flask, request, jsonify
 from biz.gitlab.webhook_handler import slugify_url
 from biz.queue.worker import handle_merge_request_event, handle_push_event, handle_github_pull_request_event, handle_github_push_event
 from biz.service.review_service import ReviewService
+from biz.utils.config_checker import check_config
 from biz.utils.im import notifier
 from biz.utils.log import logger
 from biz.utils.queue import handle_queue
@@ -22,6 +23,7 @@ load_dotenv("conf/.env")
 api_app = Flask(__name__)
 
 from biz.utils.i18n import get_translator
+
 _ = get_translator()
 
 PUSH_REVIEW_ENABLED = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
@@ -124,6 +126,7 @@ def handle_webhook():
     else:
         return jsonify({'message': _('Invalid data format')}), 400
 
+
 def handle_github_webhook(event_type, data):
     # 获取GitHub配置
     github_token = os.getenv('GITHUB_ACCESS_TOKEN') or request.headers.get('X-GitHub-Token')
@@ -156,6 +159,7 @@ def handle_github_webhook(event_type, data):
         logger.error(error_message)
         return jsonify(error_message), 400
 
+
 def handle_gitlab_webhook(data):
     object_kind = data.get("object_kind")
 
@@ -172,7 +176,7 @@ def handle_gitlab_webhook(data):
             parsed_url = urlparse(homepage)
             gitlab_url = f"{parsed_url.scheme}://{parsed_url.netloc}/"
         except Exception as e:
-            return jsonify({"error": f"Failed to parse homepage URL: {str(e)}"}), 400
+            return jsonify({"error": _("Failed to parse homepage URL: {}").format(str(e))}), 400
 
     # 优先从环境变量获取，如果没有，则从请求头获取
     gitlab_token = os.getenv('GITLAB_ACCESS_TOKEN') or request.headers.get('X-Gitlab-Token')
@@ -207,7 +211,9 @@ def handle_gitlab_webhook(data):
         logger.error(error_message)
         return jsonify(error_message), 400
 
+
 if __name__ == '__main__':
+    check_config()
     # 启动定时任务调度器
     setup_scheduler()
 
