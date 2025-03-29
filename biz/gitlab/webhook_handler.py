@@ -47,6 +47,13 @@ def slugify_url(original_url: str) -> str:
     return target
 
 
+def verify_gitlab_webhook_secret_token(secret_token_env, secret_token_request):
+    # 仅当设置了环境变量时才验证秘密令牌
+    if secret_token_env:
+        if secret_token_env != secret_token_request:
+            return False
+    return True
+
 
 class MergeRequestHandler:
     def __init__(self, webhook_data: dict, gitlab_token: str, gitlab_url: str):
