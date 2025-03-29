@@ -10,7 +10,8 @@ from apscheduler.triggers.cron import CronTrigger
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 
-from biz.gitlab.webhook_handler import slugify_url
+from biz.github.webhook_handler import verify_github_signature
+from biz.gitlab.webhook_handler import slugify_url, verify_gitlab_webhook_secret_token
 from biz.queue.worker import handle_merge_request_event, handle_push_event, handle_github_pull_request_event, handle_github_push_event
 from biz.service.review_service import ReviewService
 from biz.utils.im import notifier
@@ -19,7 +20,6 @@ from biz.utils.queue import handle_queue
 from biz.utils.reporter import Reporter
 
 from biz.utils.config_checker import check_config
-from biz.utils.webhook_secret_checker import verify_gitlab_webhook_secret_token, verify_github_signature
 
 load_dotenv("conf/.env")
 api_app = Flask(__name__)
@@ -115,7 +115,7 @@ def handle_webhook():
 
         # 判断是GitLab还是GitHub的webhook
         webhook_source = request.headers.get('X-GitHub-Event')
-        
+
         if webhook_source:  # GitHub webhook
             return handle_github_webhook(webhook_source, data)
         else:  # GitLab webhook
