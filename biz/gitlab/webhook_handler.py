@@ -50,12 +50,11 @@ def slugify_url(original_url: str) -> str:
 
 class MergeRequestHandler:
     def __init__(self, webhook_data: dict, gitlab_token: str, gitlab_url: str):
-        self.merge_request_iid = None
+        self.merge_request_id = None
         self.webhook_data = webhook_data
         self.gitlab_token = gitlab_token
         self.gitlab_url = gitlab_url
         self.event_type = None
-        self.merge_request_id = None
         self.project_id = None
         self.action = None
         self.parse_event_type()
@@ -69,7 +68,7 @@ class MergeRequestHandler:
     def parse_merge_request_event(self):
         # 提取 Merge Request 的相关参数
         merge_request = self.webhook_data.get('object_attributes', {})
-        self.merge_request_iid = merge_request.get('iid')
+        self.merge_request_id = merge_request.get('iid')
         self.project_id = merge_request.get('target_project_id')
         self.action = merge_request.get('action')
 
@@ -85,7 +84,7 @@ class MergeRequestHandler:
         for attempt in range(max_retries):
             # 调用 GitLab API 获取 Merge Request 的 changes
             url = urljoin(f"{self.gitlab_url}/",
-                          f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/changes")
+                          f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_id}/changes")
             headers = {
                 'Private-Token': self.gitlab_token
             }
@@ -116,7 +115,7 @@ class MergeRequestHandler:
 
         # 调用 GitLab API 获取 Merge Request 的 commits
         url = urljoin(f"{self.gitlab_url}/",
-                      f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/commits")
+                      f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_id}/commits")
         headers = {
             'Private-Token': self.gitlab_token
         }
@@ -131,7 +130,7 @@ class MergeRequestHandler:
 
     def add_merge_request_notes(self, review_result):
         url = urljoin(f"{self.gitlab_url}/",
-                      f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/notes")
+                      f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_id}/notes")
         headers = {
             'Private-Token': self.gitlab_token,
             'Content-Type': 'application/json'
