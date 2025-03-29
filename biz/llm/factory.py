@@ -24,7 +24,6 @@ class Factory:
 
         provider_func = chat_model_providers.get(provider)
         if provider_func:
-            logger.info(_("Successfully loaded LLM provider: {provider}").format(provider=provider))
             return provider_func()
         else:
             raise Exception(_('Unknown chat model provider: {provider}'.format(provider=provider)))

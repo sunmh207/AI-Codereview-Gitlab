@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-03-28 17:40+0100\n"
+"POT-Creation-Date: 2025-03-29 16:32+0100\n"
 "PO-Revision-Date: 2025-03-18 15:05+0100\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -16,65 +16,69 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: api.py:55 api.py:56
+#: api.py:57 api.py:58
 msgid "No data to process."
 msgstr ""
 
-#: api.py:66
+#: api.py:68
 msgid "代码提交日报"
 msgstr ""
 
-#: api.py:71
+#: api.py:73
 msgid "Failed to generate daily report: {}"
 msgstr ""
 
-#: api.py:99
+#: api.py:101
 msgid "Scheduler started successfully."
 msgstr ""
 
-#: api.py:104
+#: api.py:106
 msgid "Error setting up scheduler: {}"
 msgstr ""
 
-#: api.py:115
+#: api.py:117
 msgid "Invalid JSON"
 msgstr ""
 
-#: api.py:125
+#: api.py:127
 msgid "Invalid data format"
 msgstr ""
 
-#: api.py:131 api.py:167 api.py:170
+#: api.py:134 api.py:171 api.py:174
 msgid "Missing GitLab URL"
 msgstr ""
 
-#: api.py:137 api.py:186
+#: api.py:140 api.py:190
 msgid "Received event: {}"
 msgstr ""
 
-#: api.py:138 api.py:187
+#: api.py:141 api.py:191
 msgid "Payload: {}"
 msgstr ""
 
-#: api.py:144 api.py:150
+#: api.py:147 api.py:153
 msgid "GitHub request received(event_type={}), will process asynchronously."
 msgstr ""
 
-#: api.py:154
+#: api.py:157
 msgid ""
 "Only pull_request and push events are supported for GitHub webhook, but "
 "received:: {}."
 msgstr ""
 
-#: api.py:181
+#: api.py:179
+msgid "Failed to parse homepage URL: {}"
+msgstr ""
+
+#: api.py:185
 msgid "Missing GitLab access token"
 msgstr ""
 
-#: api.py:194 api.py:201
+#: api.py:198 api.py:205
 msgid "Request received(object_kind={}), will process asynchronously."
 msgstr ""
 
-#: api.py:205
+#: api.py:209
 msgid ""
 "Only merge_request and push events are supported (both Webhook and System "
 "Hook), but received: {}."
@@ -174,6 +178,144 @@ msgstr ""
 msgid "{project_name} Push Event"
 msgstr ""
 
+#: biz/github/webhook_handler.py:26
+msgid "Detected file deletion via status field: {}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:42
+msgid "SUPPORTED_EXTENSIONS: {}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:43
+msgid "After filtering deleted files: {}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:54
+msgid "After filtering by extension: {}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:84
+msgid "Invalid event type: {}. Only 'pull_request' event is supported now."
+msgstr ""
+
+#: biz/github/webhook_handler.py:99
+#, python-brace-format
+msgid ""
+"Get changes response from GitHub (attempt {attempt}): "
+"{response_status_code}, {response_text}, URL: {url}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:119
+#, python-brace-format
+msgid ""
+"Changes is empty, retrying in {retry_delay} seconds... (attempt {attempt}/"
+"{max_retries}), URL: {url}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:123
+#, python-brace-format
+msgid ""
+"Failed to get changes from GitHub (URL: {url}): {response.status_code}, "
+"{response.text}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:126 biz/gitlab/webhook_handler.py:111
+msgid "Max retries ({}) reached. Changes is still empty."
+msgstr ""
+
+#: biz/github/webhook_handler.py:141
+msgid "Get commits response from GitHub: {}, {}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:161 biz/gitlab/webhook_handler.py:130
+msgid "Failed to get commits: {}, {}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:174
+#, python-brace-format
+msgid "Add comment to GitHub PR {url}: {response_status_code}, {response_text}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:176
+msgid "Comment successfully added to pull request."
+msgstr ""
+
+#: biz/github/webhook_handler.py:178 biz/github/webhook_handler.py:249
+msgid "Failed to add comment: {}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:207 biz/github/webhook_handler.py:319
+#: biz/gitlab/webhook_handler.py:178 biz/gitlab/webhook_handler.py:267
+msgid "Invalid event type: {}. Only 'push' event is supported now."
+msgstr ""
+
+#: biz/github/webhook_handler.py:221 biz/gitlab/webhook_handler.py:192
+msgid "Collected {} commits from push event."
+msgstr ""
+
+#: biz/github/webhook_handler.py:227 biz/gitlab/webhook_handler.py:198
+msgid "No commits found to add notes to."
+msgstr ""
+
+#: biz/github/webhook_handler.py:233 biz/gitlab/webhook_handler.py:204
+msgid "Last commit ID not found."
+msgstr ""
+
+#: biz/github/webhook_handler.py:245
+#, python-brace-format
+msgid ""
+"Add comment to commit {last_commit_id}: {response_status_code}, "
+"{response_text}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:247
+msgid "Comment successfully added to push commit."
+msgstr ""
+
+#: biz/github/webhook_handler.py:261
+#, python-brace-format
+msgid ""
+"Get commits response from GitHub for repository_commits: "
+"{response_status_code}, {response_text}, URL: {url}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:268
+#, python-brace-format
+msgid ""
+"Failed to get commits for sha {sha}: {response_status_code}, {response_text}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:279
+#, python-brace-format
+msgid ""
+"Get commit response from GitHub: {response_status_code}, {response_text}, "
+"URL: {url}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:295
+#, python-brace-format
+msgid ""
+"Get changes response from GitHub for repository_compare: "
+"{response_status_code}, {response_text}, URL: {url}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:313
+#, python-brace-format
+msgid ""
+"Failed to get changes for repository_compare: {response.status_code}, "
+"{response.text}"
+msgstr ""
+
+#: biz/github/webhook_handler.py:324 biz/gitlab/webhook_handler.py:272
+msgid "No commits found in push event."
+msgstr ""
+
+#: biz/github/webhook_handler.py:346
+msgid ""
+"before or after not found in webhook data, trying to get changes from "
+"commits."
+msgstr ""
+
 #: biz/gitlab/webhook_handler.py:82
 msgid "Invalid event type: {}. Only 'merge_request' event is supported now."
 msgstr ""
@@ -190,16 +332,8 @@ msgstr ""
 msgid "Failed to get changes from GitLab (URL: {}): {}, {}"
 msgstr ""
 
-#: biz/gitlab/webhook_handler.py:111
-msgid "Max retries ({}) reached. Changes is still empty."
-msgstr ""
-
 #: biz/gitlab/webhook_handler.py:126
 msgid "Get commits response from gitlab: {}, {}"
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:130
-msgid "Failed to get commits: {}, {}"
 msgstr ""
 
 #: biz/gitlab/webhook_handler.py:144
@@ -208,22 +342,6 @@ msgstr ""
 
 #: biz/gitlab/webhook_handler.py:148
 msgid "Failed to add note: {}"
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:178 biz/gitlab/webhook_handler.py:267
-msgid "Invalid event type: {}. Only 'push' event is supported now."
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:192
-msgid "Collected {} commits from push event."
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:198
-msgid "No commits found to add notes to."
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:204
-msgid "Last commit ID not found."
 msgstr ""
 
 #: biz/gitlab/webhook_handler.py:232
@@ -240,10 +358,6 @@ msgstr ""
 
 #: biz/gitlab/webhook_handler.py:261
 msgid "Failed to get changes for repository_compare: {}, {}"
-msgstr ""
-
-#: biz/gitlab/webhook_handler.py:272
-msgid "No commits found in push event."
 msgstr ""
 
 #: biz/llm/client/deepseek.py:19 biz/llm/client/openai.py:18
@@ -284,12 +398,7 @@ msgstr ""
 msgid "调用DeepSeek API时出错: {e}"
 msgstr ""
 
-#: biz/llm/factory.py:27
-#, python-brace-format
-msgid "Successfully loaded LLM provider: {provider}"
-msgstr ""
-
-#: biz/llm/factory.py:30
+#: biz/llm/factory.py:29
 #, python-brace-format
 msgid "Unknown chat model provider: {provider}"
 msgstr ""
@@ -380,6 +489,50 @@ msgstr ""
 
 #: biz/utils/code_reviewer.py:111
 msgid "总分[:：]\\s*\\**(\\d+)分?"
+msgstr ""
+
+#: biz/utils/config_checker.py:36
+msgid "缺少环境变量: {}"
+msgstr ""
+
+#: biz/utils/config_checker.py:38
+msgid "所有必要的环境变量均已设置。"
+msgstr ""
+
+#: biz/utils/config_checker.py:46
+msgid "LLM_PROVIDER 未设置！"
+msgstr ""
+
+#: biz/utils/config_checker.py:50
+msgid "LLM_PROVIDER 值错误，应为 {} 之一。"
+msgstr ""
+
+#: biz/utils/config_checker.py:57
+msgid "当前 LLM 供应商为 {}，但缺少必要的环境变量: {}"
+msgstr ""
+
+#: biz/utils/config_checker.py:59
+msgid "LLM 供应商 {} 的配置项已设置。"
+msgstr ""
+
+#: biz/utils/config_checker.py:64
+msgid "正在检查 LLM 供应商的连接..."
+msgstr ""
+
+#: biz/utils/config_checker.py:66
+msgid "LLM 可以连接成功。"
+msgstr ""
+
+#: biz/utils/config_checker.py:68
+msgid "LLM连接可能有问题，请检查配置项。"
+msgstr ""
+
+#: biz/utils/config_checker.py:73
+msgid "开始检查配置项..."
+msgstr ""
+
+#: biz/utils/config_checker.py:77
+msgid "配置项检查完成。"
 msgstr ""
 
 #: biz/utils/im/dingtalk.py:30

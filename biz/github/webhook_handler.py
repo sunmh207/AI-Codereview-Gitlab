@@ -1,11 +1,13 @@
-import json
 import os
 import re
 import time
 
 import requests
 
+from biz.utils.i18n import get_translator
 from biz.utils.log import logger
+
+_ = get_translator()
 
 # 从环境变量中获取支持的文件扩展名
 SUPPORTED_EXTENSIONS = os.getenv('SUPPORTED_EXTENSIONS', '.java,.py,.php').split(',')
@@ -21,9 +23,9 @@ def filter_changes(changes: list):
     for change in changes:
         # 优先检查status字段是否为"removed"
         if change.get('status') == 'removed':
-            logger.info(f"Detected file deletion via status field: {change.get('new_path')}")
+            logger.info(_("Detected file deletion via status field: {}").format(change.get('new_path')))
             continue
-            
+
         # 如果没有status字段或status不为"removed"，继续检查diff模式
         diff = change.get('diff', '')
         if diff:
@@ -34,12 +36,12 @@ def filter_changes(changes: list):
                 if all(line.startswith('-') or not line for line in diff_lines):
                     logger.info(f"Detected file deletion via diff pattern: {change.get('new_path')}")
                     continue
-                    
+
         not_deleted_changes.append(change)
-    
-    logger.info(f"SUPPORTED_EXTENSIONS: {SUPPORTED_EXTENSIONS}")
-    logger.info(f"After filtering deleted files: {not_deleted_changes}")
-    
+
+    logger.info(_("SUPPORTED_EXTENSIONS: {}").format(SUPPORTED_EXTENSIONS))
+    logger.info(_("After filtering deleted files: {}").format(not_deleted_changes))
+
     # 过滤 `new_path` 以支持的扩展名结尾的元素, 仅保留diff和new_path字段
     filtered_changes = [
         {
@@ -49,7 +51,7 @@ def filter_changes(changes: list):
         for item in not_deleted_changes
         if any(item.get('new_path', '').endswith(ext) for ext in SUPPORTED_EXTENSIONS)
     ]
-    logger.info(f"After filtering by extension: {filtered_changes}")
+    logger.info(_("After filtering by extension: {}").format(filtered_changes))
     return filtered_changes
 
 
@@ -78,7 +80,8 @@ class PullRequestHandler:
     def get_pull_request_changes(self) -> list:
         # 检查是否为 Pull Request Hook 事件
         if self.event_type != 'pull_request':
-            logger.warn(f"Invalid event type: {self.event_type}. Only 'pull_request' event is supported now.")
+            logger.warn(
+                _("Invalid event type: {}. Only 'pull_request' event is supported now.").format(self.event_type))
             return []
 
         # GitHub pull request changes API可能存在延迟，多次尝试
@@ -93,7 +96,9 @@ class PullRequestHandler:
             }
             response = requests.get(url, headers=headers)
             logger.debug(
-                f"Get changes response from GitHub (attempt {attempt + 1}): {response.status_code}, {response.text}, URL: {url}")
+                _("Get changes response from GitHub (attempt {attempt}): {response_status_code}, {response_text}, URL: {url}").format(
+                    attempt={attempt + 1}, response_status_code=response.status_code, response_text=response.text,
+                    url=url))
 
             # 检查请求是否成功
             if response.status_code == 200:
@@ -111,13 +116,14 @@ class PullRequestHandler:
                     return changes
                 else:
                     logger.info(
-                        f"Changes is empty, retrying in {retry_delay} seconds... (attempt {attempt + 1}/{max_retries}), URL: {url}")
+                        _("Changes is empty, retrying in {retry_delay} seconds... (attempt {attempt}/{max_retries}), URL: {url}").format(retry_delay=retry_delay,
+                            attempt={attempt + 1}, max_retries=max_retries, url=url))
                     time.sleep(retry_delay)
             else:
-                logger.warn(f"Failed to get changes from GitHub (URL: {url}): {response.status_code}, {response.text}")
+                logger.warn(_("Failed to get changes from GitHub (URL: {url}): {response.status_code}, {response.text}").format(url, response.status_code, response.text))
                 return []
 
-        logger.warning(f"Max retries ({max_retries}) reached. Changes is still empty.")
+        logger.warning(_("Max retries ({}) reached. Changes is still empty.").format(max_retries))
         return []  # 达到最大重试次数后返回空列表
 
     def get_pull_request_commits(self) -> list:
@@ -132,8 +138,8 @@ class PullRequestHandler:
             'Accept': 'application/vnd.github.v3+json'
         }
         response = requests.get(url, headers=headers)
-        logger.debug(f"Get commits response from GitHub: {response.status_code}, {response.text}")
-        
+        logger.debug(_("Get commits response from GitHub: {}, {}").format(response.status_code, response.text))
+
         # 检查请求是否成功
         if response.status_code == 200:
             # 将GitHub的commits转换为GitLab格式的commits
@@ -152,7 +158,7 @@ class PullRequestHandler:
                 gitlab_format_commits.append(gitlab_commit)
             return gitlab_format_commits
         else:
-            logger.warn(f"Failed to get commits: {response.status_code}, {response.text}")
+            logger.warn(_("Failed to get commits: {}, {}").format(response.status_code, response.text))
             return []
 
     def add_pull_request_notes(self, review_result):
@@ -165,11 +171,11 @@ class PullRequestHandler:
             'body': review_result
         }
         response = requests.post(url, headers=headers, json=data)
-        logger.debug(f"Add comment to GitHub PR {url}: {response.status_code}, {response.text}")
+        logger.debug(_("Add comment to GitHub PR {url}: {response_status_code}, {response_text}").format(url=url, response_status_code=response.status_code, response_text=response.text))
         if response.status_code == 201:
-            logger.info("Comment successfully added to pull request.")
+            logger.info(_("Comment successfully added to pull request."))
         else:
-            logger.error(f"Failed to add comment: {response.status_code}")
+            logger.error(_("Failed to add comment: {}").format(response.status_code))
             logger.error(response.text)
 
 
@@ -198,7 +204,7 @@ class PushHandler:
     def get_push_commits(self) -> list:
         # 检查是否为 Push 事件
         if self.event_type != 'push':
-            logger.warn(f"Invalid event type: {self.event_type}. Only 'push' event is supported now.")
+            logger.warn(_("Invalid event type: {}. Only 'push' event is supported now.").format(self.event_type))
             return []
 
         # 提取提交信息
@@ -212,19 +218,19 @@ class PushHandler:
             }
             commit_details.append(commit_info)
 
-        logger.info(f"Collected {len(commit_details)} commits from push event.")
+        logger.info(_("Collected {} commits from push event.").format(len(commit_details)))
         return commit_details
 
     def add_push_notes(self, message: str):
         # 添加评论到 GitHub Push 请求的提交中（此处假设是在最后一次提交上添加注释）
         if not self.commit_list:
-            logger.warn("No commits found to add notes to.")
+            logger.warn(_("No commits found to add notes to."))
             return
 
         # 获取最后一个提交的ID
         last_commit_id = self.commit_list[-1].get('id')
         if not last_commit_id:
-            logger.error("Last commit ID not found.")
+            logger.error(_("Last commit ID not found."))
             return
 
         url = f"https://api.github.com/repos/{self.repo_full_name}/commits/{last_commit_id}/comments"
@@ -236,11 +242,11 @@ class PushHandler:
             'body': message
         }
         response = requests.post(url, headers=headers, json=data)
-        logger.debug(f"Add comment to commit {last_commit_id}: {response.status_code}, {response.text}")
+        logger.debug(_("Add comment to commit {last_commit_id}: {response_status_code}, {response_text}").format(last_commit_id, response.status_code, response.text))
         if response.status_code == 201:
-            logger.info("Comment successfully added to push commit.")
+            logger.info(_("Comment successfully added to push commit."))
         else:
-            logger.error(f"Failed to add comment: {response.status_code}")
+            logger.error(_("Failed to add comment: {}").format(response.status_code))
             logger.error(response.text)
 
     def __repository_commits(self, sha: str = "", per_page: int = 100, page: int = 1):
@@ -252,13 +258,14 @@ class PushHandler:
         }
         response = requests.get(url, headers=headers)
         logger.debug(
-            f"Get commits response from GitHub for repository_commits: {response.status_code}, {response.text}, URL: {url}")
+            _("Get commits response from GitHub for repository_commits: {response_status_code}, {response_text}, URL: {url}").format(
+                response_status_code=response.status_code, response_text=response.text, url=url))
 
         if response.status_code == 200:
             return response.json()
         else:
             logger.warn(
-                f"Failed to get commits for sha {sha}: {response.status_code}, {response.text}")
+                _("Failed to get commits for sha {sha}: {response_status_code}, {response_text}").format(sha=sha, response_status_code=response.status_code, response_text=response.text))
             return []
 
     def get_parent_commit_id(self, commit_id: str) -> str:
@@ -269,7 +276,8 @@ class PushHandler:
         }
         response = requests.get(url, headers=headers)
         logger.debug(
-            f"Get commit response from GitHub: {response.status_code}, {response.text}, URL: {url}")
+            _("Get commit response from GitHub: {response_status_code}, {response_text}, URL: {url}").format(
+                response_status_code=response.status_code, response_text=response.text, url=url))
 
         if response.status_code == 200 and response.json().get('parents'):
             return response.json().get('parents')[0].get('sha', '')
@@ -284,7 +292,8 @@ class PushHandler:
         }
         response = requests.get(url, headers=headers)
         logger.debug(
-            f"Get changes response from GitHub for repository_compare: {response.status_code}, {response.text}, URL: {url}")
+            _("Get changes response from GitHub for repository_compare: {response_status_code}, {response_text}, URL: {url}").format(
+                response_status_code=response.status_code, response_text=response.text, url=url))
 
         if response.status_code == 200:
             # 转换为GitLab格式的diffs
@@ -301,18 +310,18 @@ class PushHandler:
             return diffs
         else:
             logger.warn(
-                f"Failed to get changes for repository_compare: {response.status_code}, {response.text}")
+                _("Failed to get changes for repository_compare: {response.status_code}, {response.text}").format(response_status_code=response.status_code, response_text=response.text))
             return []
 
     def get_push_changes(self) -> list:
         # 检查是否为 Push 事件
         if self.event_type != 'push':
-            logger.warn(f"Invalid event type: {self.event_type}. Only 'push' event is supported now.")
+            logger.warn(_("Invalid event type: {}. Only 'push' event is supported now.").format(self.event_type))
             return []
 
         # 如果没有提交，返回空列表
         if not self.commit_list:
-            logger.info("No commits found in push event.")
+            logger.info(_("No commits found in push event."))
             return []
 
         # 优先尝试compare API获取变更
@@ -330,12 +339,12 @@ class PushHandler:
             elif self.webhook_data.get('deleted', False):
                 # 删除分支处理
                 return []
-            
+
             return self.repository_compare(before, after)
         else:
             # 如果before和after不存在，尝试通过commits获取
-            logger.info("before or after not found in webhook data, trying to get changes from commits.")
-            
+            logger.info(_("before or after not found in webhook data, trying to get changes from commits."))
+
             changes = []
             for commit in self.commit_list:
                 commit_id = commit.get('id')
@@ -344,5 +353,5 @@ class PushHandler:
                     if parent_id:
                         commit_changes = self.repository_compare(parent_id, commit_id)
                         changes.extend(commit_changes)
-            
-            return changes 
+
+            return changes
