@@ -13,16 +13,18 @@ from flask import Flask, request, jsonify
 from biz.gitlab.webhook_handler import slugify_url
 from biz.queue.worker import handle_merge_request_event, handle_push_event, handle_github_pull_request_event, handle_github_push_event
 from biz.service.review_service import ReviewService
+from biz.utils.config_checker import check_config
 from biz.utils.im import notifier
 from biz.utils.log import logger
 from biz.utils.queue import handle_queue
 from biz.utils.reporter import Reporter
 
-from biz.utils.config_checker import check_config
 load_dotenv("conf/.env")
 api_app = Flask(__name__)
 
+from biz.utils.i18n import get_translator
 
+_ = get_translator()
 
 PUSH_REVIEW_ENABLED = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
 
@@ -30,9 +32,8 @@ PUSH_REVIEW_ENABLED = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
 @api_app.route('/')
 def home():
     return """<h2>The code review api server is running.</h2>
-              <p>GitHub project address: <a href="https://github.com/sunmh207/AI-Codereview-Gitlab" target="_blank">
-              https://github.com/sunmh207/AI-Codereview-Gitlab</a></p>
-              <p>Gitee project address: <a href="https://gitee.com/sunminghui/ai-codereview-gitlab" target="_blank">https://gitee.com/sunminghui/ai-codereview-gitlab</a></p>
+              <p>GitHub project address: <a href="https://github.com/sunmh207/ai-codereview-gitlab" target="_blank">
+              https://github.com/sunmh207/ai-codereview-gitlab</a></p>
               """
 
 
@@ -42,6 +43,10 @@ def daily_report():
     start_time = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
     end_time = datetime.now().replace(hour=23, minute=59, second=59, microsecond=0).timestamp()
 
+    # import translator once more due to separate cronjob process
+    from biz.utils.i18n import get_translator
+    _ = get_translator()
+
     try:
         if PUSH_REVIEW_ENABLED:
             df = ReviewService().get_push_review_logs(updated_at_gte=start_time, updated_at_lte=end_time)
@@ -49,8 +54,8 @@ def daily_report():
             df = ReviewService().get_mr_review_logs(updated_at_gte=start_time, updated_at_lte=end_time)
 
         if df.empty:
-            logger.info("No data to process.")
-            return jsonify({'message': 'No data to process.'}), 200
+            logger.info(_("No data to process."))
+            return jsonify({'message': _('No data to process.')}), 200
         # 去重：基于 (author, message) 组合
         df_unique = df.drop_duplicates(subset=["author", "commit_messages"])
         # 按照 author 排序
@@ -60,12 +65,12 @@ def daily_report():
         # 生成日报内容
         report_txt = Reporter().generate_report(json.dumps(commits))
         # 发送钉钉通知
-        notifier.send_notification(content=report_txt, msg_type="markdown", title="代码提交日报")
+        notifier.send_notification(content=report_txt, msg_type="markdown", title=_("代码提交日报"))
 
         # 返回生成的日报内容
         return json.dumps(report_txt, ensure_ascii=False, indent=4)
     except Exception as e:
-        logger.error(f"Failed to generate daily report: {e}")
+        logger.error(_("Failed to generate daily report: {}").format(e))
         return jsonify({'message': f"Failed to generate daily report: {e}"}), 500
 
 
@@ -93,12 +98,12 @@ def setup_scheduler():
 
         # Start the scheduler
         scheduler.start()
-        logger.info("Scheduler started successfully.")
+        logger.info(_("Scheduler started successfully."))
 
         # Shut down the scheduler when exiting the app
         atexit.register(lambda: scheduler.shutdown())
     except Exception as e:
-        logger.error(f"Error setting up scheduler: {e}")
+        logger.error(_("Error setting up scheduler: {}").format(e))
         logger.error(traceback.format_exc())
 
 
@@ -109,45 +114,51 @@ def handle_webhook():
     if request.is_json:
         data = request.get_json()
         if not data:
-            return jsonify({"error": "Invalid JSON"}), 400
+            return jsonify({"error": _("Invalid JSON")}), 400
 
         # 判断是GitLab还是GitHub的webhook
         webhook_source = request.headers.get('X-GitHub-Event')
-        
+
         if webhook_source:  # GitHub webhook
             return handle_github_webhook(webhook_source, data)
         else:  # GitLab webhook
             return handle_gitlab_webhook(data)
     else:
-        return jsonify({'message': 'Invalid data format'}), 400
+        return jsonify({'message': _('Invalid data format')}), 400
+
 
 def handle_github_webhook(event_type, data):
     # 获取GitHub配置
     github_token = os.getenv('GITHUB_ACCESS_TOKEN') or request.headers.get('X-GitHub-Token')
     if not github_token:
-        return jsonify({'message': 'Missing GitHub access token'}), 400
-        
+        return jsonify({'message': _('Missing GitLab URL')}), 400
+
     github_url = os.getenv('GITHUB_URL') or 'https://github.com'
     github_url_slug = slugify_url(github_url)
-    
+
     # 打印整个payload数据
-    logger.info(f'Received GitHub event: {event_type}')
-    logger.info(f'Payload: {json.dumps(data)}')
-    
+    logger.info(_('Received event: {}').format(event_type))
+    logger.info(_('Payload: {}').format(json.dumps(data)))
+
     if event_type == "pull_request":
         # 使用handle_queue进行异步处理
         handle_queue(handle_github_pull_request_event, data, github_token, github_url, github_url_slug)
         # 立马返回响应
-        return jsonify({'message': f'GitHub request received(event_type={event_type}), will process asynchronously.'}), 200
+        return jsonify({'message': _('GitHub request received(event_type={}), will process asynchronously.').format(
+            event_type)}), 200
     elif event_type == "push":
         # 使用handle_queue进行异步处理
         handle_queue(handle_github_push_event, data, github_token, github_url, github_url_slug)
         # 立马返回响应
-        return jsonify({'message': f'GitHub request received(event_type={event_type}), will process asynchronously.'}), 200
+        return jsonify({'message': _('GitHub request received(event_type={}), will process asynchronously.').format(
+            event_type)}), 200
     else:
-        error_message = f'Only pull_request and push events are supported for GitHub webhook, but received: {event_type}.'
+        error_message = _(
+            'Only pull_request and push events are supported for GitHub webhook, but received:: {}.').format(
+            event_type)
         logger.error(error_message)
         return jsonify(error_message), 400
+
 
 def handle_gitlab_webhook(data):
     object_kind = data.get("object_kind")
@@ -157,46 +168,49 @@ def handle_gitlab_webhook(data):
     if not gitlab_url:
         repository = data.get('repository')
         if not repository:
-            return jsonify({'message': 'Missing GitLab URL'}), 400
+            return jsonify({'message': _('Missing GitLab URL')}), 400
         homepage = repository.get("homepage")
         if not homepage:
-            return jsonify({'message': 'Missing GitLab URL'}), 400
+            return jsonify({'message': _('Missing GitLab URL')}), 400
         try:
             parsed_url = urlparse(homepage)
             gitlab_url = f"{parsed_url.scheme}://{parsed_url.netloc}/"
         except Exception as e:
-            return jsonify({"error": f"Failed to parse homepage URL: {str(e)}"}), 400
+            return jsonify({"error": _("Failed to parse homepage URL: {}").format(str(e))}), 400
 
     # 优先从环境变量获取，如果没有，则从请求头获取
     gitlab_token = os.getenv('GITLAB_ACCESS_TOKEN') or request.headers.get('X-Gitlab-Token')
     # 如果gitlab_token为空，返回错误
     if not gitlab_token:
-        return jsonify({'message': 'Missing GitLab access token'}), 400
+        return jsonify({'message': _('Missing GitLab access token')}), 400
 
     gitlab_url_slug = slugify_url(gitlab_url)
 
     # 打印整个payload数据，或根据需求进行处理
-    logger.info(f'Received event: {object_kind}')
-    logger.info(f'Payload: {json.dumps(data)}')
+    logger.info(_('Received event: {}').format(object_kind))
+    logger.info(_('Payload: {}').format(json.dumps(data)))
 
     # 处理Merge Request Hook
     if object_kind == "merge_request":
         # 创建一个新进程进行异步处理
         handle_queue(handle_merge_request_event, data, gitlab_token, gitlab_url, gitlab_url_slug)
         # 立马返回响应
-        return jsonify(
-            {'message': f'Request received(object_kind={object_kind}), will process asynchronously.'}), 200
+        return jsonify({'message': _('Request received(object_kind={}), will process asynchronously.').format(
+            object_kind)}), 200
     elif object_kind == "push":
         # 创建一个新进程进行异步处理
         # TODO check if PUSH_REVIEW_ENABLED is needed here
         handle_queue(handle_push_event, data, gitlab_token, gitlab_url, gitlab_url_slug)
         # 立马返回响应
-        return jsonify(
-            {'message': f'Request received(object_kind={object_kind}), will process asynchronously.'}), 200
+        return jsonify({'message': _('Request received(object_kind={}), will process asynchronously.').format(
+            object_kind)}), 200
     else:
-        error_message = f'Only merge_request and push events are supported (both Webhook and System Hook), but received: {object_kind}.'
+        error_message = _(
+            'Only merge_request and push events are supported (both Webhook and System Hook), but received: {}.').format(
+            object_kind)
         logger.error(error_message)
         return jsonify(error_message), 400
+
 
 if __name__ == '__main__':
     check_config()

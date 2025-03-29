@@ -75,6 +75,7 @@ DINGTALK_WEBHOOK_example_gitlab_com=https://oapi.dingtalk.com/robot/send?access_
 **可能原因**
 
 配置127.0.0.1:11434连接Ollama。由于docker容器的网络模式为bridge，容器内的127.0.0.1并不是宿主机的127.0.0.1，所以连接失败。
+对于Docker Desktop，请使用此地址连接Ollama: http://host.docker.internal:11434。
 
 **解决方案**
 
@@ -109,6 +110,7 @@ docker compose -f docker-compose.prod.yml up -d
 WORKER_QUEUE=gitlab_test_cn
 ```
 
+<<<<<<< HEAD
 ### 如何配置企业微信和飞书消息推送？
 
 **1.配置企业微信推送**
@@ -160,3 +162,13 @@ WORKER_QUEUE=gitlab_test_cn
   GITHUB_ACCESS_TOKEN=your-access-token  #替换为你的Access Token
   ```
 
+### 翻译
+
+更改翻译后无法正确应用，我该怎么办？
+
+该应用程序使用 python 原生 gettext 实现来加载各种语言的翻译。如果您更改了翻译文件，但是应用程序没有正确应用新的翻译，您可以尝试以下步骤：
+
+1. 更新翻译: `bash translations_update.sh`
+2. 通过向具有空 msgstr 的新行添加值来手动调整 `locales/<locale>/LC_Messages/messages.po` 中缺失的翻译
+3. 编译翻译：`bash translations_compile.sh`
+4. 重新启动您的应用程序

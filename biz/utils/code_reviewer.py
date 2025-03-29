@@ -7,8 +7,11 @@ import yaml
 from jinja2 import Template
 
 from biz.llm.factory import Factory
+from biz.utils.i18n import get_translator
 from biz.utils.log import logger
 from biz.utils.token_util import count_tokens, truncate_text_by_tokens
+
+_ = get_translator()
 
 
 class BaseReviewer(abc.ABC):
@@ -20,7 +23,8 @@ class BaseReviewer(abc.ABC):
 
     def _load_prompts(self, prompt_key: str, style="professional") -> Dict[str, Any]:
         """加载提示词配置"""
-        prompt_templates_file = "conf/prompt_templates.yml"
+        lang = os.environ.get('LANGUAGE', 'zh_CN')
+        prompt_templates_file = os.path.join("locales", lang, "prompt_templates.yml")
         try:
             # 在打开 YAML 文件时显式指定编码为 UTF-8，避免使用系统默认的 GBK 编码。
             with open(prompt_templates_file, "r", encoding="utf-8") as file:
@@ -38,14 +42,14 @@ class BaseReviewer(abc.ABC):
                     "user_message": {"role": "user", "content": user_prompt},
                 }
         except (FileNotFoundError, KeyError, yaml.YAMLError) as e:
-            logger.error(f"加载提示词配置失败: {e}")
-            raise Exception(f"提示词配置加载失败: {e}")
+            logger.error(_("加载提示词配置失败: {e}").format(e=e))
+            raise Exception(_("提示词配置加载失败: {e}").format(e=e))
 
     def call_llm(self, messages: List[Dict[str, Any]]) -> str:
         """调用 LLM 进行代码审核"""
-        logger.info(f"向 AI 发送代码 Review 请求, messages: {messages}")
+        logger.info(_("向 AI 发送代码 Review 请求, messages: {messages}").format(messages=messages))
         review_result = self.client.completions(messages=messages)
-        logger.info(f"收到 AI 返回结果: {review_result}")
+        logger.info(_("收到 AI 返回结果: {review_result}").format(review_result=review_result))
         return review_result
 
     @abc.abstractmethod
@@ -60,7 +64,7 @@ class CodeReviewer(BaseReviewer):
     def __init__(self):
         super().__init__("code_review_prompt")
 
-    def review_and_strip_code(self, changes_text: str, commits_text: str = "") -> str:
+    def review_and_strip_code(self, changes_text: str, commits_text: str = '') -> str:
         """
         Review判断changes_text超出取前REVIEW_MAX_TOKENS个token，超出则截断changes_text，
         调用review_code方法，返回review_result，如果review_result是markdown格式，则去掉头尾的```
@@ -69,11 +73,11 @@ class CodeReviewer(BaseReviewer):
         :return:
         """
         # 如果超长，取前REVIEW_MAX_TOKENS个token
-        review_max_tokens = int(os.getenv("REVIEW_MAX_TOKENS", 10000))
+        review_max_tokens = int(os.getenv('REVIEW_MAX_TOKENS', 10000))
         # 如果changes为空,打印日志
         if not changes_text:
-            logger.info("代码为空, diffs_text = %", str(changes_text))
-            return "代码为空"
+            logger.info(_('代码为空, diffs_text = {}').format(str(changes_text)))
+            return _('代码为空')
 
         # 计算tokens数量，如果超过REVIEW_MAX_TOKENS，截断changes_text
         tokens_count = count_tokens(changes_text)
@@ -81,6 +85,7 @@ class CodeReviewer(BaseReviewer):
             changes_text = truncate_text_by_tokens(changes_text, review_max_tokens)
 
         review_result = self.review_code(changes_text, commits_text).strip()
+
         if review_result.startswith("```markdown") and review_result.endswith("```"):
             return review_result[11:-3].strip()
         return review_result
@@ -103,6 +108,6 @@ class CodeReviewer(BaseReviewer):
         """解析 AI 返回的 Review 结果，返回评分"""
         if not review_text:
             return 0
-        match = re.search(r"总分[:：]\s*(\d+)分?", review_text)
+        match = re.search(_("总分[:：]\\s*\\**(\\d+)分?"), review_text)
         return int(match.group(1)) if match else 0
 

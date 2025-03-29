@@ -3,7 +3,8 @@ import requests
 import os
 import re
 from biz.utils.log import logger
-
+from biz.utils.i18n import get_translator
+_ = get_translator()
 
 class WeComNotifier:
     def __init__(self, webhook_url=None):
@@ -26,7 +27,7 @@ class WeComNotifier:
             if self.default_webhook_url:
                 return self.default_webhook_url
             else:
-                raise ValueError("未提供项目名称，且未设置默认的企业微信 Webhook URL。")
+                raise ValueError(_("未提供项目名称，且未设置默认的企业微信 Webhook URL。"))
 
         # 构造目标键
         target_key_project = f"WECOM_WEBHOOK_URL_{project_name.upper()}"
@@ -45,7 +46,7 @@ class WeComNotifier:
             return self.default_webhook_url
 
         # 如果既未找到匹配项，也没有默认值，抛出异常
-        raise ValueError(f"未找到项目 '{project_name}' 对应的企业微信 Webhook URL，且未设置默认的 Webhook URL。")
+        raise ValueError(_("未找到项目 '{}' 对应的企业微信 Webhook URL，且未设置默认的 Webhook URL。").format(project_name))
 
     def format_markdown_content(self, content, title=None):
         """
@@ -78,7 +79,7 @@ class WeComNotifier:
         :param url_slug: GitLab URL Slug
         """
         if not self.enabled:
-            logger.info("企业微信推送未启用")
+            logger.info(_("企业微信推送未启用"))
             return
 
         try:
@@ -86,20 +87,20 @@ class WeComNotifier:
             data = self._build_markdown_message(content, title) if msg_type == 'markdown' else self._build_text_message(
                 content, is_at_all)
 
-            logger.debug(f"发送企业微信消息: url={post_url}, data={data}")
+            logger.debug(_("发送企业微信消息: url={post_url}, data={data}").format(post_url=post_url, data=data))
             response = self._send_request(post_url, data)
 
             if response and response.get('errcode') != 0:
-                logger.error(f"企业微信消息发送失败! webhook_url:{post_url}, errmsg:{response}")
+                logger.error(_("企业微信消息发送失败! webhook_url:{}, error_msg:{}").format(post_url, response.text))
                 if response.get("errmsg") and "markdown.content exceed max length" in response["errmsg"]:
-                    logger.warning("Markdown 消息过长，尝试发送纯文本")
+                    logger.warning(_("Markdown 消息过长，尝试发送纯文本"))
                     data = self._build_text_message(content, is_at_all)
                     self._send_request(post_url, data)
             else:
-                logger.info(f"企业微信消息发送成功! webhook_url:{post_url}")
+                logger.info(_("企业微信消息发送成功! webhook_url: {}").format(post_url))
 
         except Exception as e:
-            logger.error(f"企业微信消息发送失败! {e}")
+            logger.error(_("企业微信消息发送失败!"), e)
 
     def _send_request(self, url, data):
         """ 发送请求并返回 JSON 响应 """
@@ -108,9 +109,9 @@ class WeComNotifier:
             response.raise_for_status()  # 触发 HTTP 错误
             return response.json()
         except requests.RequestException as e:
-            logger.error(f"企业微信消息发送请求失败! url:{url}, error: {e}")
+            logger.error(_("企业微信消息发送请求失败! url:{url}, error: {e}").format(url=url, e=e))
         except json.JSONDecodeError as e:
-            logger.error(f"企业微信返回的 JSON 解析失败! url:{url}, error: {e}")
+            logger.error(_("企业微信返回的 JSON 解析失败! url:{url}, error: {e}").format(url=url, e=e))
         return None
 
     def _build_text_message(self, content, is_at_all):

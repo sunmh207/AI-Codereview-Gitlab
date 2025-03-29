@@ -3,13 +3,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: app
-    image: ghcr.io/sunmh207/ai-codereview-gitlab:1.3.6
+      target: dev
+    image: ghcr.io/sunmh207/ai-codereview-gitlab:1
     ports:
       - "5001:5001"
       - "5002:5002"
     volumes:
       - ./data:/app/data
+      - ./locales:/app/locales
       - ./log:/app/log
     env_file:
       - ./conf/.env

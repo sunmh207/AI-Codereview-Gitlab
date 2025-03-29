@@ -5,13 +5,16 @@ from zhipuai import ZhipuAI
 
 from biz.llm.client.base import BaseClient
 from biz.llm.types import NotGiven, NOT_GIVEN
+from biz.utils.i18n import get_translator
+
+_ = get_translator()
 
 
 class ZhipuAIClient(BaseClient):
     def __init__(self, api_key: str = None):
         self.api_key = api_key or os.getenv("ZHIPUAI_API_KEY")
         if not self.api_key:
-            raise ValueError("API key is required. Please provide it or set it in the environment variables.")
+            raise ValueError(_("API key is required. Please provide it or set it in the environment variables."))
 
         self.client = ZhipuAI(api_key=api_key)
         self.default_model = os.getenv("ZHIPUAI_API_MODEL", "GLM-4-Flash")

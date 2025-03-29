@@ -6,6 +6,9 @@ from urllib.parse import urljoin
 import requests
 
 from biz.utils.log import logger
+from biz.utils.i18n import get_translator
+_ = get_translator()
+
 
 # 从环境变量中获取支持的文件扩展名
 SUPPORTED_EXTENSIONS = os.getenv('SUPPORTED_EXTENSIONS', '.java,.py,.php').split(',')
@@ -76,7 +79,7 @@ class MergeRequestHandler:
     def get_merge_request_changes(self) -> list:
         # 检查是否为 Merge Request Hook 事件
         if self.event_type != 'merge_request':
-            logger.warn(f"Invalid event type: {self.event_type}. Only 'merge_request' event is supported now.")
+            logger.warn(_("Invalid event type: {}. Only 'merge_request' event is supported now.").format(self.event_type))
             return []
 
         # Gitlab merge request changes API可能存在延迟，多次尝试
@@ -91,8 +94,7 @@ class MergeRequestHandler:
             }
             response = requests.get(url, headers=headers, verify=False)
             logger.debug(
-                f"Get changes response from GitLab (attempt {attempt + 1}): {response.status_code}, {response.text}, URL: {url}")
-
+                _("Get changes response from GitLab (attempt {}): {}, {}, URL: {}").format(attempt + 1, response.status_code, response.text, url))
             # 检查请求是否成功
             if response.status_code == 200:
                 changes = response.json().get('changes', [])
@@ -100,13 +102,13 @@ class MergeRequestHandler:
                     return changes
                 else:
                     logger.info(
-                        f"Changes is empty, retrying in {retry_delay} seconds... (attempt {attempt + 1}/{max_retries}), URL: {url}")
+                        _("Changes is empty, retrying in {} seconds... (attempt {}/{}), URL: {}").format(retry_delay, attempt + 1, max_retries, url))
                     time.sleep(retry_delay)
             else:
-                logger.warn(f"Failed to get changes from GitLab (URL: {url}): {response.status_code}, {response.text}")
+                logger.warn(_("Failed to get changes from GitLab (URL: {}): {}, {}").format(url, response.status_code, response.text))
                 return []
 
-        logger.warning(f"Max retries ({max_retries}) reached. Changes is still empty.")
+        logger.warning(_("Max retries ({}) reached. Changes is still empty.").format(max_retries))
         return []  # 达到最大重试次数后返回空列表
 
     def get_merge_request_commits(self) -> list:
@@ -121,12 +123,11 @@ class MergeRequestHandler:
             'Private-Token': self.gitlab_token
         }
         response = requests.get(url, headers=headers, verify=False)
-        logger.debug(f"Get commits response from gitlab: {response.status_code}, {response.text}")
-        # 检查请求是否成功
+        logger.debug(_("Get commits response from gitlab: {}, {}").format(response.status_code, response.text))  # 检查请求是否成功
         if response.status_code == 200:
             return response.json()
         else:
-            logger.warn(f"Failed to get commits: {response.status_code}, {response.text}")
+            logger.warn(_("Failed to get commits: {}, {}").format(response.status_code, response.text))
             return []
 
     def add_merge_request_notes(self, review_result):
@@ -140,11 +141,11 @@ class MergeRequestHandler:
             'body': review_result
         }
         response = requests.post(url, headers=headers, json=data, verify=False)
-        logger.debug(f"Add notes to gitlab {url}: {response.status_code}, {response.text}")
+        logger.debug(_("Add notes to gitlab {}: {}, {}").format(url, response.status_code, response.text))
         if response.status_code == 201:
             logger.info("Note successfully added to merge request.")
         else:
-            logger.error(f"Failed to add note: {response.status_code}")
+            logger.error(_("Failed to add note: {}").format(response.status_code))
             logger.error(response.text)
 
 
@@ -174,7 +175,7 @@ class PushHandler:
     def get_push_commits(self) -> list:
         # 检查是否为 Push 事件
         if self.event_type != 'push':
-            logger.warn(f"Invalid event type: {self.event_type}. Only 'push' event is supported now.")
+            logger.warn(_("Invalid event type: {}. Only 'push' event is supported now.").format(self.event_type))
             return []
 
         # 提取提交信息
@@ -188,19 +189,19 @@ class PushHandler:
             }
             commit_details.append(commit_info)
 
-        logger.info(f"Collected {len(commit_details)} commits from push event.")
+        logger.info(_("Collected {} commits from push event.").format(len(commit_details)))
         return commit_details
 
     def add_push_notes(self, message: str):
         # 添加评论到 GitLab Push 请求的提交中（此处假设是在最后一次提交上添加注释）
         if not self.commit_list:
-            logger.warn("No commits found to add notes to.")
+            logger.warn(_("No commits found to add notes to."))
             return
 
         # 获取最后一个提交的ID
         last_commit_id = self.commit_list[-1].get('id')
         if not last_commit_id:
-            logger.error("Last commit ID not found.")
+            logger.error(_("Last commit ID not found."))
             return
 
         url = urljoin(f"{self.gitlab_url}/",
@@ -220,8 +221,7 @@ class PushHandler:
             logger.error(f"Failed to add comment: {response.status_code}")
             logger.error(response.text)
 
-    def __repository_commits(self, ref_name: str = "", since: str = "", until: str = "", pre_page: int = 100,
-                             page: int = 1):
+    def __repository_commits(self, ref_name: str = "", since: str = "", until: str = "", pre_page: int = 100, page: int = 1):
         # 获取仓库提交信息
         url = f"{urljoin(f'{self.gitlab_url}/', f'api/v4/projects/{self.project_id}/repository/commits')}?ref_name={ref_name}&since={since}&until={until}&per_page={pre_page}&page={page}"
         headers = {
@@ -229,7 +229,7 @@ class PushHandler:
         }
         response = requests.get(url, headers=headers, verify=False)
         logger.debug(
-            f"Get commits response from GitLab for repository_commits: {response.status_code}, {response.text}, URL: {url}")
+            _("Get commits response from GitLab for repository_commits: {response.status_code}, {}, URL: {url}").format(response.status_code, response.text, url))
 
         if response.status_code == 200:
             return response.json()
@@ -252,24 +252,24 @@ class PushHandler:
         }
         response = requests.get(url, headers=headers, verify=False)
         logger.debug(
-            f"Get changes response from GitLab for repository_compare: {response.status_code}, {response.text}, URL: {url}")
+            _("Get changes response from GitLab for repository_compare: {}, {response.text}, URL: {}").format(response.status_code, url))
 
         if response.status_code == 200:
             return response.json().get('diffs', [])
         else:
             logger.warn(
-                f"Failed to get changes for repository_compare: {response.status_code}, {response.text}")
+                _("Failed to get changes for repository_compare: {}, {}").format(response.status_code, response.text))
             return []
 
     def get_push_changes(self) -> list:
         # 检查是否为 Push 事件
         if self.event_type != 'push':
-            logger.warn(f"Invalid event type: {self.event_type}. Only 'push' event is supported now.")
+            logger.warn(_("Invalid event type: {}. Only 'push' event is supported now.").format(self.event_type))
             return []
 
         # 如果没有提交，返回空列表
         if not self.commit_list:
-            logger.info("No commits found in push event.")
+            logger.info(_("No commits found in push event."))
             return []
         headers = {
             'Private-Token': self.gitlab_token

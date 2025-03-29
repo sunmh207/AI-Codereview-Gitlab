@@ -9,6 +9,10 @@ from biz.service.review_service import ReviewService
 
 load_dotenv("conf/.env")
 
+from biz.utils.i18n import get_translator
+
+_ = get_translator()
+
 # 从环境变量中读取用户名和密码
 DASHBOARD_USER = os.getenv("DASHBOARD_USER", "admin")
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "admin")
@@ -49,34 +53,34 @@ def login_page():
     # 使用 st.columns 创建居中布局
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.title("登录")
+        st.title(_("登录"))
         # 如果用户名和密码都为 'admin'，提示用户修改密码
         if DASHBOARD_USER == "admin" and DASHBOARD_PASSWORD == "admin":
-            st.warning(
+            st.warning(_(
                 "安全提示：检测到默认用户名和密码为 'admin'，存在安全风险！\n\n"
                 "请立即修改：\n"
                 "1. 打开 `.env` 文件\n"
                 "2. 修改 `DASHBOARD_USER` 和 `DASHBOARD_PASSWORD` 变量\n"
                 "3. 保存并重启应用"
-            )
-            st.write(f"当前用户名: `{DASHBOARD_USER}`, 当前密码: `{DASHBOARD_PASSWORD}`")
+            ))
+            st.write(_("当前用户名: `{}`, 当前密码: `{}`").format(DASHBOARD_USER, DASHBOARD_PASSWORD))
 
-        username = st.text_input("用户名")
-        password = st.text_input("密码", type="password")
+        username = st.text_input(_("用户名"))
+        password = st.text_input(_("密码"), type="password")
 
-        if st.button("登录"):
+        if st.button(_("登录")):
             if authenticate(username, password):
                 st.session_state["authenticated"] = True
                 st.session_state["username"] = username
                 st.rerun()  # 重新运行应用以显示主要内容
             else:
-                st.error("用户名或密码错误")
+                st.error(_("用户名或密码错误"))
 
 
 # 生成项目提交数量图表
 def generate_project_count_chart(df):
     if df.empty:
-        st.info("没有数据可供展示")
+        st.info(_("没有数据可供展示"))
         return
 
     # 计算每个项目的提交数量
@@ -101,7 +105,7 @@ def generate_project_count_chart(df):
 # 生成项目平均分数图表
 def generate_project_score_chart(df):
     if df.empty:
-        st.info("没有数据可供展示")
+        st.info(_("没有数据可供展示"))
         return
 
     # 计算每个项目的平均分数
@@ -126,7 +130,7 @@ def generate_project_score_chart(df):
 # 生成人员提交数量图表
 def generate_author_count_chart(df):
     if df.empty:
-        st.info("没有数据可供展示")
+        st.info(_("没有数据可供展示"))
         return
 
     # 计算每个人员的提交数量
@@ -150,7 +154,7 @@ def generate_author_count_chart(df):
 # 生成人员平均分数图表
 def generate_author_score_chart(df):
     if df.empty:
-        st.info("没有数据可供展示")
+        st.info(_("没有数据可供展示"))
         return
 
     # 计算每个人员的平均分数
@@ -173,7 +177,7 @@ def generate_author_score_chart(df):
 
 # 主要内容
 def main_page():
-    st.markdown("#### 审查日志")
+    st.markdown(_("#### 审查日志"))
 
     current_date = datetime.date.today()
     start_date_default = current_date - datetime.timedelta(days=7)
@@ -182,7 +186,7 @@ def main_page():
     show_push_tab = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
 
     if show_push_tab:
-        mr_tab, push_tab = st.tabs(["Merge Request", "Push"])
+        mr_tab, push_tab = st.tabs([_("Merge Request"), _("Push")])
     else:
         mr_tab = st.container()
 
@@ -190,9 +194,9 @@ def main_page():
         with tab:
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                start_date = st.date_input("开始日期", start_date_default, key=f"{tab}_start_date")
+                start_date = st.date_input(_("开始日期"), start_date_default, key=f"{tab}_start_date")
             with col2:
-                end_date = st.date_input("结束日期", current_date, key=f"{tab}_end_date")
+                end_date = st.date_input(_("结束日期"), current_date, key=f"{tab}_end_date")
 
             start_datetime = datetime.datetime.combine(start_date, datetime.time.min)
             end_datetime = datetime.datetime.combine(end_date, datetime.time.max)
@@ -204,9 +208,9 @@ def main_page():
             unique_authors = sorted(df["author"].dropna().unique().tolist()) if not df.empty else []
             unique_projects = sorted(df["project_name"].dropna().unique().tolist()) if not df.empty else []
             with col3:
-                authors = st.multiselect("用户名", unique_authors, default=[], key=f"{tab}_authors")
+                authors = st.multiselect(_("用户名"), unique_authors, default=[], key=f"{tab}_authors")
             with col4:
-                project_names = st.multiselect("项目名", unique_projects, default=[], key=f"{tab}_projects")
+                project_names = st.multiselect(_("项目名"), unique_projects, default=[], key=f"{tab}_projects")
 
             data = get_data(service_func, authors=authors, project_names=project_names,
                             updated_at_gte=int(start_datetime.timestamp()),
@@ -221,21 +225,21 @@ def main_page():
 
             total_records = len(df)
             average_score = df["score"].mean() if not df.empty else 0
-            st.markdown(f"**总记录数:** {total_records}，**平均分:** {average_score:.2f}")
+            st.markdown(_("**总记录数:** {}，**平均分:** {}").format(total_records, f'{average_score:.2f}'))
 
             # 创建2x2网格布局展示四个图表
             row1, row2, row3, row4 = st.columns(4)
             with row1:
-                st.markdown("<div style='text-align: center;'><b>项目提交次数</b></div>", unsafe_allow_html=True)
+                st.markdown("<div style='text-align: center;'><b>" + _("项目提交次数") + "</b></div>", unsafe_allow_html=True)
                 generate_project_count_chart(df)
             with row2:
-                st.markdown("<div style='text-align: center;'><b>项目平均分数</b></div>", unsafe_allow_html=True)
+                st.markdown("<div style='text-align: center;'><b>" + _("项目平均分数") + "</b></div>", unsafe_allow_html=True)
                 generate_project_score_chart(df)
             with row3:
-                st.markdown("<div style='text-align: center;'><b>人员提交次数</b></div>", unsafe_allow_html=True)
+                st.markdown("<div style='text-align: center;'><b>" + _("人员提交次数") + "</b></div>", unsafe_allow_html=True)
                 generate_author_count_chart(df)
             with row4:
-                st.markdown("<div style='text-align: center;'><b>人员平均分数</b></div>", unsafe_allow_html=True)
+                st.markdown("<div style='text-align: center;'><b>" + _("人员平均分数") + "</b></div>", unsafe_allow_html=True)
                 generate_author_score_chart(df)
 
     # Merge Request 数据展示
@@ -250,7 +254,7 @@ def main_page():
         ),
         "url": st.column_config.LinkColumn(
             max_chars=100,
-            display_text=r"查看"
+            display_text=_(r"查看")
         ),
     }
 

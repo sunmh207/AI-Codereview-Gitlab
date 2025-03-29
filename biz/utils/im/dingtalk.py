@@ -1,14 +1,12 @@
-import base64
-import hashlib
-import hmac
 import json
 import os
-import time
-import urllib.parse
 
 import requests
 
+from biz.utils.i18n import get_translator
 from biz.utils.log import logger
+
+_ = get_translator()
 
 
 class DingTalkNotifier:
@@ -29,7 +27,7 @@ class DingTalkNotifier:
             if self.default_webhook_url:
                 return self.default_webhook_url
             else:
-                raise ValueError("未提供项目名称，且未设置默认的钉钉 Webhook URL。")
+                raise ValueError(_("未提供项目名称，且未设置默认的钉钉 Webhook URL。"))
 
         # 构造目标键
         target_key_project = f"DINGTALK_WEBHOOK_URL_{project_name.upper()}"
@@ -48,11 +46,11 @@ class DingTalkNotifier:
             return self.default_webhook_url
 
         # 如果既未找到匹配项，也没有默认值，抛出异常
-        raise ValueError(f"未找到项目 '{project_name}' 对应的钉钉Webhook URL，且未设置默认的 Webhook URL。")
+        raise ValueError(_("未找到项目 '{}' 对应的钉钉Webhook URL，且未设置默认的 Webhook URL。").format(project_name))
 
     def send_message(self, content: str, msg_type='text', title='通知', is_at_all=False, project_name=None, url_slug = None):
         if not self.enabled:
-            logger.info("钉钉推送未启用")
+            logger.info(_("钉钉推送未启用"))
             return
 
         try:
@@ -85,8 +83,8 @@ class DingTalkNotifier:
             response = requests.post(url=post_url, data=json.dumps(message), headers=headers)
             response_data = response.json()
             if response_data.get('errmsg') == 'ok':
-                logger.info(f"钉钉消息发送成功! webhook_url:{post_url}")
+                logger.info(_("钉钉消息发送成功! webhook_url: {}").format(post_url))
             else:
-                logger.error(f"钉钉消息发送失败! webhook_url:{post_url},errmsg:{response_data.get('errmsg')}")
+                logger.error(_("钉钉消息发送失败! webhook_url: {}, errmsg: {}").format(post_url, response_data.get('errmsg')))
         except Exception as e:
-            logger.error(f"钉钉消息发送失败! ", e)
+            logger.error(_("钉钉消息发送失败!"), e)

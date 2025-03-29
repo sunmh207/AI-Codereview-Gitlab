@@ -1,10 +1,9 @@
-# 这个是使用了Redis Queue的版本
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
-      target: dev
+      target: prod
     image: ghcr.io/sunmh207/ai-codereview-gitlab:1
     ports:
       - "5001:5001"
@@ -29,9 +28,9 @@ services:
       - app
     env_file:
       - ./conf/.env
-    # environment:
-    #   - WORKER_QUEUE=git_test_com
-      # - OLLAMA_API_BASE_URL=https://ollama.test1.com:11434
+#    environment:
+#      - WORKER_QUEUE=git_test1_com
+#      - OLLAMA_API_BASE_URL=https://ollama.test1.com:11434
     depends_on:
       redis:
         condition: service_started

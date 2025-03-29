@@ -13,11 +13,11 @@ COPY requirements.txt .
 # 安装依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN mkdir -p log data conf
+RUN mkdir -p log data
 COPY biz ./biz
+COPY locales ./locales
 COPY api.py ./api.py
 COPY ui.py ./ui.py
-COPY conf/prompt_templates.yml ./conf/prompt_templates.yml
 
 # 使用 supervisord 作为启动命令
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

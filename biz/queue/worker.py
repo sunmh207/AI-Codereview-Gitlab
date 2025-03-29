@@ -2,15 +2,23 @@ import os
 import traceback
 from datetime import datetime
 
+from dotenv import load_dotenv
+
 from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity
 from biz.event.event_manager import event_manager
+from biz.github.webhook_handler import filter_changes as filter_github_changes, \
+    PullRequestHandler as GithubPullRequestHandler, PushHandler as GithubPushHandler
 from biz.gitlab.webhook_handler import filter_changes, MergeRequestHandler, PushHandler
-from biz.github.webhook_handler import filter_changes as filter_github_changes, PullRequestHandler as GithubPullRequestHandler, PushHandler as GithubPushHandler
 from biz.utils.code_reviewer import CodeReviewer
 from biz.utils.im import notifier
 from biz.utils.log import logger
 
 PUSH_REVIEW_ENABLED = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
+load_dotenv()
+
+from biz.utils.i18n import get_translator
+
+_ = get_translator()
 
 
 def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_url_slug: str):
@@ -19,7 +27,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
         logger.info('Push Hook event received')
         commits = handler.get_push_commits()
         if not commits:
-            logger.error('Failed to get commits')
+            logger.error(_('Failed to get commits'))
             return
 
         review_result = None
@@ -30,15 +38,15 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             logger.info('changes: %s', changes)
             changes = filter_changes(changes)
             if not changes:
-                logger.info('未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
-            review_result = "关注的文件没有修改"
+                logger.info(_('未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。'))
+            review_result = _("关注的文件没有修改")
 
             if len(changes) > 0:
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
                 review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
                 score = CodeReviewer.parse_review_score(review_text=review_result)
             # 将review结果提交到Gitlab的 notes
-            handler.add_push_notes(f'Auto Review Result: \n{review_result}')
+            handler.add_push_notes(_('Auto Review Result: \n{}').format(review_result))
 
         # TODO check if not also queueing makes sense here
         event_manager['push_reviewed'].send(PushReviewEntity(
@@ -53,9 +61,9 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
         ))
 
     except Exception as e:
-        error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
+        error_message = _('服务出现未知错误: {}').format(f'{str(e)}\n{traceback.format_exc()}')
         notifier.send_notification(content=error_message)
-        logger.error('出现未知错误: %s', error_message)
+        logger.error(_('出现未知错误: {}').format(error_message))
 
 
 def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_url_slug: str):
@@ -70,21 +78,21 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
     try:
         # 解析Webhook数据
         handler = MergeRequestHandler(webhook_data, gitlab_token, gitlab_url)
-        logger.info('Merge Request Hook event received')
+        logger.info(_('Merge Request Hook event received'))
 
-        if (handler.action in ['open', 'update']):  # 仅仅在MR创建或更新时进行Code Review
+        if handler.action in ['open', 'update']:  # 仅仅在MR创建或更新时进行Code Review
             # 获取Merge Request的changes
             changes = handler.get_merge_request_changes()
-            logger.info('changes: %s', changes)
+            logger.info(_('changes: {}').format(changes))
             changes = filter_changes(changes)
             if not changes:
-                logger.info('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
+                logger.info(_('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。'))
                 return
 
             # 获取Merge Request的commits
             commits = handler.get_merge_request_commits()
             if not commits:
-                logger.error('Failed to get commits')
+                logger.error(_('Failed to get commits'))
                 return
 
             # review 代码
@@ -92,7 +100,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
             review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
 
             # 将review结果提交到Gitlab的 notes
-            handler.add_merge_request_notes(f'Auto Review Result: \n{review_result}')
+            handler.add_merge_request_notes(_('Auto Review Result: \n{}').format(review_result))
 
             # dispatch merge_request_reviewed event
             # TODO check if not also queueing makes sense here
@@ -113,20 +121,21 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
             )
 
         else:
-            logger.info(f"Merge Request Hook event, action={handler.action}, ignored.")
+            logger.info(_("Merge Request Hook event, action={}, ignored.").format(handler.action))
 
     except Exception as e:
-        error_message = f'AI Code Review 服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
+        error_message = _('AI Code Review 服务出现未知错误: {}').format(f'{str(e)}\n{traceback.format_exc()}')
         notifier.send_notification(content=error_message)
-        logger.error('出现未知错误: %s', error_message)
+        logger.error(_('出现未知错误: {}').format(error_message))
+
 
 def handle_github_push_event(webhook_data: dict, github_token: str, github_url: str, github_url_slug: str):
     try:
         handler = GithubPushHandler(webhook_data, github_token, github_url)
-        logger.info('GitHub Push event received')
+        logger.info(_('GitHub Push event received'))
         commits = handler.get_push_commits()
         if not commits:
-            logger.error('Failed to get commits')
+            logger.error(_('Failed to get commits'))
             return
 
         review_result = None
@@ -134,11 +143,11 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
         if PUSH_REVIEW_ENABLED:
             # 获取PUSH的changes
             changes = handler.get_push_changes()
-            logger.info('changes: %s', changes)
+            logger.info(_('changes: {}').format(changes))
             changes = filter_github_changes(changes)
             if not changes:
-                logger.info('未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
-            review_result = "关注的文件没有修改"
+                logger.info(_('未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。'))
+            review_result = _("关注的文件没有修改")
 
             if len(changes) > 0:
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
@@ -159,9 +168,9 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
         ))
 
     except Exception as e:
-        error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
+        error_message = _('服务出现未知错误: {}').format(f'{str(e)}\n{traceback.format_exc()}')
         notifier.send_notification(content=error_message)
-        logger.error('出现未知错误: %s', error_message)
+        logger.error(_('出现未知错误: {}').format(error_message))
 
 
 def handle_github_pull_request_event(webhook_data: dict, github_token: str, github_url: str, github_url_slug: str):
@@ -176,21 +185,21 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
     try:
         # 解析Webhook数据
         handler = GithubPullRequestHandler(webhook_data, github_token, github_url)
-        logger.info('GitHub Pull Request event received')
+        logger.info(_('GitHub Pull Request event received'))
 
         if (handler.action in ['opened', 'synchronize']):  # 仅仅在PR创建或更新时进行Code Review
             # 获取Pull Request的changes
             changes = handler.get_pull_request_changes()
-            logger.info('changes: %s', changes)
+            logger.info(_('changes: {}').format(changes))
             changes = filter_github_changes(changes)
             if not changes:
-                logger.info('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
+                logger.info(_('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。'))
                 return
 
             # 获取Pull Request的commits
             commits = handler.get_pull_request_commits()
             if not commits:
-                logger.error('Failed to get commits')
+                logger.error(_('Failed to get commits'))
                 return
 
             # review 代码
@@ -198,7 +207,7 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
             review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
 
             # 将review结果提交到GitHub的 notes
-            handler.add_pull_request_notes(f'Auto Review Result: \n{review_result}')
+            handler.add_pull_request_notes(_('Auto Review Result: \n{}').format(review_result))
 
             # dispatch pull_request_reviewed event
             event_manager['merge_request_reviewed'].send(
@@ -216,6 +225,6 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
                 ))
 
     except Exception as e:
-        error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
+        error_message = _('服务出现未知错误: {}').format(f'{str(e)}\n{traceback.format_exc()}')
         notifier.send_notification(content=error_message)
-        logger.error('出现未知错误: %s', error_message)
+        logger.error(_('出现未知错误: {}').format(error_message))
