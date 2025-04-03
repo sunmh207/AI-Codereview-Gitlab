@@ -40,7 +40,6 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             # 将review结果提交到Gitlab的 notes
             handler.add_push_notes(f'Auto Review Result: \n{review_result}')
 
-        # TODO check if not also queueing makes sense here
         event_manager['push_reviewed'].send(PushReviewEntity(
             project_name=webhook_data['project']['name'],
             author=webhook_data['user_username'],
@@ -72,48 +71,47 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
         handler = MergeRequestHandler(webhook_data, gitlab_token, gitlab_url)
         logger.info('Merge Request Hook event received')
 
-        if (handler.action in ['open', 'update']):  # 仅仅在MR创建或更新时进行Code Review
-            # 获取Merge Request的changes
-            changes = handler.get_merge_request_changes()
-            logger.info('changes: %s', changes)
-            changes = filter_changes(changes)
-            if not changes:
-                logger.info('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
-                return
-
-            # 获取Merge Request的commits
-            commits = handler.get_merge_request_commits()
-            if not commits:
-                logger.error('Failed to get commits')
-                return
-
-            # review 代码
-            commits_text = ';'.join(commit['title'] for commit in commits)
-            review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
-
-            # 将review结果提交到Gitlab的 notes
-            handler.add_merge_request_notes(f'Auto Review Result: \n{review_result}')
-
-            # dispatch merge_request_reviewed event
-            # TODO check if not also queueing makes sense here
-            # dispatch merge_request_reviewed event
-            event_manager['merge_request_reviewed'].send(
-                MergeRequestReviewEntity(
-                    project_name=webhook_data['project']['name'],
-                    author=webhook_data['user']['username'],
-                    source_branch=webhook_data['object_attributes']['source_branch'],
-                    target_branch=webhook_data['object_attributes']['target_branch'],
-                    updated_at=int(datetime.now().timestamp()),
-                    commits=commits,
-                    score=CodeReviewer.parse_review_score(review_text=review_result),
-                    url=webhook_data['object_attributes']['url'],
-                    review_result=review_result,
-                    url_slug=gitlab_url_slug,
-                )
-            )
-
-        else:
+        if handler.action not in ['open', 'update']:
             logger.info(f"Merge Request Hook event, action={handler.action}, ignored.")
+            return
+
+        # 仅仅在MR创建或更新时进行Code Review
+        # 获取Merge Request的changes
+        changes = handler.get_merge_request_changes()
+        logger.info('changes: %s', changes)
+        changes = filter_changes(changes)
+        if not changes:
+            logger.info('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
+            return
+
+        # 获取Merge Request的commits
+        commits = handler.get_merge_request_commits()
+        if not commits:
+            logger.error('Failed to get commits')
+            return
+
+        # review 代码
+        commits_text = ';'.join(commit['title'] for commit in commits)
+        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+
+        # 将review结果提交到Gitlab的 notes
+        handler.add_merge_request_notes(f'Auto Review Result: \n{review_result}')
+
+        # dispatch merge_request_reviewed event
+        event_manager['merge_request_reviewed'].send(
+            MergeRequestReviewEntity(
+                project_name=webhook_data['project']['name'],
+                author=webhook_data['user']['username'],
+                source_branch=webhook_data['object_attributes']['source_branch'],
+                target_branch=webhook_data['object_attributes']['target_branch'],
+                updated_at=int(datetime.now().timestamp()),
+                commits=commits,
+                score=CodeReviewer.parse_review_score(review_text=review_result),
+                url=webhook_data['object_attributes']['url'],
+                review_result=review_result,
+                url_slug=gitlab_url_slug,
+            )
+        )
 
     except Exception as e:
         error_message = f'AI Code Review 服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
@@ -178,42 +176,46 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
         handler = GithubPullRequestHandler(webhook_data, github_token, github_url)
         logger.info('GitHub Pull Request event received')
 
-        if (handler.action in ['opened', 'synchronize']):  # 仅仅在PR创建或更新时进行Code Review
-            # 获取Pull Request的changes
-            changes = handler.get_pull_request_changes()
-            logger.info('changes: %s', changes)
-            changes = filter_github_changes(changes)
-            if not changes:
-                logger.info('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
-                return
+        if handler.action not in ['opened', 'synchronize']:
+            logger.info(f"Pull Request Hook event, action={handler.action}, ignored.")
+            return
 
-            # 获取Pull Request的commits
-            commits = handler.get_pull_request_commits()
-            if not commits:
-                logger.error('Failed to get commits')
-                return
+        # 仅仅在PR创建或更新时进行Code Review
+        # 获取Pull Request的changes
+        changes = handler.get_pull_request_changes()
+        logger.info('changes: %s', changes)
+        changes = filter_github_changes(changes)
+        if not changes:
+            logger.info('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
+            return
 
-            # review 代码
-            commits_text = ';'.join(commit['title'] for commit in commits)
-            review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        # 获取Pull Request的commits
+        commits = handler.get_pull_request_commits()
+        if not commits:
+            logger.error('Failed to get commits')
+            return
 
-            # 将review结果提交到GitHub的 notes
-            handler.add_pull_request_notes(f'Auto Review Result: \n{review_result}')
+        # review 代码
+        commits_text = ';'.join(commit['title'] for commit in commits)
+        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
 
-            # dispatch pull_request_reviewed event
-            event_manager['merge_request_reviewed'].send(
-                MergeRequestReviewEntity(
-                    project_name=webhook_data['repository']['name'],
-                    author=webhook_data['pull_request']['user']['login'],
-                    source_branch=webhook_data['pull_request']['head']['ref'],
-                    target_branch=webhook_data['pull_request']['base']['ref'],
-                    updated_at=int(datetime.now().timestamp()),
-                    commits=commits,
-                    score=CodeReviewer.parse_review_score(review_text=review_result),
-                    url=webhook_data['pull_request']['html_url'],
-                    review_result=review_result,
-                    url_slug=github_url_slug
-                ))
+        # 将review结果提交到GitHub的 notes
+        handler.add_pull_request_notes(f'Auto Review Result: \n{review_result}')
+
+        # dispatch pull_request_reviewed event
+        event_manager['merge_request_reviewed'].send(
+            MergeRequestReviewEntity(
+                project_name=webhook_data['repository']['name'],
+                author=webhook_data['pull_request']['user']['login'],
+                source_branch=webhook_data['pull_request']['head']['ref'],
+                target_branch=webhook_data['pull_request']['base']['ref'],
+                updated_at=int(datetime.now().timestamp()),
+                commits=commits,
+                score=CodeReviewer.parse_review_score(review_text=review_result),
+                url=webhook_data['pull_request']['html_url'],
+                review_result=review_result,
+                url_slug=github_url_slug
+            ))
 
     except Exception as e:
         error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'

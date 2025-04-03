@@ -83,23 +83,79 @@ class WeComNotifier:
 
         try:
             post_url = self._get_webhook_url(project_name=project_name, url_slug=url_slug)
-            data = self._build_markdown_message(content, title) if msg_type == 'markdown' else self._build_text_message(
-                content, is_at_all)
+            # 企业微信消息内容最大长度限制
+            # text类型最大2048字节
+            # https://developer.work.weixin.qq.com/document/path/91770#%E6%96%87%E6%9C%AC%E7%B1%BB%E5%9E%8B
+            # markdown类型最大4096字节
+            # https://developer.work.weixin.qq.com/document/path/91770#markdown%E7%B1%BB%E5%9E%8B
+            MAX_CONTENT_BYTES = 4096 if msg_type == 'markdown' else 2048
 
-            logger.debug(f"发送企业微信消息: url={post_url}, data={data}")
+            # 检查内容长度
+            content_length = len(content.encode('utf-8'))
+
+            if content_length <= MAX_CONTENT_BYTES:
+                # 内容长度在限制范围内，直接发送
+                data = self._build_message(content, title, msg_type, is_at_all)
+                self._send_message(post_url, data)
+            else:
+                # 内容超过限制，需要分割发送
+                logger.warning(f"消息内容超过{MAX_CONTENT_BYTES}字节限制，将分割发送。总长度: {content_length}字节")
+                self._send_message_in_chunks(content, title, post_url, msg_type, is_at_all, MAX_CONTENT_BYTES)
+
+        except Exception as e:
+            logger.error(f"企业微信消息发送失败! {e}")
+
+    def _send_message_in_chunks(self, content, title, post_url, msg_type, is_at_all, max_bytes):
+        """
+        将内容分割成多个部分并分别发送
+        """
+        chunks = self._split_content(content, max_bytes)
+        for i, chunk in enumerate(chunks):
+            chunk_title = f"{title} (第{i + 1}/{len(chunks)}部分)" if title else f"消息 (第{i + 1}/{len(chunks)}部分)"
+            data = self._build_message(chunk, chunk_title, msg_type, is_at_all)
+            self._send_message(post_url, data, chunk_num=i + 1, total_chunks=len(chunks))
+
+    def _split_content(self, content, max_bytes):
+        """
+        将内容按最大字节长度分割成多个部分
+        """
+        chunks = []
+        start_pos = 0
+        content_bytes = content.encode('utf-8')
+        content_length = len(content_bytes)
+
+        while start_pos < content_length:
+            end_pos = start_pos + max_bytes
+            if end_pos >= content_length:
+                chunk = content_bytes[start_pos:].decode('utf-8', errors='ignore')
+                chunks.append(chunk)
+                break
+
+            while end_pos > start_pos:
+                if content_bytes[end_pos - 1:end_pos] == b'\n':
+                    break
+                end_pos -= 1
+
+            chunk = content_bytes[start_pos:end_pos].decode('utf-8', errors='ignore')
+            chunks.append(chunk)
+            start_pos = end_pos
+
+        return chunks
+
+    def _send_message(self, post_url, data, chunk_num=None, total_chunks=None):
+        """ 发送请求并返回响应 """
+        try:
+            logger.debug(
+                f"发送企业微信消息{'分块' if chunk_num else ''} {chunk_num}/{total_chunks if chunk_num else ''}: url={post_url}, data={data}")
             response = self._send_request(post_url, data)
 
             if response and response.get('errcode') != 0:
                 logger.error(f"企业微信消息发送失败! webhook_url:{post_url}, errmsg:{response}")
-                if response.get("errmsg") and "markdown.content exceed max length" in response["errmsg"]:
-                    logger.warning("Markdown 消息过长，尝试发送纯文本")
-                    data = self._build_text_message(content, is_at_all)
-                    self._send_request(post_url, data)
             else:
-                logger.info(f"企业微信消息发送成功! webhook_url:{post_url}")
+                logger.info(f"企业微信消息{'分块' if chunk_num else ''}发送成功! webhook_url:{post_url}")
 
         except Exception as e:
-            logger.error(f"企业微信消息发送失败! {e}")
+            logger.error(f"企业微信消息{'分块' if chunk_num else ''}发送失败! {e}")
 
     def _send_request(self, url, data):
         """ 发送请求并返回 JSON 响应 """
@@ -112,6 +168,15 @@ class WeComNotifier:
         except json.JSONDecodeError as e:
             logger.error(f"企业微信返回的 JSON 解析失败! url:{url}, error: {e}")
         return None
+
+    def _build_message(self, content, title, msg_type, is_at_all):
+        """ 构造消息 """
+        if msg_type == 'text':
+            return self._build_text_message(content, is_at_all)
+        elif msg_type =='markdown':
+            return self._build_markdown_message(content, title)
+        else:
+            raise ValueError(f"不支持的消息类型: {msg_type}")
 
     def _build_text_message(self, content, is_at_all):
         """ 构造纯文本消息 """

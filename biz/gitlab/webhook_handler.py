@@ -62,7 +62,6 @@ class MergeRequestHandler:
         self.gitlab_token = gitlab_token
         self.gitlab_url = gitlab_url
         self.event_type = None
-        self.merge_request_id = None
         self.project_id = None
         self.action = None
         self.parse_event_type()
