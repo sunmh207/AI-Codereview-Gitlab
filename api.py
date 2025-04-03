@@ -135,10 +135,11 @@ def handle_github_webhook(event_type, data):
 
     # 获取GitHub Webhook Secret Token
     payload_body = request.get_data()
-    github_webhook_secret_token_env = os.getenv('GITHUB_WEBHOOK_SECRET_TOKEN')
-    github_webhook_secret_token_request = request.headers.get('X-Hub-Signature-256')
-    if not verify_github_signature(payload_body, github_webhook_secret_token_env, github_webhook_secret_token_request):
-        return jsonify({'message': 'GitHub Webhook Secret Token mismatch'}), 403
+    if os.getenv('VALIDATE_GITHUB_WEBHOOK_SECRET_TOKEN', '0') == '1':
+        github_webhook_secret_token_env = os.getenv('GITHUB_WEBHOOK_SECRET_TOKEN')
+        github_webhook_secret_token_request = request.headers.get('X-Hub-Signature-256')
+        if not verify_github_signature(payload_body, github_webhook_secret_token_env, github_webhook_secret_token_request):
+            return jsonify({'message': 'GitHub Webhook Secret Token mismatch'}), 403
 
     github_url = os.getenv('GITHUB_URL') or 'https://github.com'
     github_url_slug = slugify_url(github_url)
@@ -185,11 +186,12 @@ def handle_gitlab_webhook(data):
     if not gitlab_token:
         return jsonify({'message': 'Missing GitLab access token'}), 400
 
-    gitlab_webhook_secret_token_env = os.getenv('GITLAB_WEBHOOK_SECRET_TOKEN')
-    gitlab_webhook_secret_token_request = request.headers.get('X-Gitlab-Token')
-    if not verify_gitlab_webhook_secret_token(gitlab_webhook_secret_token_env, gitlab_webhook_secret_token_request):
-        logger.error(f"GitLab Webhook Secret Token mismatch")
-        return jsonify({'message': 'GitLab Webhook Secret Token mismatch'}), 403
+    if os.getenv('VALIDATE_GITLAB_WEBHOOK_SECRET_TOKEN', '0') == '1':
+        gitlab_webhook_secret_token_env = os.getenv('GITLAB_WEBHOOK_SECRET_TOKEN')
+        gitlab_webhook_secret_token_request = request.headers.get('X-Gitlab-Token')
+        if not verify_gitlab_webhook_secret_token(gitlab_webhook_secret_token_env, gitlab_webhook_secret_token_request):
+            logger.error(f"GitLab Webhook Secret Token mismatch")
+            return jsonify({'message': 'GitLab Webhook Secret Token mismatch'}), 403
 
     gitlab_url_slug = slugify_url(gitlab_url)
 
