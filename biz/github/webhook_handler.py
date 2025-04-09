@@ -1,4 +1,5 @@
-import json
+import hashlib
+import hmac
 import os
 import re
 import time
@@ -23,7 +24,7 @@ def filter_changes(changes: list):
         if change.get('status') == 'removed':
             logger.info(f"Detected file deletion via status field: {change.get('new_path')}")
             continue
-            
+
         # 如果没有status字段或status不为"removed"，继续检查diff模式
         diff = change.get('diff', '')
         if diff:
@@ -34,12 +35,12 @@ def filter_changes(changes: list):
                 if all(line.startswith('-') or not line for line in diff_lines):
                     logger.info(f"Detected file deletion via diff pattern: {change.get('new_path')}")
                     continue
-                    
+
         not_deleted_changes.append(change)
-    
+
     logger.info(f"SUPPORTED_EXTENSIONS: {SUPPORTED_EXTENSIONS}")
     logger.info(f"After filtering deleted files: {not_deleted_changes}")
-    
+
     # 过滤 `new_path` 以支持的扩展名结尾的元素, 仅保留diff和new_path字段
     filtered_changes = [
         {
@@ -51,6 +52,29 @@ def filter_changes(changes: list):
     ]
     logger.info(f"After filtering by extension: {filtered_changes}")
     return filtered_changes
+
+
+# from https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries#python-example
+def verify_github_signature(payload_body, secret_token, signature_header):
+    """Verify that the payload was sent from GitHub by validating SHA256.
+
+    Args:
+        payload_body: original request body to verify (request.body())
+        secret_token: GitHub app webhook token (WEBHOOK_SECRET)
+        signature_header: header received from GitHub (x-hub-signature-256)
+    """
+    # 仅当设置了环境变量时才验证秘密令牌
+    if not secret_token:
+        return True
+    if not signature_header:
+        logger.error("x-hub-signature-256 header is missing!")
+        return False
+    hash_object = hmac.new(secret_token.encode('utf-8'), msg=payload_body, digestmod=hashlib.sha256)
+    expected_signature = "sha256=" + hash_object.hexdigest()
+    if not hmac.compare_digest(expected_signature, signature_header):
+        logger.error("Request signatures didn't match!")
+        return False
+    return True
 
 
 class PullRequestHandler:
@@ -133,7 +157,7 @@ class PullRequestHandler:
         }
         response = requests.get(url, headers=headers)
         logger.debug(f"Get commits response from GitHub: {response.status_code}, {response.text}")
-        
+
         # 检查请求是否成功
         if response.status_code == 200:
             # 将GitHub的commits转换为GitLab格式的commits
@@ -330,12 +354,12 @@ class PushHandler:
             elif self.webhook_data.get('deleted', False):
                 # 删除分支处理
                 return []
-            
+
             return self.repository_compare(before, after)
         else:
             # 如果before和after不存在，尝试通过commits获取
             logger.info("before or after not found in webhook data, trying to get changes from commits.")
-            
+
             changes = []
             for commit in self.commit_list:
                 commit_id = commit.get('id')
@@ -344,5 +368,5 @@ class PushHandler:
                     if parent_id:
                         commit_changes = self.repository_compare(parent_id, commit_id)
                         changes.extend(commit_changes)
-            
-            return changes 
+
+            return changes
