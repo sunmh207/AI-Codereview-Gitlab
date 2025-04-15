@@ -10,7 +10,8 @@ from apscheduler.triggers.cron import CronTrigger
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 
-from biz.gitlab.webhook_handler import slugify_url
+from biz.github.webhook_handler import verify_github_signature
+from biz.gitlab.webhook_handler import slugify_url, verify_gitlab_webhook_secret_token
 from biz.queue.worker import handle_merge_request_event, handle_push_event, handle_github_pull_request_event, handle_github_push_event
 from biz.service.review_service import ReviewService
 from biz.utils.im import notifier
@@ -19,6 +20,7 @@ from biz.utils.queue import handle_queue
 from biz.utils.reporter import Reporter
 
 from biz.utils.config_checker import check_config
+
 load_dotenv("conf/.env")
 api_app = Flask(__name__)
 
@@ -113,7 +115,7 @@ def handle_webhook():
 
         # 判断是GitLab还是GitHub的webhook
         webhook_source = request.headers.get('X-GitHub-Event')
-        
+
         if webhook_source:  # GitHub webhook
             return handle_github_webhook(webhook_source, data)
         else:  # GitLab webhook
@@ -122,18 +124,26 @@ def handle_webhook():
         return jsonify({'message': 'Invalid data format'}), 400
 
 def handle_github_webhook(event_type, data):
-    # 获取GitHub配置
-    github_token = os.getenv('GITHUB_ACCESS_TOKEN') or request.headers.get('X-GitHub-Token')
-    if not github_token:
-        return jsonify({'message': 'Missing GitHub access token'}), 400
-        
-    github_url = os.getenv('GITHUB_URL') or 'https://github.com'
-    github_url_slug = slugify_url(github_url)
-    
     # 打印整个payload数据
     logger.info(f'Received GitHub event: {event_type}')
     logger.info(f'Payload: {json.dumps(data)}')
-    
+
+    # 获取GitHub配置
+    github_token = os.getenv('GITHUB_ACCESS_TOKEN')
+    if not github_token:
+        return jsonify({'message': 'Missing GitHub access token'}), 400
+
+    # 获取GitHub Webhook Secret Token
+    payload_body = request.get_data()
+    if os.getenv('VALIDATE_GITHUB_WEBHOOK_SECRET_TOKEN', '0') == '1':
+        github_webhook_secret_token_env = os.getenv('GITHUB_WEBHOOK_SECRET_TOKEN')
+        github_webhook_secret_token_request = request.headers.get('X-Hub-Signature-256')
+        if not verify_github_signature(payload_body, github_webhook_secret_token_env, github_webhook_secret_token_request):
+            return jsonify({'message': 'GitHub Webhook Secret Token mismatch'}), 403
+
+    github_url = os.getenv('GITHUB_URL') or 'https://github.com'
+    github_url_slug = slugify_url(github_url)
+
     if event_type == "pull_request":
         # 使用handle_queue进行异步处理
         handle_queue(handle_github_pull_request_event, data, github_token, github_url, github_url_slug)
@@ -167,17 +177,23 @@ def handle_gitlab_webhook(data):
         except Exception as e:
             return jsonify({"error": f"Failed to parse homepage URL: {str(e)}"}), 400
 
-    # 优先从环境变量获取，如果没有，则从请求头获取
-    gitlab_token = os.getenv('GITLAB_ACCESS_TOKEN') or request.headers.get('X-Gitlab-Token')
+    # 打印整个payload数据，或根据需求进行处理
+    logger.info(f'Received event: {object_kind}')
+    logger.info(f'Payload: {json.dumps(data)}')
+
+    gitlab_token = os.getenv('GITLAB_ACCESS_TOKEN')
     # 如果gitlab_token为空，返回错误
     if not gitlab_token:
         return jsonify({'message': 'Missing GitLab access token'}), 400
 
-    gitlab_url_slug = slugify_url(gitlab_url)
+    if os.getenv('VALIDATE_GITLAB_WEBHOOK_SECRET_TOKEN', '0') == '1':
+        gitlab_webhook_secret_token_env = os.getenv('GITLAB_WEBHOOK_SECRET_TOKEN')
+        gitlab_webhook_secret_token_request = request.headers.get('X-Gitlab-Token')
+        if not verify_gitlab_webhook_secret_token(gitlab_webhook_secret_token_env, gitlab_webhook_secret_token_request):
+            logger.error(f"GitLab Webhook Secret Token mismatch")
+            return jsonify({'message': 'GitLab Webhook Secret Token mismatch'}), 403
 
-    # 打印整个payload数据，或根据需求进行处理
-    logger.info(f'Received event: {object_kind}')
-    logger.info(f'Payload: {json.dumps(data)}')
+    gitlab_url_slug = slugify_url(gitlab_url)
 
     # 处理Merge Request Hook
     if object_kind == "merge_request":
