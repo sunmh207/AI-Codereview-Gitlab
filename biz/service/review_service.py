@@ -1,166 +1,173 @@
-import sqlite3
-
+import os
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, Column, Integer, String, Text, text, BigInteger
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.engine.url import make_url
 import pandas as pd
 
 from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity
 
+Base = declarative_base()
+
+
+class MRReviewLog(Base):
+    __tablename__ = 'mr_review_log'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_name = Column(String(255))
+    author = Column(String(255))
+    source_branch = Column(String(255))
+    target_branch = Column(String(255))
+    updated_at = Column(BigInteger)
+    commit_messages = Column(Text)
+    score = Column(Integer)
+    url = Column(String(512))
+    review_result = Column(Text)
+
+
+class PushReviewLog(Base):
+    __tablename__ = 'push_review_log'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_name = Column(String(255))
+    author = Column(String(255))
+    branch = Column(String(255))
+    updated_at = Column(BigInteger)
+    commit_messages = Column(Text)
+    score = Column(Integer)
+    review_result = Column(Text)
+
 
 class ReviewService:
-    DB_FILE = "data/data.db"
+    load_dotenv("conf/.env")
+    db_url = os.environ.get('DB_URL', 'sqlite:///data/data.db')
+    # db_url = os.environ.get('DB_URL', 'mysql+pymysql://root:root@127.0.0.1:3306/ai_code_review')
+
+    engine = create_engine(db_url, echo=False)
+    Session = sessionmaker(bind=engine)
 
     @staticmethod
     def init_db():
-        """初始化数据库及表结构"""
-        try:
-            with sqlite3.connect(ReviewService.DB_FILE) as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS mr_review_log (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            project_name TEXT,
-                            author TEXT,
-                            source_branch TEXT,
-                            target_branch TEXT,
-                            updated_at INTEGER,
-                            commit_messages TEXT,
-                            score INTEGER,
-                            url TEXT,
-                            review_result TEXT
-                        )
-                    ''')
-                cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS push_review_log (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            project_name TEXT,
-                            author TEXT,
-                            branch TEXT,
-                            updated_at INTEGER,
-                            commit_messages TEXT,
-                            score INTEGER,
-                            review_result TEXT
-                        )
-                    ''')
-                conn.commit()
-        except sqlite3.DatabaseError as e:
-            print(f"Database initialization failed: {e}")
+        """初始化数据库，如果是 MySQL 则自动建库"""
+        url = make_url(ReviewService.db_url)
+        backend = url.get_backend_name()
+
+        if backend == "mysql":
+            db_name = url.database
+            if not db_name:
+                print("Database name is missing in the DB_URL for MySQL.")
+                raise ValueError("Database name required in DB_URL.")
+            tmp_url = f"{url.drivername}://{url.username}:{url.password}@{url.host}:{url.port}"
+            tmp_engine = create_engine(tmp_url)
+            try:
+                with tmp_engine.connect() as conn:
+                    result = conn.execute(text(f"SHOW DATABASES LIKE '{db_name}'")).fetchone()
+                    if not result:
+                        conn.execute(text(f"CREATE DATABASE {db_name} DEFAULT CHARACTER SET utf8mb4"))
+                        print(f"Database {db_name} has been created.")
+                    else:
+                        print(f"Database {db_name} already exists.")
+            except OperationalError as e:
+                print(f"Failed to connect to MySQL server or create database: {e}")
+                raise
+            finally:
+                tmp_engine.dispose()
+
+        # Create table structures (for all databases)
+        Base.metadata.create_all(ReviewService.engine)
 
     @staticmethod
     def insert_mr_review_log(entity: MergeRequestReviewEntity):
-        """插入合并请求审核日志"""
+        """插入 MR 审核日志"""
+        session = ReviewService.Session()
         try:
-            with sqlite3.connect(ReviewService.DB_FILE) as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                                INSERT INTO mr_review_log (project_name,author, source_branch, target_branch, updated_at, commit_messages, score, url,review_result)
-                                VALUES (?,?, ?, ?, ?, ?, ?, ?, ?)
-                            ''',
-                               (entity.project_name, entity.author, entity.source_branch,
-                                entity.target_branch,
-                                entity.updated_at, entity.commit_messages, entity.score,
-                                entity.url, entity.review_result))
-                conn.commit()
-        except sqlite3.DatabaseError as e:
-            print(f"Error inserting review log: {e}")
+            record = MRReviewLog()
+            record.project_name = entity.project_name
+            record.author = entity.author
+            record.source_branch = entity.source_branch
+            record.target_branch = entity.target_branch
+            record.updated_at = entity.updated_at
+            record.commit_messages = entity.commit_messages
+            record.score = entity.score
+            record.url = entity.url
+            record.review_result = entity.review_result
+            record.url_slug = entity.url_slug
+            session.add(record)
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            print(f"Error inserting MR review log: {e}")
+        finally:
+            session.close()
 
     @staticmethod
-    def get_mr_review_logs(authors: list = None, project_names: list = None, updated_at_gte: int = None,
-                           updated_at_lte: int = None) -> pd.DataFrame:
-        """获取符合条件的合并请求审核日志"""
+    def get_mr_review_logs(authors=None, project_names=None, updated_at_gte=None, updated_at_lte=None):
+        """获取 MR 审核日志"""
+        session = ReviewService.Session()
         try:
-            with sqlite3.connect(ReviewService.DB_FILE) as conn:
-                query = """
-                            SELECT project_name, author, source_branch, target_branch, updated_at, commit_messages, score, url, review_result
-                            FROM mr_review_log
-                            WHERE 1=1
-                            """
-                params = []
-
-                if authors:
-                    placeholders = ','.join(['?'] * len(authors))
-                    query += f" AND author IN ({placeholders})"
-                    params.extend(authors)
-
-                if project_names:
-                    placeholders = ','.join(['?'] * len(project_names))
-                    query += f" AND project_name IN ({placeholders})"
-                    params.extend(project_names)
-
-                if updated_at_gte is not None:
-                    query += " AND updated_at >= ?"
-                    params.append(updated_at_gte)
-
-                if updated_at_lte is not None:
-                    query += " AND updated_at <= ?"
-                    params.append(updated_at_lte)
-                query += " ORDER BY updated_at DESC"
-                df = pd.read_sql_query(sql=query, con=conn, params=params)
+            query = session.query(MRReviewLog)
+            if authors:
+                query = query.filter(MRReviewLog.author.in_(authors))
+            if project_names:
+                query = query.filter(MRReviewLog.project_name.in_(project_names))
+            if updated_at_gte:
+                query = query.filter(MRReviewLog.updated_at >= updated_at_gte)
+            if updated_at_lte:
+                query = query.filter(MRReviewLog.updated_at <= updated_at_lte)
+            query = query.order_by(MRReviewLog.updated_at.desc())
+            df = pd.read_sql(query.statement, ReviewService.engine)
             return df
-        except sqlite3.DatabaseError as e:
-            print(f"Error retrieving review logs: {e}")
+        except Exception as e:
+            print(f"Error querying MR review logs: {e}")
             return pd.DataFrame()
+        finally:
+            session.close()
 
     @staticmethod
     def insert_push_review_log(entity: PushReviewEntity):
-        """插入推送审核日志"""
+        """插入 Push 审核日志"""
+        session = ReviewService.Session()
         try:
-            with sqlite3.connect(ReviewService.DB_FILE) as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                                INSERT INTO push_review_log (project_name,author, branch, updated_at, commit_messages, score,review_result)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?)
-                            ''',
-                               (entity.project_name, entity.author, entity.branch,
-                                entity.updated_at, entity.commit_messages, entity.score,
-                                entity.review_result))
-                conn.commit()
-        except sqlite3.DatabaseError as e:
-            print(f"Error inserting review log: {e}")
+            record = PushReviewLog()
+            record.project_name = entity.project_name
+            record.author = entity.author
+            record.branch = entity.branch
+            record.updated_at = entity.updated_at
+            record.commit_messages = entity.commit_messages
+            record.score = entity.score
+            record.review_result = entity.review_result
+            session.add(record)
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            print(f"Error inserting push review log: {e}")
+        finally:
+            session.close()
 
     @staticmethod
-    def get_push_review_logs(authors: list = None, project_names: list = None, updated_at_gte: int = None,
-                             updated_at_lte: int = None) -> pd.DataFrame:
-        """获取符合条件的推送审核日志"""
+    def get_push_review_logs(authors=None, project_names=None, updated_at_gte=None, updated_at_lte=None):
+        """获取 Push 审核日志"""
+        session = ReviewService.Session()
         try:
-            with sqlite3.connect(ReviewService.DB_FILE) as conn:
-                # 基础查询
-                query = """
-                    SELECT project_name, author, branch, updated_at, commit_messages, score, review_result
-                    FROM push_review_log
-                    WHERE 1=1
-                """
-                params = []
-
-                # 动态添加 authors 条件
-                if authors:
-                    placeholders = ','.join(['?'] * len(authors))
-                    query += f" AND author IN ({placeholders})"
-                    params.extend(authors)
-
-                if project_names:
-                    placeholders = ','.join(['?'] * len(project_names))
-                    query += f" AND project_name IN ({placeholders})"
-                    params.extend(project_names)
-
-                # 动态添加 updated_at_gte 条件
-                if updated_at_gte is not None:
-                    query += " AND updated_at >= ?"
-                    params.append(updated_at_gte)
-
-                # 动态添加 updated_at_lte 条件
-                if updated_at_lte is not None:
-                    query += " AND updated_at <= ?"
-                    params.append(updated_at_lte)
-
-                # 按 updated_at 降序排序
-                query += " ORDER BY updated_at DESC"
-
-                # 执行查询
-                df = pd.read_sql_query(sql=query, con=conn, params=params)
-                return df
-        except sqlite3.DatabaseError as e:
-            print(f"Error retrieving push review logs: {e}")
+            query = session.query(PushReviewLog)
+            if authors:
+                query = query.filter(PushReviewLog.author.in_(authors))
+            if project_names:
+                query = query.filter(PushReviewLog.project_name.in_(project_names))
+            if updated_at_gte:
+                query = query.filter(PushReviewLog.updated_at >= updated_at_gte)
+            if updated_at_lte:
+                query = query.filter(PushReviewLog.updated_at <= updated_at_lte)
+            query = query.order_by(PushReviewLog.updated_at.desc())
+            df = pd.read_sql(query.statement, ReviewService.engine)
+            return df
+        except Exception as e:
+            print(f"Error querying push review logs: {e}")
             return pd.DataFrame()
-
+        finally:
+            session.close()
 
 # Initialize database
 ReviewService.init_db()
