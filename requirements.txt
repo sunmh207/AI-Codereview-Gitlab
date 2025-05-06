@@ -4,7 +4,7 @@ Flask==3.0.3
 httpx[socks]
 Jinja2==3.1.4
 lizard==1.17.20
-matplotlib==3.10.1
+matplotlib==3.9.4
 ollama==0.4.7
 openai==1.59.3
 pandas==2.2.3
