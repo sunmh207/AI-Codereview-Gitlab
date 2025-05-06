@@ -103,7 +103,7 @@ def setup_scheduler():
 
 
 # 处理 GitLab Merge Request Webhook
-@api_app.route('/review/webhook', methods=['POST'])
+@api_app.route('/review/webhook', methods=['POST', 'GET'])
 def handle_webhook():
     # 获取请求的JSON数据
     if request.is_json:
