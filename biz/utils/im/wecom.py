@@ -60,8 +60,8 @@ class WeComNotifier:
         # 处理链接格式
         content = re.sub(r'\[(.*?)\]\((.*?)\)', r'[链接]\2', content)
 
-        # 移除HTML标签
-        content = re.sub(r'<[^>]+>', '', content)
+        # 移除HTML标签，但保留企业微信的@消息格式
+        content = re.sub(r'<(?!@)[^>]+>', '', content)
 
         formatted_content += content
         return formatted_content
@@ -191,6 +191,8 @@ class WeComNotifier:
     def _build_markdown_message(self, content, title):
         """ 构造 Markdown 消息 """
         formatted_content = self.format_markdown_content(content, title)
+        # 增加日志
+        logger.info(formatted_content)
         return {
             "msgtype": "markdown",
             "markdown": {
