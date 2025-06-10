@@ -20,7 +20,7 @@ class MergeRequestReviewEntity:
 
 class PushReviewEntity:
     def __init__(self, project_name: str, author: str, branch: str, updated_at: int, commits: list, score: float,
-                 review_result: str, url_slug: str):
+                 review_result: str, url_slug: str, user_username: str):
         self.project_name = project_name
         self.author = author
         self.branch = branch
@@ -29,6 +29,7 @@ class PushReviewEntity:
         self.score = score
         self.review_result = review_result
         self.url_slug = url_slug
+        self.user_username = user_username
 
     @property
     def commit_messages(self):

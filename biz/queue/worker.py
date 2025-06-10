@@ -49,6 +49,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             score=score,
             review_result=review_result,
             url_slug=gitlab_url_slug,
+            user_username=webhook_data['user_username']
         ))
 
     except Exception as e:
@@ -155,6 +156,7 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
             score=score,
             review_result=review_result,
             url_slug=github_url_slug,
+            user_username=webhook_data['user_username']
         ))
 
     except Exception as e:

@@ -1,8 +1,18 @@
 from blinker import Signal
+from datetime import datetime
 
 from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity
 from biz.service.review_service import ReviewService
 from biz.utils.im import notifier
+
+
+def format_timestamp(timestamp_str: str) -> str:
+    """将ISO 8601格式的时间字符串转换为更易读的格式"""
+    try:
+        dt = datetime.fromisoformat(timestamp_str)
+        return dt.strftime('%Y-%m-%d %H:%M:%S')
+    except (ValueError, TypeError):
+        return timestamp_str
 
 # 定义全局事件管理器（事件信号）
 event_manager = {
@@ -47,7 +57,7 @@ def on_push_reviewed(entity: PushReviewEntity):
     for commit in entity.commits:
         message = commit.get('message', '').strip()
         author = commit.get('author', 'Unknown Author')
-        timestamp = commit.get('timestamp', '')
+        timestamp = format_timestamp(commit.get('timestamp', ''))
         url = commit.get('url', '#')
         im_msg += (
             f"- **提交信息**: {message}\n"
