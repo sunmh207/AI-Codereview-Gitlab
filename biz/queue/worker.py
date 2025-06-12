@@ -49,6 +49,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             score=score,
             review_result=review_result,
             url_slug=gitlab_url_slug,
+            webhook_data=webhook_data,
         ))
 
     except Exception as e:
@@ -110,6 +111,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
                 url=webhook_data['object_attributes']['url'],
                 review_result=review_result,
                 url_slug=gitlab_url_slug,
+                webhook_data=webhook_data,
             )
         )
 
@@ -155,6 +157,7 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
             score=score,
             review_result=review_result,
             url_slug=github_url_slug,
+            webhook_data=webhook_data,
         ))
 
     except Exception as e:
@@ -215,7 +218,8 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
                 score=CodeReviewer.parse_review_score(review_text=review_result),
                 url=webhook_data['pull_request']['html_url'],
                 review_result=review_result,
-                url_slug=github_url_slug
+                url_slug=github_url_slug,
+                webhook_data=webhook_data,
             ))
 
     except Exception as e:

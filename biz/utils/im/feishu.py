@@ -1,7 +1,5 @@
-import json
 import requests
 import os
-import re
 from biz.utils.log import logger
 
 
