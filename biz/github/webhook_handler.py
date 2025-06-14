@@ -44,7 +44,9 @@ def filter_changes(changes: list):
     filtered_changes = [
         {
             'diff': item.get('diff', ''),
-            'new_path': item['new_path']
+            'new_path': item['new_path'],
+            'additions': item.get('additions', 0),
+            'deletions': item.get('deletions', 0),
         }
         for item in not_deleted_changes
         if any(item.get('new_path', '').endswith(ext) for ext in supported_extensions)
@@ -105,7 +107,9 @@ class PullRequestHandler:
                         change = {
                             'old_path': file.get('filename'),
                             'new_path': file.get('filename'),
-                            'diff': file.get('patch', '')
+                            'diff': file.get('patch', ''),
+                            'additions': file.get('additions', 0),
+                            'deletions': file.get('deletions', 0)
                         }
                         changes.append(change)
                     return changes
@@ -311,7 +315,9 @@ class PushHandler:
                     'old_path': file.get('filename'),
                     'new_path': file.get('filename'),
                     'diff': file.get('patch', ''),
-                    'status': file.get('status', '')
+                    'status': file.get('status', ''),
+                    'additions': file.get('additions', 0),
+                    'deletions': file.get('deletions', 0),
                 }
                 diffs.append(diff)
             return diffs

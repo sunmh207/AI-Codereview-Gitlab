@@ -24,6 +24,8 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
 
         review_result = None
         score = 0
+        additions = 0
+        deletions = 0
         if push_review_enabled:
             # 获取PUSH的changes
             changes = handler.get_push_changes()
@@ -37,6 +39,9 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
                 review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
                 score = CodeReviewer.parse_review_score(review_text=review_result)
+                for item in changes:
+                    additions += item['additions']
+                    deletions += item['deletions']
             # 将review结果提交到Gitlab的 notes
             handler.add_push_notes(f'Auto Review Result: \n{review_result}')
 
@@ -49,6 +54,8 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             score=score,
             review_result=review_result,
             url_slug=gitlab_url_slug,
+            additions=additions,
+            deletions=deletions,
         ))
 
     except Exception as e:
@@ -88,6 +95,12 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
         if not changes:
             logger.info('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
             return
+        # 统计本次新增、删除的代码总数
+        additions = 0
+        deletions = 0
+        for item in changes:
+            additions += item.get('additions', 0)
+            deletions += item.get('deletions', 0)
 
         # 获取Merge Request的commits
         commits = handler.get_merge_request_commits()
@@ -115,6 +128,8 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
                 url=webhook_data['object_attributes']['url'],
                 review_result=review_result,
                 url_slug=gitlab_url_slug,
+                additions=additions,
+                deletions=deletions,
             )
         )
 
@@ -135,6 +150,8 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
 
         review_result = None
         score = 0
+        additions = 0
+        deletions = 0
         if push_review_enabled:
             # 获取PUSH的changes
             changes = handler.get_push_changes()
@@ -148,6 +165,9 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
                 review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
                 score = CodeReviewer.parse_review_score(review_text=review_result)
+                for item in changes:
+                    additions += item.get('additions', 0)
+                    deletions += item.get('deletions', 0)
             # 将review结果提交到GitHub的 notes
             handler.add_push_notes(f'Auto Review Result: \n{review_result}')
 
@@ -160,6 +180,8 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
             score=score,
             review_result=review_result,
             url_slug=github_url_slug,
+            additions=additions,
+            deletions=deletions,
         ))
 
     except Exception as e:
@@ -199,6 +221,12 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
         if not changes:
             logger.info('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
             return
+        # 统计本次新增、删除的代码总数
+        additions = 0
+        deletions = 0
+        for item in changes:
+            additions += item.get('additions', 0)
+            deletions += item.get('deletions', 0)
 
         # 获取Pull Request的commits
         commits = handler.get_pull_request_commits()
@@ -225,7 +253,9 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
                 score=CodeReviewer.parse_review_score(review_text=review_result),
                 url=webhook_data['pull_request']['html_url'],
                 review_result=review_result,
-                url_slug=github_url_slug
+                url_slug=github_url_slug,
+                additions=additions,
+                deletions=deletions,
             ))
 
     except Exception as e:

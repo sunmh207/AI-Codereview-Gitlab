@@ -21,7 +21,9 @@ def filter_changes(changes: list):
     filtered_changes = [
         {
             'diff': item.get('diff', ''),
-            'new_path': item['new_path']
+            'new_path': item['new_path'],
+            'additions': len(re.findall(r'^\+(?!\+\+)', item.get('diff', ''), re.MULTILINE)),
+            'deletions': len(re.findall(r'^-(?!--)', item.get('diff', ''), re.MULTILINE))
         }
         for item in filter_deleted_files_changes
         if any(item.get('new_path', '').endswith(ext) for ext in supported_extensions)

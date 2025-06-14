@@ -1,4 +1,5 @@
 import datetime
+import math
 import os
 
 import pandas as pd
@@ -36,6 +37,16 @@ def get_data(service_func, authors=None, project_names=None, updated_at_gte=None
             if isinstance(ts, (int, float)) else ts
         )
 
+    def format_delta(row):
+        if (row['additions'] and not math.isnan(row['additions'])
+                and row['deletions'] and not math.isnan(row['deletions'])):
+            return f"+{int(row['additions'])}  -{int(row['deletions'])}"
+        else:
+            return ""
+    if "additions" in df.columns and "deletions" in df.columns:
+        df["delta"] = df.apply(format_delta, axis=1)
+    else:
+        df["delta"] = ""
     data = df[columns]
     return data
 
@@ -171,6 +182,34 @@ def generate_author_score_chart(df):
     st.pyplot(fig2)
 
 
+def generate_author_code_line_chart(df):
+    if df.empty:
+        st.info("没有数据可供展示")
+        return
+    
+    # 检查必要的列是否存在
+    if 'additions' not in df.columns or 'deletions' not in df.columns:
+        st.warning("无法生成代码行数图表：缺少必要的数据列")
+        return
+        
+    # 计算每个人员的代码行数（additions + deletions）
+    df['total_lines'] = df['additions'] + df['deletions']
+    author_code_lines = df.groupby('author')['total_lines'].sum().reset_index()
+    author_code_lines.columns = ['author', 'code_lines']
+
+    # 显示代码行数柱状图
+    fig3, ax3 = plt.subplots(figsize=(10, 6))
+    colors = plt.colormaps['Set3'].resampled(len(author_code_lines))
+    ax3.bar(
+        author_code_lines['author'],
+        author_code_lines['code_lines'],
+        color=[colors(i) for i in range(len(author_code_lines))]
+    )
+    plt.xticks(rotation=45, ha='right', fontsize=26)
+    plt.tight_layout()
+    st.pyplot(fig3)
+
+
 # 主要内容
 def main_page():
     st.markdown("#### 审查日志")
@@ -223,6 +262,7 @@ def main_page():
             average_score = df["score"].mean() if not df.empty else 0
             st.markdown(f"**总记录数:** {total_records}，**平均分:** {average_score:.2f}")
 
+
             # 创建2x2网格布局展示四个图表
             row1, row2, row3, row4 = st.columns(4)
             with row1:
@@ -238,9 +278,18 @@ def main_page():
                 st.markdown("<div style='text-align: center;'><b>人员平均分数</b></div>", unsafe_allow_html=True)
                 generate_author_score_chart(df)
 
+            row5, row6, row7, row8 = st.columns(4)
+            with row5:
+                st.markdown("<div style='text-align: center;'><b>人员代码变更总行数(增加+删除)</b></div>", unsafe_allow_html=True)
+                # 只有当 additions 和 deletions 列都存在时才显示代码行数图表
+                if 'additions' in df.columns and 'deletions' in df.columns:
+                    generate_author_code_line_chart(df)
+                else:
+                    st.info("无法显示代码行数图表：缺少必要的数据列")
+
     # Merge Request 数据展示
-    mr_columns = ["project_name", "author", "source_branch", "target_branch", "updated_at", "commit_messages", "score",
-                  "url"]
+    mr_columns = ["project_name", "author", "source_branch", "target_branch", "updated_at", "commit_messages", "delta",
+                  "score", "url", "additions", "deletions"]
 
     mr_column_config = {
         "score": st.column_config.ProgressColumn(
@@ -252,13 +301,15 @@ def main_page():
             max_chars=100,
             display_text=r"查看"
         ),
+        "additions": None,
+        "deletions": None,
     }
 
     display_data(mr_tab, ReviewService().get_mr_review_logs, mr_columns, mr_column_config)
 
     # Push 数据展示
     if show_push_tab:
-        push_columns = ["project_name", "author", "branch", "updated_at", "commit_messages", "score"]
+        push_columns = ["project_name", "author", "branch", "updated_at", "commit_messages", "delta", "score", "additions", "deletions"]
 
         push_column_config = {
             "score": st.column_config.ProgressColumn(
@@ -266,6 +317,8 @@ def main_page():
                 min_value=0,
                 max_value=100,
             ),
+            "additions": None,
+            "deletions": None,
         }
 
         display_data(push_tab, ReviewService().get_push_review_logs, push_columns, push_column_config)
