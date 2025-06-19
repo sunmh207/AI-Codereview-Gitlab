@@ -11,7 +11,6 @@ from biz.utils.im import notifier
 from biz.utils.log import logger
 
 
-
 def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_url_slug: str):
     push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
     try:
@@ -75,6 +74,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
     :return:
     '''
     merge_review_only_protected_branches = os.environ.get('MERGE_REVIEW_ONLY_PROTECTED_BRANCHES_ENABLED', '0') == '1'
+    merge_detail_review = os.environ.get('MERGE_DETAIL_REVIEW_ENABLED', '0') == '1'
     try:
         # 解析Webhook数据
         handler = MergeRequestHandler(webhook_data, gitlab_token, gitlab_url)
@@ -111,8 +111,8 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
 
         # review 代码
         commits_text = ';'.join(commit['title'] for commit in commits)
-        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
-
+        reviewer = CodeReviewer()
+        review_result = reviewer.review_and_strip_code(str(changes), commits_text)
         # 将review结果提交到Gitlab的 notes
         handler.add_merge_request_notes(f'Auto Review Result: \n{review_result}')
 
@@ -135,10 +135,25 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
             )
         )
 
+        if merge_detail_review:
+            # 如果开启Merge请求详细Review，对每个变更的文件进行review
+            all_detail_review = reviewer.detail_review(changes)
+            merge_request = handler.get_merge_request()
+            success_count = 0
+            fail_count = 0
+            for review in all_detail_review:
+                if handler.add_merge_request_comment(review=review, position_info=merge_request.get("diff_refs")):
+                    success_count += 1
+                else:
+                    fail_count += 1
+            logger.info(f'Gitlab merge request detail review count: {len(all_detail_review)}, '
+                        f'Success count: {success_count}, Fail count: {fail_count}')
+
     except Exception as e:
         error_message = f'AI Code Review 服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
         notifier.send_notification(content=error_message)
         logger.error('出现未知错误: %s', error_message)
+
 
 def handle_github_push_event(webhook_data: dict, github_token: str, github_url: str, github_url_slug: str):
     push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
@@ -203,6 +218,7 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
     :return:
     '''
     merge_review_only_protected_branches = os.environ.get('MERGE_REVIEW_ONLY_PROTECTED_BRANCHES_ENABLED', '0') == '1'
+    merge_detail_review = os.environ.get('MERGE_DETAIL_REVIEW_ENABLED', '0') == '1'
     try:
         # 解析Webhook数据
         handler = GithubPullRequestHandler(webhook_data, github_token, github_url)
@@ -239,7 +255,8 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
 
         # review 代码
         commits_text = ';'.join(commit['title'] for commit in commits)
-        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        reviewer = CodeReviewer()
+        review_result = reviewer.review_and_strip_code(str(changes), commits_text)
 
         # 将review结果提交到GitHub的 notes
         handler.add_pull_request_notes(f'Auto Review Result: \n{review_result}')
@@ -261,6 +278,19 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
                 additions=additions,
                 deletions=deletions,
             ))
+
+        if merge_detail_review:
+            # 如果开启Merge请求详细Review，对每个变更的文件进行review
+            all_detail_review = reviewer.detail_review(changes)
+            success_count = 0
+            fail_count = 0
+            for review in all_detail_review:
+                if handler.add_pull_request_comment(review=review):
+                    success_count += 1
+                else:
+                    fail_count += 1
+            logger.info(f'Github merge request detail review count: {len(all_detail_review)}, '
+                        f'Success count: {success_count}, Fail count: {fail_count}')
 
     except Exception as e:
         error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
