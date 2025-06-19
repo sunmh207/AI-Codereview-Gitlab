@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: app
-    image: ghcr.io/sunmh207/ai-codereview-gitlab:1.3.10
+    image: ghcr.io/sunmh207/ai-codereview-gitlab:1.3.11
     ports:
       - "5001:5001"
       - "5002:5002"
@@ -24,7 +24,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: worker
-    image: ghcr.io/sunmh207/ai-codereview-gitlab:1.3.10-worker
+    image: ghcr.io/sunmh207/ai-codereview-gitlab:1.3.11-worker
     volumes_from:
       - app
     env_file:
@@ -42,7 +42,7 @@ services:
 #      context: .
 #      dockerfile: Dockerfile
 #      target: worker
-#    image: ghcr.io/sunmh207/ai-codereview-gitlab:1.3.10-worker
+#    image: ghcr.io/sunmh207/ai-codereview-gitlab:1.3.11-worker
 #    volumes_from:
 #      - app
 #    env_file:
