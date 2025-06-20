@@ -43,10 +43,7 @@ def filter_changes(changes: list):
     # 过滤 `new_path` 以支持的扩展名结尾的元素, 仅保留diff和new_path字段
     filtered_changes = [
         {
-            'diff': item.get('diff', ''),
-            'new_path': item['new_path'],
-            'additions': item.get('additions', 0),
-            'deletions': item.get('deletions', 0),
+            **item
         }
         for item in not_deleted_changes
         if any(item.get('new_path', '').endswith(ext) for ext in supported_extensions)
@@ -105,9 +102,11 @@ class PullRequestHandler:
                     changes = []
                     for file in files:
                         change = {
-                            'old_path': file.get('filename'),
+                            'old_path': file.get('previous_filename', ''),
                             'new_path': file.get('filename'),
                             'diff': file.get('patch', ''),
+                            'status': file.get('status', ''),
+                            'renamed_file': file.get('status') == 'renamed',
                             'additions': file.get('additions', 0),
                             'deletions': file.get('deletions', 0)
                         }
@@ -190,6 +189,57 @@ class PullRequestHandler:
             return any(fnmatch.fnmatch(target_branch, item['name']) for item in data)
         else:
             logger.warn(f"Failed to get protected branches: {response.status_code}, {response.text}")
+            return False
+
+    def add_pull_request_comment(self, review):
+        """向 GitHub Pull Request 的特定行添加评论"""
+        head_sha = self.webhook_data.get("pull_request", {}).get("head", {}).get("sha")
+        if not head_sha:
+            logger.error("无法添加评论，缺少 head_sha。")
+            return False
+
+        url = f"https://api.github.com/repos/{self.repo_full_name}/pulls/{self.pull_request_number}/comments"
+        headers = {
+            "Authorization": f"token {self.github_token}",
+            "Accept": "application/vnd.github.v3+json",
+            "Content-Type": "application/json"
+        }
+
+        body = f"""**AI Review [{review.get('severity', 'N/A').upper()}]**: {review.get('category', 'General')}
+
+**分析**: {review.get('analysis', 'N/A')}
+
+**建议**:
+```suggestion
+{review.get('suggestion', 'N/A')}
+```
+"""
+
+        lines_info = review.get("lines", {})
+        file_path = review.get("file")
+
+        if not file_path:
+            logger.warning("跳过评论，审查缺少 'file' 路径。")
+            return False
+        if not lines_info or not lines_info.get('new'):
+            logger.warning("跳过评论，审查缺少 'lines' 信息。")
+            return False
+
+        payload = {
+            "body": body,
+            "commit_id": head_sha,
+            "path": file_path,
+            "line": lines_info["new"]
+        }
+
+        target_desc = f"file {file_path} line {lines_info['new']}"
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            logger.info(f"成功向 GitHub PR #{self.pull_request_number} ({target_desc}) 添加评论")
+            return True
+        except Exception as e:
+            logger.exception(f"添加 GitHub 评论 ({target_desc}) 时发生意外错误: {e}")
             return False
 
 
