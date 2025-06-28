@@ -11,8 +11,8 @@ from biz.utils.im import notifier
 from biz.utils.log import logger
 
 
-
 def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_url_slug: str):
+    project_ai_ignore = os.environ.get('PROJECT_AIIGNORE_ENABLED', '0') == '1'
     push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
     try:
         handler = PushHandler(webhook_data, gitlab_token, gitlab_url)
@@ -29,8 +29,12 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
         if push_review_enabled:
             # 获取PUSH的changes
             changes = handler.get_push_changes()
+            ai_ignore_content = ''
+            if project_ai_ignore:
+                ai_ignore_content = handler.get_ai_ignore_file()
+                logger.info('ai_ignore_content: %s', ai_ignore_content)
             logger.info('changes: %s', changes)
-            changes = filter_changes(changes)
+            changes = filter_changes(changes, ai_ignore_content)
             if not changes:
                 logger.info('未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
             review_result = "关注的文件没有修改"
@@ -74,6 +78,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
     :param gitlab_url_slug:
     :return:
     '''
+    project_ai_ignore = os.environ.get('PROJECT_AIIGNORE_ENABLED', '0') == '1'
     merge_review_only_protected_branches = os.environ.get('MERGE_REVIEW_ONLY_PROTECTED_BRANCHES_ENABLED', '0') == '1'
     try:
         # 解析Webhook数据
@@ -91,8 +96,12 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
         # 仅仅在MR创建或更新时进行Code Review
         # 获取Merge Request的changes
         changes = handler.get_merge_request_changes()
+        ai_ignore_content = ''
+        if project_ai_ignore:
+            ai_ignore_content = handler.get_ai_ignore_file()
+            logger.info('ai_ignore_content: %s', ai_ignore_content)
         logger.info('changes: %s', changes)
-        changes = filter_changes(changes)
+        changes = filter_changes(changes, ai_ignore_content)
         if not changes:
             logger.info('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
             return
@@ -140,7 +149,9 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
         notifier.send_notification(content=error_message)
         logger.error('出现未知错误: %s', error_message)
 
+
 def handle_github_push_event(webhook_data: dict, github_token: str, github_url: str, github_url_slug: str):
+    project_ai_ignore = os.environ.get('PROJECT_AIIGNORE_ENABLED', '0') == '1'
     push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
     try:
         handler = GithubPushHandler(webhook_data, github_token, github_url)
@@ -157,8 +168,12 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
         if push_review_enabled:
             # 获取PUSH的changes
             changes = handler.get_push_changes()
+            ai_ignore_content = ''
+            if project_ai_ignore:
+                ai_ignore_content = handler.get_ai_ignore_file()
+                logger.info('ai_ignore_content: %s', ai_ignore_content)
             logger.info('changes: %s', changes)
-            changes = filter_github_changes(changes)
+            changes = filter_github_changes(changes, ai_ignore_content)
             if not changes:
                 logger.info('未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
             review_result = "关注的文件没有修改"
@@ -202,6 +217,7 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
     :param github_url_slug:
     :return:
     '''
+    project_ai_ignore = os.environ.get('PROJECT_AIIGNORE_ENABLED', '0') == '1'
     merge_review_only_protected_branches = os.environ.get('MERGE_REVIEW_ONLY_PROTECTED_BRANCHES_ENABLED', '0') == '1'
     try:
         # 解析Webhook数据
@@ -219,8 +235,12 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
         # 仅仅在PR创建或更新时进行Code Review
         # 获取Pull Request的changes
         changes = handler.get_pull_request_changes()
+        ai_ignore_content = ''
+        if project_ai_ignore:
+            ai_ignore_content = handler.get_ai_ignore_file()
+            logger.info('ai_ignore_content: %s', ai_ignore_content)
         logger.info('changes: %s', changes)
-        changes = filter_github_changes(changes)
+        changes = filter_github_changes(changes, ai_ignore_content)
         if not changes:
             logger.info('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
             return
