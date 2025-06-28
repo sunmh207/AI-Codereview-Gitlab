@@ -1,14 +1,16 @@
+import base64
 import os
 import re
 import time
 
 import requests
 import fnmatch
+
+from biz.utils.ai_ignore import ai_ignore_filter
 from biz.utils.log import logger
 
 
-
-def filter_changes(changes: list):
+def filter_changes(changes: list, ai_ignore_content: str):
     '''
     过滤数据，只保留支持的文件类型以及必要的字段信息
     专门处理GitHub格式的变更
@@ -52,7 +54,7 @@ def filter_changes(changes: list):
         if any(item.get('new_path', '').endswith(ext) for ext in supported_extensions)
     ]
     logger.info(f"After filtering by extension: {filtered_changes}")
-    return filtered_changes
+    return ai_ignore_filter(filtered_changes, ai_ignore_content)
 
 
 class PullRequestHandler:
@@ -191,6 +193,28 @@ class PullRequestHandler:
         else:
             logger.warn(f"Failed to get protected branches: {response.status_code}, {response.text}")
             return False
+
+    def get_ai_ignore_file(self) -> str:
+        """
+        读取仓库的`.aiignore`文件
+        """
+        url = f"https://api.github.com/repos/{self.repo_full_name}/contents/.aiignore"
+        headers = {
+            'Authorization': f'token {self.github_token}',
+            'Accept': 'application/vnd.github.v3+json'
+        }
+        try:
+            # 发送GET请求
+            response = requests.get(url, params={'ref': self.webhook_data.get("head", {}).get("sha")},
+                                    headers=headers)
+            if response.status_code == 200:
+                file_data = response.json()
+                content = base64.b64decode(file_data['content']).decode('utf-8')
+                return content
+            return ""
+        except requests.exceptions.RequestException as e:
+            logger.error(f"请求失败: {e}")
+            return ""
 
 
 class PushHandler:
@@ -367,4 +391,29 @@ class PushHandler:
                         commit_changes = self.repository_compare(parent_id, commit_id)
                         changes.extend(commit_changes)
             
-            return changes 
+            return changes
+
+    def get_ai_ignore_file(self) -> str:
+        """
+        读取仓库的`.aiignore`文件
+        """
+        url = f"https://api.github.com/repos/{self.repo_full_name}/contents/.aiignore"
+        headers = {
+            'Authorization': f'token {self.github_token}',
+            'Accept': 'application/vnd.github.v3+json'
+        }
+        # 请求参数，获取最后一个提交的ID
+        params = {
+            'ref': self.commit_list[-1].get('id')
+        }
+        try:
+            # 发送GET请求
+            response = requests.get(url, params=params, headers=headers)
+            if response.status_code == 200:
+                file_data = response.json()
+                content = base64.b64decode(file_data['content']).decode('utf-8')
+                return content
+            return ""
+        except requests.exceptions.RequestException as e:
+            logger.error(f"请求失败: {e}")
+            return ""
