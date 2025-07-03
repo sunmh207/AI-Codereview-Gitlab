@@ -4,13 +4,14 @@ import time
 from urllib.parse import urljoin
 import fnmatch
 import requests
-
+from biz.utils.ai_ignore import ai_ignore_filter
 from biz.utils.log import logger
 
 
-def filter_changes(changes: list):
+def filter_changes(changes: list, ai_ignore_content: str):
     '''
     过滤数据，只保留支持的文件类型以及必要的字段信息
+    @param: ai_ignore_content ai_ignore文件规则，跟gitignore类似
     '''
     # 从环境变量中获取支持的文件扩展名
     supported_extensions = os.getenv('SUPPORTED_EXTENSIONS', '.java,.py,.php').split(',')
@@ -28,7 +29,7 @@ def filter_changes(changes: list):
         for item in filter_deleted_files_changes
         if any(item.get('new_path', '').endswith(ext) for ext in supported_extensions)
     ]
-    return filtered_changes
+    return ai_ignore_filter(filtered_changes, ai_ignore_content)
 
 
 def slugify_url(original_url: str) -> str:
@@ -164,6 +165,32 @@ class MergeRequestHandler:
         else:
             logger.warn(f"Failed to get protected branches: {response.status_code}, {response.text}")
             return False
+
+    def get_ai_ignore_file(self) -> str:
+        """
+        读取仓库的`.aiignore`文件
+        """
+        # 构建API请求URL
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/repository/files/.aiignore/raw")
+        # 请求参数
+        params = {
+            'ref': self.webhook_data.get("object_attributes", {}).get("last_commit", {}).get("id")
+        }
+        headers = {
+            'Private-Token': self.gitlab_token,
+            'Content-Type': 'application/json'
+        }
+        try:
+            # 发送GET请求
+            response = requests.get(url, params=params, headers=headers)
+            if response.status_code == 200:
+                # 返回文件内容
+                return response.text
+            return ""
+        except requests.exceptions.RequestException as e:
+            logger.error(f"请求失败: {e}")
+            return ""
 
 
 class PushHandler:
@@ -309,3 +336,27 @@ class PushHandler:
             return self.repository_compare(before, after)
         else:
             return []
+
+    def get_ai_ignore_file(self) -> str:
+        """
+        读取仓库的`.aiignore`文件
+        """
+        # 构建API请求URL
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/repository/files/.aiignore/raw")
+        # 请求参数
+        params = {
+            'ref': self.commit_list[-1].get('id')
+        }
+        headers = {
+            'Private-Token': self.gitlab_token,
+            'Content-Type': 'application/json'
+        }
+        try:
+            response = requests.get(url, params=params, headers=headers)
+            if response.status_code == 200:
+                return response.text
+            return ""
+        except Exception as e:
+            logger.error(f"请求失败: {e}")
+            return ""
