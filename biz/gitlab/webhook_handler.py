@@ -15,13 +15,13 @@ def filter_changes(changes: list):
     # 从环境变量中获取支持的文件扩展名
     supported_extensions = os.getenv('SUPPORTED_EXTENSIONS', '.java,.py,.php').split(',')
 
+    # 过滤删除的文件
     filter_deleted_files_changes = [change for change in changes if not change.get("deleted_file")]
 
-    # 过滤 `new_path` 以支持的扩展名结尾的元素, 仅保留diff和new_path字段
+    # 过滤 `new_path` 以支持的扩展名结尾的元素
     filtered_changes = [
         {
-            'diff': item.get('diff', ''),
-            'new_path': item['new_path'],
+            **item,
             'additions': len(re.findall(r'^\+(?!\+\+)', item.get('diff', ''), re.MULTILINE)),
             'deletions': len(re.findall(r'^-(?!--)', item.get('diff', ''), re.MULTILINE))
         }
@@ -73,6 +73,21 @@ class MergeRequestHandler:
         self.project_id = merge_request.get('target_project_id')
         self.action = merge_request.get('action')
 
+    def get_merge_request(self) -> dict:
+        # 调用 GitLab API 获取 Merge Request 的 changes
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/changes")
+        headers = {
+            'Private-Token': self.gitlab_token
+        }
+        response = requests.get(url, headers=headers, verify=False)
+        # 检查请求是否成功
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.warn(f"Failed to get changes from GitLab (URL: {url}): {response.status_code}, {response.text}")
+            return {}
+
     def get_merge_request_changes(self) -> list:
         # 检查是否为 Merge Request Hook 事件
         if self.event_type != 'merge_request':
@@ -83,28 +98,16 @@ class MergeRequestHandler:
         max_retries = 3  # 最大重试次数
         retry_delay = 10  # 重试间隔时间（秒）
         for attempt in range(max_retries):
-            # 调用 GitLab API 获取 Merge Request 的 changes
-            url = urljoin(f"{self.gitlab_url}/",
-                          f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/changes")
-            headers = {
-                'Private-Token': self.gitlab_token
-            }
-            response = requests.get(url, headers=headers, verify=False)
+            data = self.get_merge_request()
             logger.debug(
-                f"Get changes response from GitLab (attempt {attempt + 1}): {response.status_code}, {response.text}, URL: {url}")
-
-            # 检查请求是否成功
-            if response.status_code == 200:
-                changes = response.json().get('changes', [])
-                if changes:
-                    return changes
-                else:
-                    logger.info(
-                        f"Changes is empty, retrying in {retry_delay} seconds... (attempt {attempt + 1}/{max_retries}), URL: {url}")
-                    time.sleep(retry_delay)
+                f"Get changes response from GitLab (attempt {attempt + 1}): {data}")
+            changes = data.get('changes', [])
+            if changes:
+                return changes
             else:
-                logger.warn(f"Failed to get changes from GitLab (URL: {url}): {response.status_code}, {response.text}")
-                return []
+                logger.info(
+                    f"Changes is empty, retrying in {retry_delay} seconds... (attempt {attempt + 1}/{max_retries})")
+                time.sleep(retry_delay)
 
         logger.warning(f"Max retries ({max_retries}) reached. Changes is still empty.")
         return []  # 达到最大重试次数后返回空列表
@@ -163,6 +166,66 @@ class MergeRequestHandler:
             return any(fnmatch.fnmatch(target_branch, item['name']) for item in data)
         else:
             logger.warn(f"Failed to get protected branches: {response.status_code}, {response.text}")
+            return False
+
+    def add_merge_request_comment(self, review, position_info):
+        """向 GitLab Merge Request 的特定行添加评论"""
+        if not position_info or not position_info.get("head_sha") or not position_info.get(
+                "base_sha") or not position_info.get("start_sha"):
+            logger.error(
+                f"错误: 无法添加评论，缺少必要的位置信息 (head_sha/base_sha/start_sha)。得到: {position_info}")
+            return False
+
+        url = f"{self.gitlab_url}/api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/discussions"
+        headers = {"PRIVATE-TOKEN": self.gitlab_token, "Content-Type": "application/json"}
+
+        body = f"""**AI Review [{review.get('severity', 'N/A').upper()}]**: {review.get('category', 'General')}
+
+**分析**: {review.get('analysis', 'N/A')}
+
+**建议**:
+```suggestion
+{review.get('suggestion', 'N/A')}
+```
+"""
+        position_data = {
+            "base_sha": position_info.get("base_sha"),
+            "start_sha": position_info.get("start_sha"),
+            "head_sha": position_info.get("head_sha"),
+            "position_type": "text",
+        }
+
+        lines_info = review.get("lines", {})
+        file_path = review.get("file")
+        old_file_path = review.get("old_path")
+
+        if not file_path:
+            logger.warning("跳过评论，审查缺少 'file' 路径。")
+            return False
+
+        if lines_info and lines_info.get("new") is not None:
+            position_data["new_path"] = file_path
+            position_data["new_line"] = lines_info["new"]
+            position_data["old_path"] = old_file_path if old_file_path else file_path
+            target_desc = f"file {file_path} line {lines_info['new']}"
+        elif lines_info and lines_info.get("old") is not None:
+            position_data["old_path"] = old_file_path if old_file_path else file_path
+            position_data["old_line"] = lines_info["old"]
+            position_data["new_path"] = file_path
+            target_desc = f"文件 {position_data['old_path']} 旧行号 {lines_info['old']}"
+        else:
+            logger.warning("跳过评论，审查缺少 'lines' 信息。")
+            return False
+
+        payload = {"body": body, "position": position_data}
+        logger.info(f"尝试向 {target_desc} 添加带位置的评论")
+        try:
+            response_obj = requests.post(url, headers=headers, json=payload)
+            response_obj.raise_for_status()
+            logger.info(f"成功向 GitLab MR {self.merge_request_iid} ({target_desc}) 添加评论")
+            return True
+        except Exception as e:
+            logger.exception(f"添加 GitLab 评论 ({target_desc}) 时发生意外错误: {e}")
             return False
 
 
