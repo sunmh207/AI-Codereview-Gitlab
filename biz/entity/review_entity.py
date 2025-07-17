@@ -1,3 +1,5 @@
+import json
+
 class MergeRequestReviewEntity:
     def __init__(self, project_name: str, author: str, source_branch: str, target_branch: str, updated_at: int,
                  commits: list, score: float, url: str, review_result: str, url_slug: str, webhook_data: dict,
@@ -43,3 +45,6 @@ class PushReviewEntity:
         # 合并所有 commit 的 message 属性，用分号分隔
         return "; ".join(commit["message"].strip() for commit in self.commits)
 
+    @property
+    def commits_json(self):
+        return json.dumps(self.commits)

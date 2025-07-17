@@ -471,15 +471,42 @@ def main_page():
                             updated_at_lte=int(end_datetime.timestamp()), columns=columns)
             df = pd.DataFrame(data)
 
+            total_records = len(df)
+            average_score = df["score"].mean() if not df.empty else 0
+            st.markdown(f"**总记录数:** {total_records}，**平均得分:** {average_score:.2f}")
+
             st.data_editor(
                 df,
                 use_container_width=True,
                 column_config=column_config
             )
-
+                   
             total_records = len(df)
             average_score = df["score"].mean() if not df.empty else 0
-            st.markdown(f"**总记录数:** {total_records}，**平均得分:** {average_score:.2f}")
+            st.markdown(f"​**总记录数:​**​ {total_records}，​**平均得分:​**​ {average_score:.2f}")
+            
+            # 为每一行创建模态框
+            if tab == push_tab:
+                for i, row in df.iterrows():
+                    with st.expander(f"提交详情 (行 {i+1}): {row['project_name']}", expanded=False):
+                        try:
+                            commits = json.loads(row["commits_json"])
+                            st.markdown("​**本次推送包含以下提交:​**​")
+                            
+                            if isinstance(commits, list):
+                                for commit in commits:
+                                    if isinstance(commit, dict):
+                                        message = commit.get("message", "")
+                                        url = commit.get("url", "#")
+                                        st.markdown(f"🔹 [{message}]({url})")
+                                    else:
+                                        st.write(f"🔹 {commit}")
+                            else:
+                                st.write("提交数据格式不正确")
+                        except:
+                            st.error("无法解析提交数据")
+                                    
+
 
             # 创建2x2网格布局展示四个图表
             row1, row2, row3, row4 = st.columns(4)
@@ -541,7 +568,7 @@ def main_page():
     # Push 数据展示
     if show_push_tab:
         push_columns = ["project_name", "author", "branch", "updated_at", "commit_messages", "delta", "score",
-                        'additions', 'deletions']
+                        'additions', 'deletions', 'commits_json']
 
         push_column_config = {
             "project_name": "项目名称",
@@ -555,6 +582,7 @@ def main_page():
                 min_value=0,
                 max_value=100,
             ),
+            "commits_json": None,
             "additions": None,
             "deletions": None,
         }
