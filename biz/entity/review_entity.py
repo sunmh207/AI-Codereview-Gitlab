@@ -48,3 +48,15 @@ class PushReviewEntity:
     @property
     def commits_json(self):
         return json.dumps(self.commits)
+
+    # 获取 commit 中 commitId 的拼接字符串
+    @property
+    def commit_ids(self):
+        return "; ".join(commit["id"] for commit in self.commits)
+
+    # 获取最后一个 commit 的 url
+    @property
+    def last_commit_url(self):
+        if self.commits:
+            return self.commits[-1].get("url", "#")
+        return "#"

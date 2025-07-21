@@ -138,7 +138,9 @@ class FeishuBitableClient:
             "Review结果": entity.review_result or "无Review结果",
             # "新增行数": entity.additions,
             # "删除行数": entity.deletions,
+            "CommitIds": entity.commit_ids,
             "Commit数量": len(entity.commits) if entity.commits else 0,
+            "Review链接": {"link": entity.last_commit_url, "text": "查看详情"},
             "事件类型": "Push"
         }
 
@@ -168,8 +170,8 @@ class FeishuBitableClient:
             "提交信息": entity.commit_messages,
             "评分": entity.score,
             "Review结果": entity.review_result or "无Review结果",
-            "新增行数": entity.additions,
-            "删除行数": entity.deletions,
+            # "新增行数": entity.additions,
+            # "删除行数": entity.deletions,
             "提交数量": len(entity.commits) if entity.commits else 0,
             "事件类型": "Merge Request",
             "MR链接": entity.url
