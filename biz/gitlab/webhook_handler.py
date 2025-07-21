@@ -199,6 +199,7 @@ class PushHandler:
         commit_details = []
         for commit in self.commit_list:
             commit_info = {
+                'id': commit.get('id'),
                 'message': commit.get('message'),
                 'author': commit.get('author', {}).get('name'),
                 'timestamp': commit.get('timestamp'),

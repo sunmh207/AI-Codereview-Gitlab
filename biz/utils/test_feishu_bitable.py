@@ -62,8 +62,8 @@ def test_create_record():
         branch="main",
         updated_at=int(datetime.now().timestamp()),
         commits=[
-            {"id": "commitId1", "url": "https://code.mysugoncloud.com/data-team/QAnything-master/-/commit/e10f48a94aa06da51ae22457955de6de757ac7f5", "message": "测试提交1", "author": "测试开发者", "timestamp": "2025-01-18 10:00:00"},
-            {"id": "commitId2","url": "https://code.mysugoncloud.com/data-team/QAnything-master/-/commit/e10f48a94aa06da51ae22457955de6de757ac7f5", "message": "测试提交2", "author": "测试开发者", "timestamp": "2025-01-18 10:30:00"}
+            {"id": "commitId1", "url": "https://test.com/commit/commitId1", "message": "测试提交1", "author": "测试开发者", "timestamp": "2025-01-18 10:00:00"},
+            {"id": "commitId2","url": "https://test.com/commit/commitId2", "message": "测试提交2", "author": "测试开发者", "timestamp": "2025-01-18 10:30:00"}
         ],
         score=85.5,
         review_result="代码质量良好，建议优化性能部分。",
