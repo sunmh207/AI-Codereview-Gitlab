@@ -105,7 +105,7 @@ class DailyReportService:
 
             # 发送到飞书多维表格
             try:
-                feishu_client = FeishuBitableClient()
+                feishu_client = FeishuBitableClient(self.user_matcher)
                 feishu_client.create_daily_report_record(personal_report, author)
             except Exception as e:
                 logger.error(f"飞书多维表格数据插入失败: {str(e)}")

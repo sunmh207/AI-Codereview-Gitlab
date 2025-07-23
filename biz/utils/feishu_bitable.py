@@ -8,8 +8,11 @@ from biz.utils.log import logger
 class FeishuBitableClient:
     """飞书多维表格客户端"""
 
-    def __init__(self):
-        """初始化飞书多维表格客户端"""
+    def __init__(self, user_matcher=None):
+        """
+        初始化飞书多维表格客户端
+        :param user_matcher: 用户匹配器实例，用于获取飞书open_id
+        """
         self.app_id = os.environ.get('FEISHU_APP_ID', '')
         self.app_secret = os.environ.get('FEISHU_APP_SECRET', '')
         self.app_token = os.environ.get('FEISHU_BITABLE_APP_TOKEN', '')
@@ -19,6 +22,17 @@ class FeishuBitableClient:
         self.base_url = 'https://open.feishu.cn/open-apis'
         self._access_token = None
         self._token_expires_at = 0
+
+        # 用户匹配器，用于获取飞书用户信息
+        self.user_matcher = user_matcher
+        if user_matcher is None:
+            # 延迟导入避免循环依赖
+            try:
+                from biz.utils.im.user_matcher import UserMatcher
+                self.user_matcher = UserMatcher()
+            except Exception as e:
+                logger.warning(f"无法创建UserMatcher实例: {str(e)}")
+                self.user_matcher = None
 
     def _get_access_token(self):
         """获取访问令牌"""
@@ -128,6 +142,9 @@ class FeishuBitableClient:
         if not self.enabled:
             return False
 
+        # 尝试获取飞书用户信息
+        developer_field = self._get_developer_field_value(entity.author, self.user_matcher)
+
         # 构造字段数据
         fields = {
             "项目名称": entity.project_name,
@@ -145,7 +162,10 @@ class FeishuBitableClient:
             "事件类型": "Push"
         }
 
-        logger.info(f"准备向飞书多维表格插入Push Review数据: {entity.project_name} - {entity.author}")
+        # 只有当 developer_field 不为 None 时才添加研发人员字段
+        if developer_field is not None:
+            fields["研发人员"] = developer_field
+
         return self.create_record(fields)
 
     def create_merge_request_review_record(self, entity):
@@ -161,6 +181,9 @@ class FeishuBitableClient:
         if not self.enabled:
             return False
 
+        # 尝试获取飞书用户信息
+        developer_field = self._get_developer_field_value(entity.author, self.user_matcher)
+
         # 构造字段数据
         fields = {
             "项目名称": entity.project_name,
@@ -171,17 +194,18 @@ class FeishuBitableClient:
             "提交信息": entity.commit_messages,
             "评分": entity.score,
             "Review结果": entity.review_result or "无Review结果",
-            # "新增行数": entity.additions,
-            # "删除行数": entity.deletions,
             "提交数量": len(entity.commits) if entity.commits else 0,
             "事件类型": "Merge Request",
             "MR链接": entity.url
         }
 
+        # 只有当 developer_field 不为 None 时才添加研发人员字段
+        if developer_field is not None:
+            fields["研发人员"] = developer_field
+
         logger.info(f"准备向飞书多维表格插入MR Review数据: {entity.project_name} - {entity.author}")
         return self.create_record(fields)
 
-    # create_daily_report_record
     def create_daily_report_record(self, report_content: str, author: str) -> bool:
         """
         在多维表格中创建日报记录
@@ -204,6 +228,8 @@ class FeishuBitableClient:
             'Content-Type': 'application/json'
         }
 
+        developer_field = self._get_developer_field_value(author, self.user_matcher)
+
         # 构造记录数据
         record_data = {
             "更新时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -211,22 +237,45 @@ class FeishuBitableClient:
             "日报内容": report_content
         }
 
+        # 只有当 developer_field 不为 None 时才添加研发人员字段
+        if developer_field is not None:
+            record_data["研发人员"] = developer_field
+
         payload = {
             "fields": record_data
         }
 
         try:
             response = requests.post(url, json=payload, headers=headers)
-
             result = response.json()
 
             if response.status_code != 200 or result.get('code') != 0:
                 logger.error(f"创建多维表格记录失败: author={author}, error={result}")
                 return False
-
+            return True
         except Exception as e:
             logger.error(f"创建多维表格记录异常: author={author}, error={str(e)}")
             return False
+
+    def _get_developer_field_value(self, author: str, user_matcher=None):
+        """
+        获取开发者字段的值，优先使用飞书用户ID格式
+        :param author: 作者名称
+        :param user_matcher: 用户匹配器实例
+        :return: 开发者字段值
+        """
+        if user_matcher:
+            try:
+                # 尝试通过作者名称获取飞书open_id
+                open_id = user_matcher.get_openid_by_name(author)
+                if open_id:
+                    return [{"id": open_id}]
+                else:
+                    logger.info(f"未找到作者 {author} 的飞书open_id，使用原始名称")
+            except Exception as e:
+                logger.warning(f"获取作者 {author} 的飞书open_id时出错: {str(e)}")
+
+        return None
 
     def test_connection(self):
         """

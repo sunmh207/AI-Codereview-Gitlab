@@ -94,7 +94,7 @@ class SimpleOptimizedReportService:
             personal_report = self._generate_mock_personal_report(author, commits)
 
             # 发送到飞书多维表格
-            feishu_client = FeishuBitableClient()
+            feishu_client = FeishuBitableClient(self.user_matcher)
             if feishu_client.enabled:
                 success = feishu_client.create_daily_report_record(personal_report, author)
                 if success:
