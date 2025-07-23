@@ -65,36 +65,6 @@ class UserMatcher:
 
         return name_map
 
-    def get_openid_by_name(self, name: str) -> Optional[str]:
-        """
-        根据姓名获取open_id
-        :param name: 用户姓名
-        :return: open_id或None
-        """
-        if not name:
-            return None
-
-        name = name.strip()
-        open_id = self.name_to_openid_map.get(name)
-
-        return open_id
-
-    def get_openid_by_gitlab_user(self, gitlab_username: str = None, gitlab_name: str = None, gitlab_email: str = None) -> Optional[str]:
-        """
-        根据GitLab用户信息获取飞书open_id
-        :param gitlab_username: GitLab用户名
-        :param gitlab_name: GitLab显示名称
-        :return: open_id或None
-        """
-        # 通过显示名称匹配
-        if gitlab_name:
-            open_id = self.get_openid_by_name(gitlab_name)
-            if open_id:
-                return open_id
-
-        logger.warning(f"无法匹配GitLab用户: username={gitlab_username}, name={gitlab_name}")
-        return None
-
     def get_all_feishu_users(self) -> List[Dict]:
         """获取所有飞书用户信息"""
         return self.feishu_users
@@ -110,3 +80,39 @@ class UserMatcher:
             'gitlab_users_count': len(self.gitlab_users),
             'name_mappings_count': len(self.name_to_openid_map),
         }
+
+    def get_openid_by_author(self, author: str) -> Optional[str]:
+        """
+        根据作者名称获取飞书open_id
+        :param author: 作者名称
+        :return: open_id或None
+        """
+        if not author:
+            return None
+
+        # 如果直接匹配失败，尝试通过GitLab用户信息匹配
+        for user in self.gitlab_users:
+            if user.get('name') == author or user.get('username') == author:
+                # 找到GitLab用户后，通过显示名称获取open_id
+                gitlab_name = user.get('name')
+                if gitlab_name:
+                    open_id = self.get_openid_by_name(gitlab_name)
+                    if open_id:
+                        return open_id
+
+        logger.warning(f"无法匹配 gitlab 作者 {author} 的飞书open_id")
+        return None
+
+    def get_openid_by_name(self, name: str) -> Optional[str]:
+        """
+        根据姓名获取open_id
+        :param name: 用户姓名
+        :return: open_id或None
+        """
+        if not name:
+            return None
+
+        name = name.strip()
+        open_id = self.name_to_openid_map.get(name)
+
+        return open_id

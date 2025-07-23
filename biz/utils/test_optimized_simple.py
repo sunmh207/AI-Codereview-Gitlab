@@ -104,19 +104,9 @@ class SimpleOptimizedReportService:
             result['report_content'] = personal_report
             result['report_generated'] = True
 
-            # 匹配用户信息
-            user_info = self._match_user_info(author)
-            if not user_info:
-                error_msg = f"无法匹配用户信息: {author}"
-                result['errors'].append(error_msg)
-                print(f"  ⚠️  {error_msg}")
-                return result
-
-            print(f"  ✅ 匹配到用户: {author}")
-
             # 发送飞书消息
             if self.feishu_notifier.enabled:
-                message_sent = self._send_personal_report(user_info, personal_report, author)
+                message_sent = self._send_personal_report(personal_report, author)
                 result['message_sent'] = message_sent
 
                 if message_sent:
@@ -174,7 +164,7 @@ class SimpleOptimizedReportService:
 
         return None
 
-    def _send_personal_report(self, user_info, report_content, author):
+    def _send_personal_report(self, report_content, author):
         """发送个人日报"""
         try:
             from datetime import datetime
@@ -187,11 +177,7 @@ class SimpleOptimizedReportService:
 此报告由AI代码审查系统自动生成并发送（测试模式）"""
 
             # 获取open_id
-            open_id = self.user_matcher.get_openid_by_gitlab_user(
-                gitlab_username=user_info.get('username'),
-                gitlab_name=user_info.get('name'),
-                gitlab_email=user_info.get('email')
-            )
+            open_id = self.user_matcher.get_openid_by_author(author)
 
             if not open_id:
                 print(f"    ⚠️  无法获取 {author} 的飞书open_id")
@@ -201,7 +187,7 @@ class SimpleOptimizedReportService:
             success = self.feishu_notifier.send_direct_message(
                 open_id=open_id,
                 content=formatted_message,
-                msg_type='text'
+                msg_type='interactive'
             )
 
             return success
@@ -213,7 +199,7 @@ class SimpleOptimizedReportService:
 
 def create_test_commits():
     """创建测试提交数据"""
-    real_users = ["庞江川"]
+    real_users = ["pjc"]
 
     test_commits = []
 

@@ -169,9 +169,43 @@ class FeishuNotifier:
             message_content = {
                 "text": content
             }
-        elif msg_type == 'rich_text':
-            # 富文本消息格式
-            message_content = content
+        elif msg_type == 'interactive':
+            message_content = {
+                "schema": "2.0",
+                "config": {
+                    "update_multi": True,
+                    "style": {
+                        "text_size": {
+                            "normal_v2": {
+                                "default": "normal",
+                                "pc": "normal",
+                                "mobile": "heading"
+                            }
+                        }
+                    }
+                },
+                "body": {
+                    "direction": "vertical",
+                    "padding": "12px 12px 12px 12px",
+                    "elements": [
+                        {
+                            "tag": "markdown",
+                            "content": content,
+                            "text_align": "left",
+                            "text_size": "normal_v2",
+                            "margin": "0px 0px 0px 0px"
+                        }
+                    ]
+                },
+                "header": {
+                    "title": {
+                        "tag": "plain_text",
+                        "content": "AI-CR 日报"
+                    },
+                    "template": "blue",
+                    "padding": "12px 12px 12px 12px"
+                }
+            }
         else:
             logger.error(f"不支持的消息类型: {msg_type}")
             return False

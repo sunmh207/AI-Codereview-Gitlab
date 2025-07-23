@@ -113,17 +113,9 @@ class DailyReportService:
             result['report_content'] = personal_report
             result['report_generated'] = True
 
-            # 匹配用户信息
-            user_info = self._match_user_info(author)
-            if not user_info:
-                error_msg = f"无法匹配用户信息: {author}"
-                result['errors'].append(error_msg)
-                logger.warning(error_msg)
-                return result
-
             # 发送飞书消息
             if self.feishu_notifier.enabled:
-                message_sent = self._send_personal_report(user_info, personal_report, author)
+                message_sent = self._send_personal_report(personal_report, author)
                 result['message_sent'] = message_sent
 
                 if not message_sent:
@@ -138,24 +130,7 @@ class DailyReportService:
 
         return result
 
-    def _match_user_info(self, author: str) -> Optional[Dict[str, str]]:
-        """
-        匹配用户信息
-        :param author: 作者名称
-        :return: 用户信息字典或None
-        """
-        # 尝试匹配GitLab用户信息
-        gitlab_users = self.user_matcher.get_all_gitlab_users()
-
-        for user in gitlab_users:
-            if user.get('name') == author or user.get('username') == author:
-                return user
-
-        # 如果没有匹配到，返回None
-        logger.warn(f"未找到作者 {author} 的 gitlab 用户信息")
-        return None
-
-    def _send_personal_report(self, user_info: Dict[str, str], report_content: str, author: str) -> bool:
+    def _send_personal_report(self, report_content: str, author: str) -> bool:
         """
         发送个人日报
         :param user_info: 用户信息
@@ -165,11 +140,7 @@ class DailyReportService:
         """
         try:
             # 获取用户的open_id
-            open_id = self.user_matcher.get_openid_by_gitlab_user(
-                gitlab_username=user_info.get('username'),
-                gitlab_name=user_info.get('name'),
-                gitlab_email=user_info.get('email')
-            )
+            open_id = self.user_matcher.get_openid_by_author(author)
 
             if not open_id:
                 return False
@@ -178,7 +149,7 @@ class DailyReportService:
             success = self.feishu_notifier.send_direct_message(
                 open_id=open_id,
                 content=report_content,
-                msg_type='text'
+                msg_type='interactive'
             )
 
             if not success:

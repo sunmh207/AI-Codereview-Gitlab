@@ -266,8 +266,7 @@ class FeishuBitableClient:
         """
         if user_matcher:
             try:
-                # 尝试通过作者名称获取飞书open_id
-                open_id = user_matcher.get_openid_by_name(author)
+                open_id = user_matcher.get_openid_by_author(author)
                 if open_id:
                     return [{"id": open_id}]
                 else:
