@@ -17,10 +17,9 @@ from biz.gitlab.webhook_handler import slugify_url
 from biz.queue.worker import handle_merge_request_event, handle_push_event, handle_github_pull_request_event, \
     handle_github_push_event
 from biz.service.review_service import ReviewService
-from biz.utils.im import notifier
 from biz.utils.log import logger
 from biz.utils.queue import handle_queue
-from biz.utils.reporter import Reporter
+from biz.utils.daily_report_service import DailyReportService
 
 from biz.utils.config_checker import check_config
 
@@ -59,13 +58,25 @@ def daily_report():
         df_sorted = df_unique.sort_values(by="author")
         # 转换为适合生成日报的格式
         commits = df_sorted.to_dict(orient="records")
-        # 生成日报内容
-        report_txt = Reporter().generate_report(json.dumps(commits))
-        # 发送钉钉通知
-        notifier.send_notification(content=report_txt, msg_type="markdown", title="代码提交日报")
+
+        # 使用优化后的日报服务 - 每个人生成自己的日报
+        daily_report_service = DailyReportService()
+        results = daily_report_service.generate_and_send_individual_reports(commits)
+
+        # 记录处理结果
+        logger.info(f"总用户: {results['total_users']}, 生成报告: {results['reports_generated']}")
+
+        if results['errors']:
+            logger.warning(f"处理过程中的错误: {results['errors'][:5]}")  # 只记录前5个错误
+
+        # 生成汇总报告
+        combined_report = daily_report_service.generate_summary_report(results.get('individual_results', []))
+
+        # 发送钉钉通知（汇总报告）
+        # notifier.send_notification(content=combined_report, msg_type="markdown", title="代码提交日报")
 
         # 返回生成的日报内容
-        return json.dumps(report_txt, ensure_ascii=False, indent=4)
+        return json.dumps(combined_report, ensure_ascii=False, indent=4)
     except Exception as e:
         logger.error(f"Failed to generate daily report: {e}")
         return jsonify({'message': f"Failed to generate daily report: {e}"}), 500
