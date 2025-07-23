@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 from biz.utils.reporter import Reporter
 from biz.utils.im.feishu import FeishuNotifier
 from biz.utils.im.user_matcher import UserMatcher
+from biz.utils.feishu_bitable import FeishuBitableClient
 from biz.utils.log import logger
 
 
@@ -101,6 +102,14 @@ class DailyReportService:
         try:
             # 生成个人日报
             personal_report = self.reporter.generate_report(json.dumps(commits))
+
+            # 发送到飞书多维表格
+            try:
+                feishu_client = FeishuBitableClient()
+                feishu_client.create_daily_report_record(personal_report, author)
+            except Exception as e:
+                logger.error(f"飞书多维表格数据插入失败: {str(e)}")
+
             result['report_content'] = personal_report
             result['report_generated'] = True
 
@@ -143,7 +152,7 @@ class DailyReportService:
                 return user
 
         # 如果没有匹配到，返回None
-        logger.debug(f"未找到作者 {author} 的用户信息")
+        logger.warn(f"未找到作者 {author} 的 gitlab 用户信息")
         return None
 
     def _send_personal_report(self, user_info: Dict[str, str], report_content: str, author: str) -> bool:
@@ -163,7 +172,6 @@ class DailyReportService:
             )
 
             if not open_id:
-                logger.warning(f"无法获取 {author} 的飞书open_id")
                 return False
 
             # 发送消息
@@ -197,8 +205,6 @@ class DailyReportService:
 
 ## 处理统计
 - 总作者数: {total_authors}
-- 生成报告: {successful_reports}
-- 发送消息: {successful_messages}
 - 总提交数: {total_commits}
 
 ## 作者列表

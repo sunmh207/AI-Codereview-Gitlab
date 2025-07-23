@@ -7,12 +7,14 @@ import os
 import sys
 from dotenv import load_dotenv
 
+from biz.utils.feishu_bitable import FeishuBitableClient
+
 # 添加项目根目录到Python路径
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 
 # 加载环境变量
-load_dotenv(os.path.join(project_root, "conf/.env"))
+load_dotenv(os.path.join(project_root, "../../conf/.env"))
 
 from biz.utils.im.feishu import FeishuNotifier
 from biz.utils.im.user_matcher import UserMatcher
@@ -90,6 +92,15 @@ class SimpleOptimizedReportService:
             # 生成模拟个人日报
             print(f"为 {author} 生成个人日报 ({len(commits)} 条提交)")
             personal_report = self._generate_mock_personal_report(author, commits)
+
+            # 发送到飞书多维表格
+            feishu_client = FeishuBitableClient()
+            if feishu_client.enabled:
+                success = feishu_client.create_daily_report_record(personal_report, author)
+                if success:
+                    print(f"  📤 成功发送日报到飞书多维表格")
+                else:
+                    print(f"  ❌ 发送日报到飞书多维表格失败")
             result['report_content'] = personal_report
             result['report_generated'] = True
 
@@ -202,7 +213,7 @@ class SimpleOptimizedReportService:
 
 def create_test_commits():
     """创建测试提交数据"""
-    real_users = ["庞江川", "杜英龙"]
+    real_users = ["庞江川"]
 
     test_commits = []
 
@@ -211,7 +222,7 @@ def create_test_commits():
         for j in range(2 + (i % 2)):
             commit = {
                 "author": author,
-                "commit_messages": f"feat: {author}完成功能模块{j+1}开发",
+                "commit_messages": f"feat: {author}完成功能模块{j + 1}开发",
                 "project_name": "AI-Codereview-Gitlab",
                 "branch": "main",
                 "updated_at": 1642780800 + i * 3600 + j * 1800,
@@ -247,7 +258,7 @@ def main():
         print(f"  飞书启用: {'✅' if service.feishu_notifier.enabled else '❌'}")
         print(f"  飞书用户: {user_stats['feishu_users_count']}个")
         print(f"  GitLab用户: {user_stats['gitlab_users_count']}个")
-        print(f"  用户匹配率: {user_stats['name_mappings_count']/user_stats['gitlab_users_count']*100:.1f}%")
+        print(f"  用户匹配率: {user_stats['name_mappings_count'] / user_stats['gitlab_users_count'] * 100:.1f}%")
 
         # 执行个人日报生成
         print(f"\n开始生成个人日报...")
@@ -289,7 +300,8 @@ def main():
         print(f"  处理用户: {results['total_users']}")
         print(f"  生成报告: {results['reports_generated']}")
         print(f"  发送消息: {results['messages_sent']}")
-        print(f"  成功率: {results['reports_generated']/results['total_users']*100:.1f}%" if results['total_users'] > 0 else "N/A")
+        print(f"  成功率: {results['reports_generated'] / results['total_users'] * 100:.1f}%" if results[
+                                                                                                     'total_users'] > 0 else "N/A")
 
     except Exception as e:
         print(f"❌ 测试过程中出现异常: {str(e)}")

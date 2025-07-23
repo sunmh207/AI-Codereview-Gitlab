@@ -14,6 +14,7 @@ class FeishuBitableClient:
         self.app_secret = os.environ.get('FEISHU_APP_SECRET', '')
         self.app_token = os.environ.get('FEISHU_BITABLE_APP_TOKEN', '')
         self.table_id = os.environ.get('FEISHU_BITABLE_TABLE_ID', '')
+        self.report_table_id = os.environ.get('FEISHU_BITABLE_REPORT_TABLE_ID', '')
         self.enabled = os.environ.get('FEISHU_BITABLE_ENABLED', '0') == '1'
         self.base_url = 'https://open.feishu.cn/open-apis'
         self._access_token = None
@@ -179,6 +180,53 @@ class FeishuBitableClient:
 
         logger.info(f"准备向飞书多维表格插入MR Review数据: {entity.project_name} - {entity.author}")
         return self.create_record(fields)
+
+    # create_daily_report_record
+    def create_daily_report_record(self, report_content: str, author: str) -> bool:
+        """
+        在多维表格中创建日报记录
+        :param report_content: 日报内容
+        :param author: 作者名称
+        :return: 创建是否成功
+        """
+        if not self.app_token or not self.report_table_id:
+            logger.error("飞书多维表格配置不完整，请配置 FEISHU_BITABLE_APP_TOKEN 和 FEISHU_BITABLE_REPORT_TABLE_ID")
+            return False
+
+        access_token = self._get_access_token()
+        if not access_token:
+            logger.error("无法获取飞书访问令牌")
+            return False
+
+        url = f"{self.base_url}/bitable/v1/apps/{self.app_token}/tables/{self.report_table_id}/records"
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
+        }
+
+        # 构造记录数据
+        record_data = {
+            "更新时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "开发者": author,
+            "日报内容": report_content
+        }
+
+        payload = {
+            "fields": record_data
+        }
+
+        try:
+            response = requests.post(url, json=payload, headers=headers)
+
+            result = response.json()
+
+            if response.status_code != 200 or result.get('code') != 0:
+                logger.error(f"创建多维表格记录失败: author={author}, error={result}")
+                return False
+
+        except Exception as e:
+            logger.error(f"创建多维表格记录异常: author={author}, error={str(e)}")
+            return False
 
     def test_connection(self):
         """
