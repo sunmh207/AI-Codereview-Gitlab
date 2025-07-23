@@ -6,7 +6,7 @@ import atexit
 import json
 import os
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -80,6 +80,143 @@ def daily_report():
     except Exception as e:
         logger.error(f"Failed to generate daily report: {e}")
         return jsonify({'message': f"Failed to generate daily report: {e}"}), 500
+
+
+@api_app.route('/review/users_without_review', methods=['GET'])
+def users_without_review():
+    """获取没有代码审查记录的人员列表
+
+    查询参数:
+    - time_range: 时间范围，可选值：
+      - 'all': 历史所有记录（默认）
+      - 'today': 当天
+      - 'week': 近一周
+    - start_time: 自定义开始时间戳（可选，优先级高于time_range）
+    - end_time: 自定义结束时间戳（可选，与start_time配合使用）
+    """
+    try:
+        # 获取查询参数
+        time_range = request.args.get('time_range', 'all').lower()
+        custom_start_time = request.args.get('start_time')
+        custom_end_time = request.args.get('end_time')
+
+        # 计算时间范围
+        start_time = None
+        end_time = None
+        time_description = "历史所有"
+
+        if custom_start_time and custom_end_time:
+            # 使用自定义时间范围
+            try:
+                start_time = int(custom_start_time)
+                end_time = int(custom_end_time)
+                time_description = f"自定义时间范围 ({datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')} 至 {datetime.fromtimestamp(end_time).strftime('%Y-%m-%d %H:%M:%S')})"
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'message': '时间戳格式错误，请使用Unix时间戳',
+                    'data': {}
+                }), 400
+        elif time_range == 'today':
+            # 当天：从今天0点到23:59:59
+            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            start_time = int(today.timestamp())
+            end_time = int(today.replace(hour=23, minute=59, second=59).timestamp())
+            time_description = "当天"
+        elif time_range == 'week':
+            # 近一周：从7天前0点到现在
+            week_ago = datetime.now() - timedelta(days=7)
+            start_time = int(week_ago.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+            end_time = int(datetime.now().timestamp())
+            time_description = "近一周"
+        elif time_range != 'all':
+            return jsonify({
+                'success': False,
+                'message': 'time_range 参数无效，支持的值：all, today, week',
+                'data': {}
+            }), 400
+
+        # 获取指定时间范围内有代码审查记录的作者列表
+        reviewed_authors = ReviewService.get_push_review_authors_by_time(
+            updated_at_gte=start_time,
+            updated_at_lte=end_time
+        )
+        logger.info(f"Found {len(reviewed_authors)} authors with review records in {time_description}: {reviewed_authors}")
+
+        # 读取飞书用户数据
+        feishu_users_file = "biz/utils/im/feishu-user.json"
+        if not os.path.exists(feishu_users_file):
+            return jsonify({
+                'success': False,
+                'message': 'feishu-user.json 文件不存在',
+                'data': {
+                    'users_with_review': reviewed_authors,
+                    'users_without_review': [],
+                    'total_feishu_users': 0,
+                    'total_reviewed_users': len(reviewed_authors),
+                    'time_range': time_description
+                }
+            }), 404
+
+        with open(feishu_users_file, 'r', encoding='utf-8') as f:
+            feishu_users = json.load(f)
+
+        # 提取飞书用户的姓名列表
+        feishu_user_names = [user.get('name', '').strip() for user in feishu_users if user.get('name')]
+
+        # 找出没有代码审查记录的人员
+        users_without_review = []
+        for user in feishu_users:
+            user_name = user.get('name', '').strip()
+            if user_name and user_name not in reviewed_authors:
+                # 只保留必要的用户信息
+                user_info = {
+                    'name': user_name,
+                    'mobile': user.get('mobile', ''),
+                    'email': user.get('email', ''),
+                    'job_title': user.get('job_title', ''),
+                    'department_name': '',
+                    'is_activated': user.get('status', {}).get('is_activated', False),
+                    'is_exited': user.get('status', {}).get('is_exited', False)
+                }
+
+                # 获取部门信息
+                if user.get('department_path') and len(user['department_path']) > 0:
+                    user_info['department_name'] = user['department_path'][0].get('department_name', {}).get('name', '')
+
+                users_without_review.append(user_info)
+
+        # 构建返回数据
+        result = {
+            'success': True,
+            'message': f'成功分析用户代码审查记录（{time_description}）',
+            'data': {
+                'users_with_review': reviewed_authors,
+                'users_without_review': users_without_review,
+                'total_feishu_users': len(feishu_users),
+                'total_reviewed_users': len(reviewed_authors),
+                'total_unreviewed_users': len(users_without_review),
+                'review_coverage_rate': round(len(reviewed_authors) / len(feishu_user_names) * 100, 2) if feishu_user_names else 0,
+                'time_range': time_description,
+                'query_params': {
+                    'time_range': time_range,
+                    'start_time': start_time,
+                    'end_time': end_time
+                }
+            }
+        }
+
+        logger.info(f"Analysis complete ({time_description}): {len(users_without_review)} users without review records")
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Error analyzing users without review: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'分析用户代码审查记录时出错: {str(e)}',
+            'data': {}
+        }), 500
 
 
 def setup_scheduler():
