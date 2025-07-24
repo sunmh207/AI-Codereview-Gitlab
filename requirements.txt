@@ -1,6 +1,7 @@
 Flask==3.0.3
+Flask-CORS==5.0.0
 APScheduler==3.10.4
-Flask==3.0.3
+PyJWT==2.8.0
 httpx[socks]
 Jinja2==3.1.4
 lizard==1.17.20
