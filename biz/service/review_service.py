@@ -228,6 +228,53 @@ class ReviewService:
             print(f"Error retrieving push review logs: {e}")
             return pd.DataFrame()
 
+    @staticmethod
+    def get_push_review_authors() -> list:
+        """获取所有有推送审核记录的作者列表"""
+        try:
+            with sqlite3.connect(ReviewService.DB_FILE) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT DISTINCT author FROM push_review_log WHERE author IS NOT NULL AND author != ''")
+                authors = [row[0] for row in cursor.fetchall()]
+                return authors
+        except sqlite3.DatabaseError as e:
+            print(f"Error retrieving push review authors: {e}")
+            return []
+
+    @staticmethod
+    def get_push_review_authors_by_time(updated_at_gte: int = None, updated_at_lte: int = None) -> list:
+        """获取指定时间范围内有推送审核记录的作者列表
+
+        Args:
+            updated_at_gte: 开始时间戳（包含）
+            updated_at_lte: 结束时间戳（包含）
+
+        Returns:
+            list: 作者列表
+        """
+        try:
+            with sqlite3.connect(ReviewService.DB_FILE) as conn:
+                cursor = conn.cursor()
+
+                # 构建查询语句
+                query = "SELECT DISTINCT author FROM push_review_log WHERE author IS NOT NULL AND author != ''"
+                params = []
+
+                if updated_at_gte is not None:
+                    query += " AND updated_at >= ?"
+                    params.append(updated_at_gte)
+
+                if updated_at_lte is not None:
+                    query += " AND updated_at <= ?"
+                    params.append(updated_at_lte)
+
+                cursor.execute(query, params)
+                authors = [row[0] for row in cursor.fetchall()]
+                return authors
+        except sqlite3.DatabaseError as e:
+            print(f"Error retrieving push review authors by time: {e}")
+            return []
+
 
 # Initialize database
 ReviewService.init_db()

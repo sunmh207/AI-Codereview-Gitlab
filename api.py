@@ -6,7 +6,7 @@ import atexit
 import json
 import os
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 import hmac
 import hashlib
@@ -26,6 +26,7 @@ from biz.service.review_service import ReviewService
 from biz.utils.log import logger
 from biz.utils.queue import handle_queue
 from biz.utils.daily_report_service import DailyReportService
+from biz.utils.im.user_matcher import UserMatcher
 
 from biz.utils.config_checker import check_config
 
@@ -448,6 +449,121 @@ def daily_report():
     except Exception as e:
         logger.error(f"Failed to generate daily report: {e}")
         return jsonify({'message': f"Failed to generate daily report: {e}"}), 500
+
+
+@api_app.route('/review/users_without_review', methods=['GET'])
+def users_without_review():
+    """获取没有代码审查记录的人员列表
+
+    查询参数:
+    - time_range: 时间范围，可选值：
+      - 'all': 历史所有记录（默认）
+      - 'today': 当天
+      - 'week': 近一周
+    - start_time: 自定义开始时间戳（可选，优先级高于time_range）
+    - end_time: 自定义结束时间戳（可选，与start_time配合使用）
+    """
+    try:
+        # 获取查询参数
+        time_range = request.args.get('time_range', 'all').lower()
+        custom_start_time = request.args.get('start_time')
+        custom_end_time = request.args.get('end_time')
+
+        # 计算时间范围
+        start_time = None
+        end_time = None
+        time_description = "历史所有"
+
+        if custom_start_time and custom_end_time:
+            try:
+                start_time = int(custom_start_time)
+                end_time = int(custom_end_time)
+                time_description = f"自定义时间范围 ({datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')} 至 {datetime.fromtimestamp(end_time).strftime('%Y-%m-%d %H:%M:%S')})"
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'message': '时间戳格式错误，请使用Unix时间戳',
+                    'data': {}
+                }), 400
+        elif time_range == 'today':
+            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            start_time = int(today.timestamp())
+            end_time = int(today.replace(hour=23, minute=59, second=59).timestamp())
+            time_description = "当天"
+        elif time_range == 'week':
+            week_ago = datetime.now() - timedelta(days=7)
+            start_time = int(week_ago.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+            end_time = int(datetime.now().timestamp())
+            time_description = "近一周"
+        elif time_range != 'all':
+            return jsonify({
+                'success': False,
+                'message': 'time_range 参数无效，支持的值：all, today, week',
+                'data': {}
+            }), 400
+
+        # 获取有代码审查记录的作者列表
+        reviewed_authors = ReviewService.get_push_review_authors_by_time(
+            updated_at_gte=start_time,
+            updated_at_lte=end_time
+        )
+
+        # 获取所有开发者
+        user_matcher = UserMatcher()
+        developers = user_matcher.get_all_developers()
+        if not developers:
+            return jsonify({
+                'success': False,
+                'message': 'developer.json 文件不存在或为空',
+                'data': {}
+            }), 404
+
+        # 创建已审查的gitlab_username集合
+        reviewed_usernames = set(reviewed_authors)
+
+        # 分类开发者
+        users_with_review = []
+        users_without_review = []
+
+        for developer in developers:
+            gitlab_username = developer.get('gitlab_username', '').strip()
+            if not gitlab_username:
+                continue
+
+            user_info = {
+                'name': developer.get('name', ''),
+                'gitlab_username': gitlab_username
+            }
+
+            if gitlab_username in reviewed_usernames:
+                users_with_review.append(user_info)
+            else:
+                users_without_review.append(user_info)
+
+        # 计算统计信息
+        valid_developers_count = len([d for d in developers if d.get('gitlab_username')])
+        coverage_rate = round(len(users_with_review) / valid_developers_count * 100,
+                              2) if valid_developers_count > 0 else 0
+
+        return jsonify({
+            'success': True,
+            'message': 'success',
+            'data': {
+                'users_without_review': users_without_review,
+                'total_developers': valid_developers_count,
+                'total_unreviewed_users': len(users_without_review),
+                'review_coverage_rate': coverage_rate,
+                'time_range': time_description
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error analyzing users without review: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'分析用户代码审查记录时出错: {str(e)}',
+            'data': {}
+        }), 500
 
 
 def setup_scheduler():
