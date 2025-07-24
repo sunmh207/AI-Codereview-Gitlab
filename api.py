@@ -8,9 +8,6 @@ import os
 import traceback
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
-import hmac
-import hashlib
-import base64
 import time
 import jwt
 
@@ -451,7 +448,7 @@ def daily_report():
         return jsonify({'message': f"Failed to generate daily report: {e}"}), 500
 
 
-@api_app.route('/review/users_without_review', methods=['GET'])
+@api_app.route('/api/review/users_without_review', methods=['GET'])
 def users_without_review():
     """获取没有代码审查记录的人员列表
 

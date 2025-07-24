@@ -1,0 +1,31 @@
+{
+  "name": "ai-codereview-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.4.0",
+    "vue-router": "^4.2.5",
+    "pinia": "^2.1.7",
+    "element-plus": "^2.4.4",
+    "axios": "^1.6.2",
+    "echarts": "^5.4.3",
+    "vue-echarts": "^6.6.1",
+    "dayjs": "^1.11.10",
+    "@element-plus/icons-vue": "^2.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@vitejs/plugin-vue": "^4.5.2",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8",
+    "vue-tsc": "^1.8.25",
+    "unplugin-vue-components": "^0.26.0",
+    "unplugin-auto-import": "^0.17.2"
+  }
+}
