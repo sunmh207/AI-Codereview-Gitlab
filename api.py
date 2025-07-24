@@ -8,10 +8,16 @@ import os
 import traceback
 from datetime import datetime
 from urllib.parse import urlparse
+import hmac
+import hashlib
+import base64
+import time
+import jwt
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 
 from biz.gitlab.webhook_handler import slugify_url
 from biz.queue.worker import handle_merge_request_event, handle_push_event, handle_github_pull_request_event, \
@@ -24,8 +30,61 @@ from biz.utils.daily_report_service import DailyReportService
 from biz.utils.config_checker import check_config
 
 api_app = Flask(__name__)
+CORS(api_app)  # 启用跨域支持
 
 push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
+
+# 从环境变量中读取用户名和密码
+DASHBOARD_USER = os.getenv("DASHBOARD_USER", "admin")
+DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "admin")
+USER_CREDENTIALS = {
+    DASHBOARD_USER: DASHBOARD_PASSWORD
+}
+
+# 用于生成和验证token的密钥
+SECRET_KEY = os.getenv("DASHBOARD_SECRET_KEY", "fac8cf149bdd616c07c1a675c4571ccacc40d7f7fe16914cfe0f9f9d966bb773")
+
+
+def generate_jwt_token(username):
+    """生成JWT token"""
+    payload = {
+        'username': username,
+        'iat': int(time.time()),
+        'exp': int(time.time()) + (30 * 24 * 60 * 60)  # 30天过期
+    }
+
+    token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
+    return token
+
+
+def verify_jwt_token(token):
+    """验证JWT token的有效性并提取用户名"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        return payload.get('username')
+    except jwt.ExpiredSignatureError:
+        logger.warning("Token has expired")
+        return None
+    except jwt.InvalidTokenError:
+        logger.warning("Invalid token")
+        return None
+    except Exception as e:
+        logger.error(f"Token verification error: {e}")
+        return None
+
+
+def format_timestamp_to_datetime(timestamp):
+    """将时间戳转换为日期时间字符串"""
+    if isinstance(timestamp, (int, float)):
+        return datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
+    return timestamp
+
+
+def format_delta(additions, deletions):
+    """格式化代码变更量"""
+    if additions is not None and deletions is not None:
+        return f"+{int(additions)} -{int(deletions)}"
+    return ""
 
 
 @api_app.route('/')
@@ -35,6 +94,315 @@ def home():
               https://github.com/sunmh207/AI-Codereview-Gitlab</a></p>
               <p>Gitee project address: <a href="https://gitee.com/sunminghui/ai-codereview-gitlab" target="_blank">https://gitee.com/sunminghui/ai-codereview-gitlab</a></p>
               """
+
+
+# ==================== Vue3 前端 API 接口 ====================
+
+@api_app.route('/api/auth/login', methods=['POST'])
+def login():
+    """用户登录接口"""
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        remember = data.get('remember', False)
+
+        if not username or not password:
+            return jsonify({'success': False, 'message': '用户名和密码不能为空'}), 400
+
+        if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
+            response_data = {
+                'success': True,
+                'message': '登录成功',
+                'user': {'username': username}
+            }
+
+            if remember:
+                token = generate_jwt_token(username)
+                response_data['token'] = token
+
+            return jsonify(response_data)
+        else:
+            return jsonify({'success': False, 'message': '用户名或密码错误'}), 401
+
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        return jsonify({'success': False, 'message': '登录失败'}), 500
+
+
+@api_app.route('/api/auth/verify', methods=['POST'])
+def verify_auth():
+    """验证token接口"""
+    try:
+        data = request.get_json()
+        token = data.get('token')
+
+        if not token:
+            return jsonify({'success': False, 'message': 'Token不能为空'}), 400
+
+        username = verify_jwt_token(token)
+        if username and username in USER_CREDENTIALS:
+            return jsonify({
+                'success': True,
+                'user': {'username': username}
+            })
+        else:
+            return jsonify({'success': False, 'message': 'Token无效或已过期'}), 401
+
+    except Exception as e:
+        logger.error(f"Token verification error: {e}")
+        return jsonify({'success': False, 'message': '验证失败'}), 500
+
+
+@api_app.route('/api/mr-logs', methods=['GET'])
+def get_mr_logs():
+    """获取合并请求审查日志"""
+    try:
+        # 获取查询参数
+        authors = request.args.getlist('authors')
+        project_names = request.args.getlist('project_names')
+        updated_at_gte = request.args.get('updated_at_gte', type=int)
+        updated_at_lte = request.args.get('updated_at_lte', type=int)
+        page = request.args.get('page', 1, type=int)
+        page_size = request.args.get('page_size', 10, type=int)
+
+        # 调用服务获取数据
+        df = ReviewService().get_mr_review_logs(
+            authors=authors if authors else None,
+            project_names=project_names if project_names else None,
+            updated_at_gte=updated_at_gte,
+            updated_at_lte=updated_at_lte
+        )
+
+        if df.empty:
+            return jsonify({
+                'success': True,
+                'data': [],
+                'total': 0,
+                'page': page,
+                'page_size': page_size,
+                'total_pages': 0
+            })
+
+        # 处理数据格式
+        df["updated_at"] = df["updated_at"].apply(format_timestamp_to_datetime)
+        df["delta"] = df.apply(lambda row: format_delta(row.get('additions'), row.get('deletions')), axis=1)
+
+        # 计算分页
+        total = len(df)
+        total_pages = (total + page_size - 1) // page_size
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+
+        # 获取当前页数据
+        page_data = df.iloc[start_idx:end_idx].to_dict(orient='records')
+
+        return jsonify({
+            'success': True,
+            'data': page_data,
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': total_pages
+        })
+
+    except Exception as e:
+        logger.error(f"Get MR logs error: {e}")
+        return jsonify({'success': False, 'message': '获取合并请求日志失败'}), 500
+
+
+@api_app.route('/api/push-logs', methods=['GET'])
+def get_push_logs():
+    """获取推送审查日志"""
+    try:
+        # 获取查询参数
+        authors = request.args.getlist('authors')
+        project_names = request.args.getlist('project_names')
+        updated_at_gte = request.args.get('updated_at_gte', type=int)
+        updated_at_lte = request.args.get('updated_at_lte', type=int)
+        page = request.args.get('page', 1, type=int)
+        page_size = request.args.get('page_size', 10, type=int)
+
+        # 调用服务获取数据
+        df = ReviewService().get_push_review_logs(
+            authors=authors if authors else None,
+            project_names=project_names if project_names else None,
+            updated_at_gte=updated_at_gte,
+            updated_at_lte=updated_at_lte
+        )
+
+        if df.empty:
+            return jsonify({
+                'success': True,
+                'data': [],
+                'total': 0,
+                'page': page,
+                'page_size': page_size,
+                'total_pages': 0
+            })
+
+        # 处理数据格式
+        df["updated_at"] = df["updated_at"].apply(format_timestamp_to_datetime)
+        df["delta"] = df.apply(lambda row: format_delta(row.get('additions'), row.get('deletions')), axis=1)
+
+        # 计算分页
+        total = len(df)
+        total_pages = (total + page_size - 1) // page_size
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+
+        # 获取当前页数据
+        page_data = df.iloc[start_idx:end_idx].to_dict(orient='records')
+
+        return jsonify({
+            'success': True,
+            'data': page_data,
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': total_pages
+        })
+
+    except Exception as e:
+        logger.error(f"Get push logs error: {e}")
+        return jsonify({'success': False, 'message': '获取推送日志失败'}), 500
+
+
+@api_app.route('/api/projects', methods=['GET'])
+def get_projects():
+    """获取项目列表"""
+    try:
+        # 从MR和Push日志中获取所有项目名称
+        mr_df = ReviewService().get_mr_review_logs()
+        push_df = ReviewService().get_push_review_logs()
+
+        projects = set()
+
+        if not mr_df.empty and 'project_name' in mr_df.columns:
+            projects.update(mr_df['project_name'].dropna().unique())
+
+        if not push_df.empty and 'project_name' in push_df.columns:
+            projects.update(push_df['project_name'].dropna().unique())
+
+        project_list = sorted(list(projects))
+
+        return jsonify({'success': True, 'data': project_list})
+
+    except Exception as e:
+        logger.error(f"Get projects error: {e}")
+        return jsonify({'success': False, 'message': '获取项目列表失败'}), 500
+
+
+@api_app.route('/api/authors', methods=['GET'])
+def get_authors():
+    """获取开发者列表"""
+    try:
+        # 从MR和Push日志中获取所有开发者
+        mr_df = ReviewService().get_mr_review_logs()
+        push_df = ReviewService().get_push_review_logs()
+
+        authors = set()
+
+        if not mr_df.empty and 'author' in mr_df.columns:
+            authors.update(mr_df['author'].dropna().unique())
+
+        if not push_df.empty and 'author' in push_df.columns:
+            authors.update(push_df['author'].dropna().unique())
+
+        author_list = sorted(list(authors))
+
+        return jsonify({'success': True, 'data': author_list})
+
+    except Exception as e:
+        logger.error(f"Get authors error: {e}")
+        return jsonify({'success': False, 'message': '获取开发者列表失败'}), 500
+
+
+@api_app.route('/api/mr-logs/all', methods=['GET'])
+def get_all_mr_logs():
+    """获取所有合并请求审查日志（用于图表统计）"""
+    try:
+        # 获取查询参数（不包含分页）
+        authors = request.args.getlist('authors')
+        project_names = request.args.getlist('project_names')
+        updated_at_gte = request.args.get('updated_at_gte', type=int)
+        updated_at_lte = request.args.get('updated_at_lte', type=int)
+
+        # 调用服务获取所有数据
+        df = ReviewService().get_mr_review_logs(
+            authors=authors if authors else None,
+            project_names=project_names if project_names else None,
+            updated_at_gte=updated_at_gte,
+            updated_at_lte=updated_at_lte
+        )
+
+        if df.empty:
+            return jsonify({'success': True, 'data': []})
+
+        # 处理数据格式
+        df["updated_at"] = df["updated_at"].apply(format_timestamp_to_datetime)
+        df["delta"] = df.apply(lambda row: format_delta(row.get('additions'), row.get('deletions')), axis=1)
+
+        # 转换为字典列表
+        data = df.to_dict(orient='records')
+
+        return jsonify({'success': True, 'data': data})
+
+    except Exception as e:
+        logger.error(f"Get all MR logs error: {e}")
+        return jsonify({'success': False, 'message': '获取所有合并请求日志失败'}), 500
+
+
+@api_app.route('/api/push-logs/all', methods=['GET'])
+def get_all_push_logs():
+    """获取所有推送审查日志（用于图表统计）"""
+    try:
+        # 获取查询参数（不包含分页）
+        authors = request.args.getlist('authors')
+        project_names = request.args.getlist('project_names')
+        updated_at_gte = request.args.get('updated_at_gte', type=int)
+        updated_at_lte = request.args.get('updated_at_lte', type=int)
+
+        # 调用服务获取所有数据
+        df = ReviewService().get_push_review_logs(
+            authors=authors if authors else None,
+            project_names=project_names if project_names else None,
+            updated_at_gte=updated_at_gte,
+            updated_at_lte=updated_at_lte
+        )
+
+        if df.empty:
+            return jsonify({'success': True, 'data': []})
+
+        # 处理数据格式
+        df["updated_at"] = df["updated_at"].apply(format_timestamp_to_datetime)
+        df["delta"] = df.apply(lambda row: format_delta(row.get('additions'), row.get('deletions')), axis=1)
+
+        # 转换为字典列表
+        data = df.to_dict(orient='records')
+
+        return jsonify({'success': True, 'data': data})
+
+    except Exception as e:
+        logger.error(f"Get all push logs error: {e}")
+        return jsonify({'success': False, 'message': '获取所有推送日志失败'}), 500
+
+
+@api_app.route('/api/config', methods=['GET'])
+def get_config():
+    """获取配置信息"""
+    try:
+        config = {
+            'push_review_enabled': push_review_enabled,
+            'dashboard_user': DASHBOARD_USER,
+            'show_security_warning': DASHBOARD_USER == 'admin' and DASHBOARD_PASSWORD == 'admin'
+        }
+
+        return jsonify({'success': True, 'data': config})
+
+    except Exception as e:
+        logger.error(f"Get config error: {e}")
+        return jsonify({'success': False, 'message': '获取配置失败'}), 500
 
 
 @api_app.route('/review/daily_report', methods=['GET'])
