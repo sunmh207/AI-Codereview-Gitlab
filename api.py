@@ -164,7 +164,8 @@ def users_without_review():
 
             user_info = {
                 'name': developer.get('name', ''),
-                'gitlab_username': gitlab_username
+                'gitlab_username': gitlab_username,
+                'group': developer.get('group', '')
             }
 
             if gitlab_username in reviewed_usernames:
