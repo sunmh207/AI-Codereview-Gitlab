@@ -18,7 +18,7 @@
             />
           </el-select>
         </el-col>
-        
+
         <el-col :span="6">
           <el-date-picker
             v-model="customStartDate"
@@ -31,7 +31,7 @@
             @change="handleCustomDateChange"
           />
         </el-col>
-        
+
         <el-col :span="6">
           <el-date-picker
             v-model="customEndDate"
@@ -44,7 +44,7 @@
             @change="handleCustomDateChange"
           />
         </el-col>
-        
+
         <el-col :span="6">
           <el-button
             type="primary"
@@ -68,7 +68,7 @@
           </div>
         </el-card>
       </el-col>
-      
+
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-content">
@@ -77,7 +77,7 @@
           </div>
         </el-card>
       </el-col>
-      
+
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-content">
@@ -86,7 +86,7 @@
           </div>
         </el-card>
       </el-col>
-      
+
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-content">
@@ -116,14 +116,14 @@
           </el-button>
         </div>
       </template>
-      
+
       <div v-loading="loading">
-        <el-empty 
+        <el-empty
           v-if="data.users_without_review.length === 0 && !loading"
           description="暂无未审查用户"
           :image-size="100"
         />
-        
+
         <el-table
           v-else
           :data="paginatedUsers"
@@ -137,13 +137,20 @@
             width="200"
             show-overflow-tooltip
           />
-          
+
+          <el-table-column
+            prop="group"
+            label="分组"
+            width="120"
+            show-overflow-tooltip
+          />
+
           <el-table-column
             prop="gitlab_username"
             label="GitLab用户名"
             show-overflow-tooltip
           />
-          
+
           <el-table-column
             label="操作"
             width="120"
@@ -160,7 +167,7 @@
             </template>
           </el-table-column>
         </el-table>
-        
+
         <!-- 分页 -->
         <div class="pagination-container" v-if="data.users_without_review.length > 0">
           <el-pagination
@@ -222,9 +229,9 @@ const paginatedUsers = computed(() => {
 const loadData = async () => {
   try {
     loading.value = true
-    
+
     let params: any = {}
-    
+
     if (selectedTimeRange.value === 'custom') {
       if (!customStartDate.value || !customEndDate.value) {
         ElMessage.warning('请选择自定义时间范围')
@@ -235,15 +242,15 @@ const loadData = async () => {
     } else {
       params.time_range = selectedTimeRange.value
     }
-    
+
     const response = await reviewApi.getUsersWithoutReview(params)
-    
+
     // 更新数据
     Object.assign(data, response)
-    
+
     // 重置分页
     currentPage.value = 1
-    
+
     ElMessage.success('数据加载成功')
   } catch (error) {
     console.error('Failed to load users without review:', error)
@@ -281,10 +288,10 @@ const viewUserProfile = (user: Developer) => {
 const exportData = () => {
   try {
     const csvContent = [
-      ['姓名', 'GitLab用户名'],
-      ...data.users_without_review.map(user => [user.name, user.gitlab_username])
+      ['姓名', '分组', 'GitLab用户名'],
+      ...data.users_without_review.map(user => [user.name, user.group || '', user.gitlab_username])
     ].map(row => row.join(',')).join('\n')
-    
+
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     const url = URL.createObjectURL(blob)
@@ -294,7 +301,7 @@ const exportData = () => {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    
+
     ElMessage.success('导出成功')
   } catch (error) {
     console.error('Export failed:', error)

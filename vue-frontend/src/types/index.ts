@@ -76,6 +76,7 @@ export interface ApiResponse<T> {
 export interface Developer {
   name: string
   gitlab_username: string
+  group?: string
 }
 
 export interface UsersWithoutReviewData {
