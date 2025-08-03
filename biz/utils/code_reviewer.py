@@ -1,7 +1,7 @@
 import abc
 import os
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 import yaml
 from jinja2 import Template
@@ -16,11 +16,20 @@ class BaseReviewer(abc.ABC):
 
     def __init__(self, prompt_key: str):
         self.client = Factory().getClient()
-        self.prompts = self._load_prompts(prompt_key, os.getenv("REVIEW_STYLE", "professional"))
+        self.prompts = self._load_prompts(prompt_key)
 
-    def _load_prompts(self, prompt_key: str, style="professional") -> Dict[str, Any]:
+    def _load_prompts(
+        self, prompt_key: str, style: Optional[str] = None, prompt_templates_file: Optional[str] = None
+    ) -> Dict[str, Any]:
         """加载提示词配置"""
-        prompt_templates_file = "conf/prompt_templates.yml"
+        if not style:
+            # 如果未提供, 从环境变量中获取审查风格，默认为 "professional"
+            style = os.getenv("REVIEW_STYLE", "professional")
+
+        if not prompt_templates_file:
+            # 如果未提供, 使用默认的提示词配置文件路径
+            prompt_templates_file = "conf/prompt_templates.yml"
+
         try:
             # 在打开 YAML 文件时显式指定编码为 UTF-8，避免使用系统默认的 GBK 编码。
             with open(prompt_templates_file, "r", encoding="utf-8") as file:
