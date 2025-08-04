@@ -97,7 +97,8 @@ class CodeReviewer(BaseReviewer):
 
     def review_code(self, diffs_text: str, commits_text: str = "", project_name: str = "") -> str:
         """Review 代码并返回结果"""
-        project_prompts_path = os.getenv(f"{project_name.upper}_PROMPT", None)
+        normalized_project_name = project_name.replace("-", "_") if project_name else project_name
+        project_prompts_path = os.getenv(f"{normalized_project_name.upper()}_PROMPT", None)
 
         # 按需重新加载 prompts 配置， 同时也可以支持项目级别提示词的热加载
         prompts = (
