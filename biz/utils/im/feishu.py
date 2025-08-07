@@ -11,6 +11,7 @@ class FeishuNotifier:
         """
         self.default_webhook_url = webhook_url or os.environ.get('FEISHU_WEBHOOK_URL', '')
         self.enabled = os.environ.get('FEISHU_ENABLED', '0') == '1'
+        self.keyword = os.environ.get('FEISHU_KEYWORD', '')
 
     def _get_webhook_url(self, project_name=None, url_slug=None):
         """
@@ -57,7 +58,10 @@ class FeishuNotifier:
         if not self.enabled:
             logger.info("飞书推送未启用")
             return
-
+        
+        if self.keyword:
+            content = f"{content}\n\n{self.keyword}"
+            
         try:
             post_url = self._get_webhook_url(project_name=project_name, url_slug=url_slug)
             if msg_type == 'markdown':
