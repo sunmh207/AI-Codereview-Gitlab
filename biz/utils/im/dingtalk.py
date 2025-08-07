@@ -15,6 +15,7 @@ class DingTalkNotifier:
     def __init__(self, webhook_url=None):
         self.enabled = os.environ.get('DINGTALK_ENABLED', '0') == '1'
         self.default_webhook_url = webhook_url or os.environ.get('DINGTALK_WEBHOOK_URL')
+        self.keyword = os.environ.get('DINGTALK_KEYWORD', '')
 
     def _get_webhook_url(self, project_name=None, url_slug=None):
         """
@@ -54,7 +55,10 @@ class DingTalkNotifier:
         if not self.enabled:
             logger.info("钉钉推送未启用")
             return
-
+        
+        if self.keyword:
+            content = f"{content}\n\n{self.keyword}"
+            
         try:
             post_url = self._get_webhook_url(project_name=project_name, url_slug=url_slug)
             headers = {
