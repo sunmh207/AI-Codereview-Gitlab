@@ -43,7 +43,18 @@ const initChart = () => {
 
 // 更新图表
 const updateChart = () => {
-  if (!chartInstance || !props.data || props.data.length === 0) return
+  if (!chartInstance) return
+  
+  console.log('StatisticsCharts updateChart:', {
+    data: props.data,
+    chartType: props.chartType,
+    dataLength: props.data?.length
+  })
+
+  if (!props.data || props.data.length === 0) {
+    console.log('No data for chart')
+    return
+  }
 
   let option: any = {}
 
@@ -62,6 +73,7 @@ const updateChart = () => {
       break
   }
 
+  console.log('Chart option:', option)
   chartInstance.setOption(option, true)
 }
 
