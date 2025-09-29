@@ -1,203 +1,269 @@
-![Push图片](doc/img/open/ai-codereview-cartoon.png)
+# AI代码审查系统 - Vue.js前后端分离版
 
-## 项目简介
+基于AI的GitLab/GitHub代码审查系统，采用Vue.js + Flask前后端分离架构。
 
-本项目是一个基于大模型的自动化代码审查工具，帮助开发团队在代码合并或提交时，快速进行智能化的审查(Code Review)，提升代码质量和开发效率。
+## 🏗️ 系统架构
 
-## 功能
+- **前端**: Vue.js 3 + TypeScript + Element Plus + Vite
+- **后端**: Flask + Python 3.11
+- **数据库**: MySQL
+- **消息队列**: Redis + RQ
+- **AI模型**: 支持OpenAI、智谱AI、Ollama等多种LLM
 
-- 🚀 多模型支持
-  - 兼容 DeepSeek、ZhipuAI、OpenAI、通义千问 和 Ollama，想用哪个就用哪个。
-- 📢 消息即时推送
-  - 审查结果一键直达 钉钉、企业微信 或 飞书，代码问题无处可藏！
-- 📅 自动化日报生成
-  - 基于 GitLab & GitHub Commit 记录，自动整理每日开发进展，谁在摸鱼、谁在卷，一目了然 😼。
-- 📊 可视化 Dashboard
-  - 集中展示所有 Code Review 记录，项目统计、开发者统计，数据说话，甩锅无门！
-- 🎭 Review Style 任你选
-  - 专业型 🤵：严谨细致，正式专业。 
-  - 讽刺型 😈：毒舌吐槽，专治不服（"这代码是用脚写的吗？"） 
-  - 绅士型 🌸：温柔建议，如沐春风（"或许这里可以再优化一下呢~"） 
-  - 幽默型 🤪：搞笑点评，快乐改码（"这段 if-else 比我的相亲经历还曲折！"）
+## 🚀 快速启动
 
-**效果图:**
+### 方式一：使用启动脚本（推荐）
 
-![MR图片](doc/img/open/mr.png)
-
-![Note图片](doc/img/open/note.jpg)
-
-![Dashboard图片](doc/img/open/dashboard.jpg)
-
-## 原理
-
-当用户在 GitLab 上提交代码（如 Merge Request 或 Push 操作）时，GitLab 将自动触发 webhook
-事件，调用本系统的接口。系统随后通过第三方大模型对代码进行审查，并将审查结果直接反馈到对应的 Merge Request 或 Commit 的
-Note 中，便于团队查看和处理。
-
-![流程图](doc/img/open/process.png)
-
-## 部署
-
-### 方案一：Docker 部署
-
-**1. 准备环境文件**
-
-- 克隆项目仓库：
-```aiignore
-git clone https://github.com/sunmh207/AI-Codereview-Gitlab.git
+```bash
+# 克隆项目
+git clone <repository-url>
 cd AI-Codereview-Gitlab
+
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，填入必要的配置
+
+# 一键启动前后端
+./start.sh
 ```
 
-- 创建配置文件：
-```aiignore
-cp conf/.env.dist conf/.env
-```
+### 方式二：手动启动
 
-- 编辑 conf/.env 文件，配置以下关键参数：
+#### 1. 启动后端服务
 
 ```bash
-#大模型供应商配置,支持 zhipuai , openai , deepseek 和 ollama
-LLM_PROVIDER=deepseek
-
-#DeepSeek
-DEEPSEEK_API_KEY={YOUR_DEEPSEEK_API_KEY}
-
-#支持review的文件类型(未配置的文件类型不会被审查)
-SUPPORTED_EXTENSIONS=.java,.py,.php,.yml,.vue,.go,.c,.cpp,.h,.js,.css,.md,.sql
-
-#钉钉消息推送: 0不发送钉钉消息,1发送钉钉消息
-DINGTALK_ENABLED=0
-DINGTALK_WEBHOOK_URL={YOUR_WDINGTALK_WEBHOOK_URL}
-
-#Gitlab配置
-GITLAB_ACCESS_TOKEN={YOUR_GITLAB_ACCESS_TOKEN}
-```
-
-**2. 启动服务**
-
-```bash
-docker-compose up -d
-```
-
-**3. 验证部署**
-
-- 主服务验证：
-  - 访问 http://your-server-ip:5001
-  - 显示 "The code review server is running." 说明服务启动成功。
-- Dashboard 验证：
-  - 访问 http://your-server-ip:5002
-  - 看到一个审查日志页面，说明 Dashboard 启动成功。
-
-### 方案二：本地Python环境部署
-
-**1. 获取源码**
-
-```bash
-git clone https://github.com/sunmh207/AI-Codereview-Gitlab.git
-cd AI-Codereview-Gitlab
-```
-
-**2. 安装依赖**
-
-使用 Python 环境（建议使用虚拟环境 venv）安装项目依赖(Python 版本：3.10+):
-
-```bash
+# 安装Python依赖
 pip install -r requirements.txt
-```
 
-**3. 配置环境变量**
-
-同 Docker 部署方案中的.env 文件配置。
-
-**4. 启动服务**
-
-- 启动API服务：
-
-```bash
+# 启动Flask API服务
 python api.py
 ```
 
-- 启动Dashboard服务：
+后端服务将在 http://localhost:5001 启动
+
+#### 2. 启动前端服务
 
 ```bash
-streamlit run ui.py --server.port=5002 --server.address=0.0.0.0
+# 进入前端目录
+cd frontend
+
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
 ```
 
-### 配置 GitLab Webhook
+前端服务将在 http://localhost:3000 启动
 
-#### 1. 创建Access Token
-
-方法一：在 GitLab 个人设置中，创建一个 Personal Access Token。
-
-方法二：在 GitLab 项目设置中，创建Project Access Token
-
-#### 2. 配置 Webhook
-
-在 GitLab 项目设置中，配置 Webhook：
-
-- URL：http://your-server-ip:5001/review/webhook
-- Trigger Events：勾选 Push Events 和 Merge Request Events (不要勾选其它Event)
-- Secret Token：上面配置的 Access Token(可选)
-
-**备注**
-
-1. Token使用优先级
-  - 系统优先使用 .env 文件中的 GITLAB_ACCESS_TOKEN。
-  - 如果 .env 文件中没有配置 GITLAB_ACCESS_TOKEN，则使用 Webhook 传递的Secret Token。
-2. 网络访问要求
-  - 请确保 GitLab 能够访问本系统。
-  - 若内网环境受限，建议将系统部署在外网服务器上。
-
-### 配置消息推送
-
-#### 1.配置钉钉推送
-
-- 在钉钉群中添加一个自定义机器人，获取 Webhook URL。
-- 更新 .env 中的配置：
-  ```
-  #钉钉配置
-  DINGTALK_ENABLED=1  #0不发送钉钉消息，1发送钉钉消息
-  DINGTALK_WEBHOOK_URL=https://oapi.dingtalk.com/robot/send?access_token=xxx #替换为你的Webhook URL
-  ```
-
-企业微信和飞书推送配置类似，具体参见 [常见问题](doc/faq.md)
-
-### 方案三：使用SaaS版
-
-- 无需安装，注册账号即可使用
-- 生成项目总结报告；AI 自动生成7天、14天、1个月、2个月、3个月的项目总结报告
-- 精细化管理：按项目配置IM通知群、Review Style、扩展名白名单等
-- 支持Gitlab、Gitee和Github三个平台的项目
-- 更丰富的可视化 Dashboard
-- 详情见 [SaaS版介绍](doc/saas.md)  或直接访问SaaS站点 [https://cr.mzfuture.com](https://cr.mzfuture.com)
-
-## 其它
-
-**1.如何对整个代码库进行Review?**
-
-可以通过命令行工具对整个代码库进行审查。当前功能仍在不断完善中，欢迎试用并反馈宝贵意见！具体操作如下：
+### 方式三：Docker部署
 
 ```bash
-python -m biz.cmd.review
+# 构建并启动服务
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
 ```
 
-运行后，请按照命令行中的提示进行操作即可。
+## 📁 项目结构
 
-**2.其它问题**
+```
+AI-Codereview-Gitlab/
+├── frontend/                 # Vue.js前端
+│   ├── src/
+│   │   ├── api/             # API接口
+│   │   ├── components/      # Vue组件
+│   │   ├── views/           # 页面视图
+│   │   ├── router/          # 路由配置
+│   │   └── stores/          # 状态管理
+│   ├── package.json
+│   └── vite.config.ts
+├── biz/                     # 业务逻辑层
+│   ├── service/            # 业务服务
+│   ├── entity/             # 实体模型
+│   ├── gitlab/             # GitLab集成
+│   ├── github/             # GitHub集成
+│   └── llm/                # LLM集成
+├── api.py                  # Flask API服务器
+├── start.sh               # 一键启动脚本
+├── Dockerfile             # Docker构建文件
+├── docker-compose.yml     # Docker编排文件
+└── requirements.txt       # Python依赖
+```
 
-参见 [常见问题](doc/faq.md)
+## 🔧 配置说明
 
-## 交流
+### 环境变量配置
 
-若本项目对您有帮助，欢迎 Star ⭐️ 或 Fork。 有任何问题或建议，欢迎提交 Issue 或 PR。
+复制 `.env.example` 为 `.env` 并配置以下变量：
 
-也欢迎加微信/微信群，一起交流学习。
+```bash
+# 数据库配置
+DATABASE_URL=mysql://user:password@localhost:3306/ai_codereview
 
-<p float="left">
-  <img src="doc/img/open/wechat.jpg" width="400" />
-  <img src="doc/img/open/wechat_group.jpg" width="400" /> 
-</p>
+# Redis配置
+REDIS_URL=redis://localhost:6379/0
 
-## Star History
+# GitLab配置
+GITLAB_URL=https://gitlab.example.com
+GITLAB_TOKEN=your_gitlab_token
 
-[![Star History Chart](https://api.star-history.com/svg?repos=sunmh207/AI-Codereview-Gitlab&type=Timeline)](https://www.star-history.com/#sunmh207/AI-Codereview-Gitlab&Timeline)
+# GitHub配置（可选）
+GITHUB_TOKEN=your_github_token
+
+# LLM配置
+LLM_PROVIDER=openai  # 支持: openai, zhipu, ollama
+OPENAI_API_KEY=your_openai_key
+OPENAI_BASE_URL=https://api.openai.com/v1
+
+# JWT配置
+JWT_SECRET_KEY=your_jwt_secret
+```
+
+### 前端代理配置
+
+前端开发时，API请求会自动代理到后端服务：
+
+```typescript
+// vite.config.ts
+export default defineConfig({
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5001',
+        changeOrigin: true
+      }
+    }
+  }
+})
+```
+
+## 🎯 功能特性
+
+- ✅ **代码审查**: 自动分析MR/PR中的代码变更
+- ✅ **多平台支持**: 同时支持GitLab和GitHub
+- ✅ **多LLM支持**: OpenAI、智谱AI、Ollama等
+- ✅ **实时统计**: 审查数据可视化展示
+- ✅ **用户认证**: JWT token认证机制
+- ✅ **响应式UI**: 基于Element Plus的现代化界面
+- ✅ **Docker部署**: 支持容器化部署
+
+## 🔄 API接口
+
+### 认证相关
+- `POST /api/auth/login` - 用户登录
+- `GET /api/auth/verify` - 验证token
+
+### 数据统计
+- `GET /api/metadata` - 获取元数据统计
+- `GET /api/statistics/projects` - 项目统计数据
+- `GET /api/reviews/mr` - MR审查记录
+- `GET /api/reviews/push` - Push审查记录
+
+## 🛠️ 开发指南
+
+### 前端开发
+
+```bash
+cd frontend
+
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
+
+# 构建生产版本
+npm run build
+
+# 代码检查
+npm run lint
+```
+
+### 后端开发
+
+```bash
+# 安装开发依赖
+pip install -r requirements.txt
+
+# 启动开发服务器
+python api.py
+
+# 运行测试
+python -m pytest tests/
+```
+
+## 📦 部署说明
+
+### 生产环境部署
+
+1. **构建前端**:
+```bash
+cd frontend
+npm run build
+```
+
+2. **配置环境变量**:
+```bash
+export FLASK_ENV=production
+export DATABASE_URL=mysql://...
+```
+
+3. **启动服务**:
+```bash
+# 使用gunicorn启动
+gunicorn -w 4 -b 0.0.0.0:5001 api:app
+```
+
+### Docker部署
+
+```bash
+# 构建镜像
+docker build -t ai-codereview .
+
+# 运行容器
+docker run -d -p 5001:5001 --env-file .env ai-codereview
+```
+
+## 🤝 贡献指南
+
+1. Fork 项目
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 打开 Pull Request
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+
+## 🆘 故障排除
+
+### 常见问题
+
+1. **前端无法连接后端**
+   - 检查后端服务是否启动在5001端口
+   - 确认vite.config.ts中的代理配置正确
+
+2. **数据库连接失败**
+   - 检查DATABASE_URL配置
+   - 确认MySQL服务正在运行
+
+3. **LLM调用失败**
+   - 检查API密钥配置
+   - 确认网络连接正常
+
+### 日志查看
+
+```bash
+# 查看后端日志
+tail -f log/app.log
+
+# 查看Docker日志
+docker-compose logs -f
+```
+
+## 📞 联系方式
+
+如有问题或建议，请提交Issue或联系维护者。

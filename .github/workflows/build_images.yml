@@ -19,6 +19,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
+
       - name: Set up QEMU for multi-arch builds
         uses: docker/setup-qemu-action@v3
 
@@ -33,9 +50,9 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Extract tags with suffixes for app and worker
-      - name: Extract metadata (tags, labels) for Docker (app)
-        id: meta_app
+      # Extract metadata for Docker image
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
@@ -45,37 +62,13 @@ jobs:
             type=semver,pattern={{major}}
             type=edge,branch=main
 
-      - name: Extract metadata (tags, labels) for Docker (worker)
-        id: meta_worker
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
-          tags: |
-            type=semver,pattern={{version}},suffix=-worker
-            type=semver,pattern={{major}}.{{minor}},suffix=-worker
-            type=semver,pattern={{major}},suffix=-worker
-            type=edge,branch=main,suffix=-worker
-
-      # Build and push multi-arch app image
-      - name: Build and push app Docker image (Multi-Arch)
+      # Build and push multi-arch Docker image
+      - name: Build and push Docker image (Multi-Arch)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64/v8
-          tags: ${{ steps.meta_app.outputs.tags }}
-          labels: ${{ steps.meta_app.outputs.labels }}
-          target: app
-
-      # Build and push multi-arch worker image
-      - name: Build and push worker Docker image (Multi-Arch)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          platforms: linux/amd64,linux/arm64/v8
-          tags: ${{ steps.meta_worker.outputs.tags }}
-          labels: ${{ steps.meta_worker.outputs.labels }}
-          target: worker
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

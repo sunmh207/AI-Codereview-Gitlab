@@ -1,31 +1,54 @@
-# 使用官方的 Python 基础镜像
-FROM python:3.10-slim AS base
+# 多阶段构建 - 前端构建
+FROM node:18-alpine AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci --only=production
+COPY frontend/ ./
+RUN npm run build
+
+# 后端运行环境
+FROM python:3.11-slim AS app
 
 # 设置工作目录
 WORKDIR /app
 
-# 安装 supervisord 作为进程管理工具
-RUN apt-get update && apt-get install -y --no-install-recommends supervisor && rm -rf /var/lib/apt/lists/*
+# 安装系统依赖
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
-# 复制项目文件&创建必要的文件夹
+# 复制并安装Python依赖
 COPY requirements.txt .
-
-# 安装依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN mkdir -p log data conf
-COPY biz ./biz
-COPY api.py ./api.py
-COPY ui.py ./ui.py
-COPY conf/prompt_templates.yml ./conf/prompt_templates.yml
+# 复制后端代码
+COPY . .
 
-# 使用 supervisord 作为启动命令
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# 复制前端构建产物
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-FROM base AS app
-COPY conf/supervisord.app.conf /etc/supervisor/conf.d/supervisord.conf
-# 暴露 Flask 和 Streamlit 的端口
-EXPOSE 5001 5002
+# 暴露端口
+EXPOSE 5001
 
-FROM base AS worker
-COPY ./conf/supervisord.worker.conf /etc/supervisor/conf.d/supervisord.conf
+# 启动命令
+CMD ["python", "api.py"]
+
+# Worker镜像（用于后台任务）
+FROM python:3.11-slim AS worker
+
+WORKDIR /app
+
+# 安装系统依赖
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# 复制并安装Python依赖
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 复制后端代码
+COPY . .
+
+# 启动RQ Worker
+CMD ["python", "-m", "rq.cli", "worker", "--url", "redis://redis:6379"]

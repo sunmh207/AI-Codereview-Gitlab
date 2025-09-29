@@ -12,6 +12,12 @@ from urllib.parse import urlparse
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from flask import Flask, request, jsonify
+from flask_cors import CORS
+from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
+import hashlib
+import hmac
+import base64
+import time
 
 from biz.gitlab.webhook_handler import slugify_url
 from biz.queue.worker import handle_merge_request_event, handle_push_event, handle_github_pull_request_event, \
@@ -26,7 +32,34 @@ from biz.utils.config_checker import check_config
 
 api_app = Flask(__name__)
 
+# Configure CORS
+CORS(api_app, origins=["http://localhost:3000", "http://localhost:5000", "http://localhost:5002"])
+
+# Configure JWT
+api_app.config['JWT_SECRET_KEY'] = os.environ.get('DASHBOARD_SECRET_KEY', 'fac8cf149bdd616c07c1a675c4571ccacc40d7f7fe16914cfe0f9f9d966bb773')
+api_app.config['JWT_ACCESS_TOKEN_EXPIRES'] = False  # Token never expires
+jwt = JWTManager(api_app)
+
+# User credentials from environment
+DASHBOARD_USER = os.getenv("DASHBOARD_USER", "admin")
+DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "admin")
+USER_CREDENTIALS = {
+    DASHBOARD_USER: DASHBOARD_PASSWORD
+}
+
 push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
+
+
+# Health check endpoint
+@api_app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        'service': 'AI Code Review API',
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'version': '1.0.0'
+    }), 200
 
 
 @api_app.route('/')
@@ -69,6 +102,401 @@ def daily_report():
     except Exception as e:
         logger.error(f"Failed to generate daily report: {e}")
         return jsonify({'message': f"Failed to generate daily report: {e}"}), 500
+
+
+# Authentication endpoints
+@api_app.route('/api/auth/login', methods=['POST'])
+def login():
+    """User login endpoint"""
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+
+        if not username or not password:
+            return jsonify({'message': 'Username and password are required'}), 400
+
+        if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
+            access_token = create_access_token(identity=username)
+            return jsonify({
+                'access_token': access_token,
+                'username': username,
+                'message': 'Login successful'
+            }), 200
+        else:
+            return jsonify({'message': 'Invalid username or password'}), 401
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        return jsonify({'message': 'Login failed'}), 500
+
+
+@api_app.route('/api/auth/verify', methods=['GET'])
+@jwt_required()
+def verify_token():
+    """Verify JWT token"""
+    current_user = get_jwt_identity()
+    return jsonify({'username': current_user, 'valid': True}), 200
+
+
+@api_app.route('/api/auth/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    """User logout endpoint"""
+    return jsonify({'message': 'Logout successful'}), 200
+
+
+# Data endpoints
+@api_app.route('/api/reviews/mr', methods=['GET'])
+@jwt_required()
+def get_mr_reviews():
+    """Get merge request review data with pagination"""
+    try:
+        # Get query parameters
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        authors = request.args.getlist('authors')
+        project_names = request.args.getlist('project_names')
+        
+        # Pagination parameters
+        page = int(request.args.get('page', 1))
+        page_size = int(request.args.get('page_size', 20))
+        
+        # Sorting parameters
+        sort_by = request.args.get('sort_by', 'updated_at')
+        sort_order = request.args.get('sort_order', 'desc')
+        
+        # Score filtering
+        score_min = request.args.get('score_min', type=int)
+        score_max = request.args.get('score_max', type=int)
+
+        # Convert dates to timestamps
+        start_timestamp = None
+        end_timestamp = None
+        if start_date:
+            start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            start_timestamp = int(start_datetime.timestamp())
+        if end_date:
+            end_datetime = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            end_timestamp = int(end_datetime.timestamp())
+
+        # Get data from service
+        df = ReviewService().get_mr_review_logs(
+            authors=authors if authors else None,
+            project_names=project_names if project_names else None,
+            updated_at_gte=start_timestamp,
+            updated_at_lte=end_timestamp
+        )
+
+        if df.empty:
+            return jsonify({'data': [], 'total': 0, 'page': page, 'page_size': page_size}), 200
+
+        # Apply score filtering
+        if score_min is not None:
+            df = df[df['score'] >= score_min]
+        if score_max is not None:
+            df = df[df['score'] <= score_max]
+
+        # Apply sorting
+        if sort_by in df.columns:
+            ascending = sort_order.lower() == 'asc'
+            df = df.sort_values(by=sort_by, ascending=ascending)
+
+        # Get total count before pagination
+        total = len(df)
+
+        # Apply pagination
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        df_page = df.iloc[start_idx:end_idx]
+
+        # Format timestamps
+        if "updated_at" in df_page.columns:
+            df_page = df_page.copy()
+            df_page["updated_at"] = df_page["updated_at"].apply(
+                lambda ts: datetime.fromtimestamp(ts).isoformat() + 'Z'
+                if isinstance(ts, (int, float)) else ts
+            )
+
+        # Convert to records
+        records = df_page.to_dict('records')
+        
+        return jsonify({
+            'data': records, 
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': (total + page_size - 1) // page_size
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Get MR reviews error: {e}")
+        return jsonify({'message': 'Failed to get MR reviews'}), 500
+
+
+@api_app.route('/api/reviews/push', methods=['GET'])
+@jwt_required()
+def get_push_reviews():
+    """Get push review data with pagination"""
+    try:
+        # Get query parameters
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        authors = request.args.getlist('authors')
+        project_names = request.args.getlist('project_names')
+        
+        # Pagination parameters
+        page = int(request.args.get('page', 1))
+        page_size = int(request.args.get('page_size', 20))
+        
+        # Sorting parameters
+        sort_by = request.args.get('sort_by', 'updated_at')
+        sort_order = request.args.get('sort_order', 'desc')
+        
+        # Score filtering
+        score_min = request.args.get('score_min', type=int)
+        score_max = request.args.get('score_max', type=int)
+
+        # Convert dates to timestamps
+        start_timestamp = None
+        end_timestamp = None
+        if start_date:
+            start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            start_timestamp = int(start_datetime.timestamp())
+        if end_date:
+            end_datetime = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            end_timestamp = int(end_datetime.timestamp())
+
+        # Get data from service
+        df = ReviewService().get_push_review_logs(
+            authors=authors if authors else None,
+            project_names=project_names if project_names else None,
+            updated_at_gte=start_timestamp,
+            updated_at_lte=end_timestamp
+        )
+
+        if df.empty:
+            return jsonify({'data': [], 'total': 0, 'page': page, 'page_size': page_size}), 200
+
+        # Apply score filtering
+        if score_min is not None:
+            df = df[df['score'] >= score_min]
+        if score_max is not None:
+            df = df[df['score'] <= score_max]
+
+        # Apply sorting
+        if sort_by in df.columns:
+            ascending = sort_order.lower() == 'asc'
+            df = df.sort_values(by=sort_by, ascending=ascending)
+
+        # Get total count before pagination
+        total = len(df)
+
+        # Apply pagination
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        df_page = df.iloc[start_idx:end_idx]
+
+        # Format timestamps
+        if "updated_at" in df_page.columns:
+            df_page = df_page.copy()
+            df_page["updated_at"] = df_page["updated_at"].apply(
+                lambda ts: datetime.fromtimestamp(ts).isoformat() + 'Z'
+                if isinstance(ts, (int, float)) else ts
+            )
+
+        # Convert to records
+        records = df_page.to_dict('records')
+        
+        return jsonify({
+            'data': records, 
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': (total + page_size - 1) // page_size
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Get push reviews error: {e}")
+        return jsonify({'message': 'Failed to get push reviews'}), 500
+
+
+@api_app.route('/api/statistics/projects', methods=['GET'])
+@jwt_required()
+def get_project_statistics():
+    """Get project statistics"""
+    try:
+        # Get query parameters
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        review_type = request.args.get('type', 'mr')  # 'mr' or 'push'
+
+        # Convert dates to timestamps
+        start_timestamp = None
+        end_timestamp = None
+        if start_date:
+            start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            start_timestamp = int(start_datetime.timestamp())
+        if end_date:
+            end_datetime = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            end_timestamp = int(end_datetime.timestamp())
+
+        # Get data from service
+        if review_type == 'push':
+            df = ReviewService().get_push_review_logs(
+                updated_at_gte=start_timestamp,
+                updated_at_lte=end_timestamp
+            )
+        else:
+            df = ReviewService().get_mr_review_logs(
+                updated_at_gte=start_timestamp,
+                updated_at_lte=end_timestamp
+            )
+
+        if df.empty:
+            return jsonify({'project_counts': [], 'project_scores': []}), 200
+
+        # Calculate project statistics
+        project_counts = df['project_name'].value_counts().reset_index()
+        project_counts.columns = ['project_name', 'count']
+
+        project_scores = df.groupby('project_name')['score'].mean().reset_index()
+        project_scores.columns = ['project_name', 'average_score']
+
+        return jsonify({
+            'project_counts': project_counts.to_dict('records'),
+            'project_scores': project_scores.to_dict('records')
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Get project statistics error: {e}")
+        return jsonify({'message': 'Failed to get project statistics'}), 500
+
+
+@api_app.route('/api/statistics/authors', methods=['GET'])
+@jwt_required()
+def get_author_statistics():
+    """Get author statistics"""
+    try:
+        # Get query parameters
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        review_type = request.args.get('type', 'mr')  # 'mr' or 'push'
+
+        # Convert dates to timestamps
+        start_timestamp = None
+        end_timestamp = None
+        if start_date:
+            start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            start_timestamp = int(start_datetime.timestamp())
+        if end_date:
+            end_datetime = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            end_timestamp = int(end_datetime.timestamp())
+
+        # Get data from service
+        if review_type == 'push':
+            df = ReviewService().get_push_review_logs(
+                updated_at_gte=start_timestamp,
+                updated_at_lte=end_timestamp
+            )
+        else:
+            df = ReviewService().get_mr_review_logs(
+                updated_at_gte=start_timestamp,
+                updated_at_lte=end_timestamp
+            )
+
+        if df.empty:
+            return jsonify({
+                'author_counts': [],
+                'author_scores': [],
+                'author_code_lines': []
+            }), 200
+
+        # Calculate author statistics
+        author_counts = df['author'].value_counts().reset_index()
+        author_counts.columns = ['author', 'count']
+
+        author_scores = df.groupby('author')['score'].mean().reset_index()
+        author_scores.columns = ['author', 'average_score']
+
+        # Calculate code lines if available
+        author_code_lines = []
+        if 'additions' in df.columns and 'deletions' in df.columns:
+            author_additions = df.groupby('author')['additions'].sum().reset_index()
+            author_deletions = df.groupby('author')['deletions'].sum().reset_index()
+            author_code_lines = []
+            for _, row in author_additions.iterrows():
+                author = row['author']
+                additions = row['additions']
+                deletions = author_deletions[author_deletions['author'] == author]['deletions'].iloc[0] if not author_deletions[author_deletions['author'] == author].empty else 0
+                author_code_lines.append({
+                    'author': author,
+                    'additions': additions,
+                    'deletions': deletions
+                })
+
+        return jsonify({
+            'author_counts': author_counts.to_dict('records'),
+            'author_scores': author_scores.to_dict('records'),
+            'author_code_lines': author_code_lines
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Get author statistics error: {e}")
+        return jsonify({'message': 'Failed to get author statistics'}), 500
+
+
+@api_app.route('/api/metadata', methods=['GET'])
+@jwt_required()
+def get_metadata():
+    """Get metadata for filters"""
+    try:
+        # Get query parameters for date range
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        review_type = request.args.get('type', 'mr')  # 'mr' or 'push'
+
+        # Convert dates to timestamps
+        start_timestamp = None
+        end_timestamp = None
+        if start_date:
+            start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            start_timestamp = int(start_datetime.timestamp())
+        if end_date:
+            end_datetime = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            end_timestamp = int(end_datetime.timestamp())
+
+        # Get data from service
+        if review_type == 'push':
+            df = ReviewService().get_push_review_logs(
+                updated_at_gte=start_timestamp,
+                updated_at_lte=end_timestamp
+            )
+        else:
+            df = ReviewService().get_mr_review_logs(
+                updated_at_gte=start_timestamp,
+                updated_at_lte=end_timestamp
+            )
+
+        if df.empty:
+            return jsonify({
+                'authors': [],
+                'project_names': [],
+                'push_review_enabled': push_review_enabled
+            }), 200
+
+        # Get unique values
+        authors = sorted(df["author"].dropna().unique().tolist())
+        project_names = sorted(df["project_name"].dropna().unique().tolist())
+
+        return jsonify({
+            'authors': authors,
+            'project_names': project_names,
+            'push_review_enabled': push_review_enabled
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Get metadata error: {e}")
+        return jsonify({'message': 'Failed to get metadata'}), 500
 
 
 def setup_scheduler():
