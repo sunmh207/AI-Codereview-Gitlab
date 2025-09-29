@@ -176,7 +176,12 @@ def get_mr_reviews():
             start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
             start_timestamp = int(start_datetime.timestamp())
         if end_date:
-            end_datetime = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            # For end_date, add time to include the entire day (23:59:59)
+            if 'T' not in end_date:
+                end_date_with_time = end_date + 'T23:59:59'
+            else:
+                end_date_with_time = end_date
+            end_datetime = datetime.fromisoformat(end_date_with_time.replace('Z', '+00:00'))
             end_timestamp = int(end_datetime.timestamp())
 
         # Get data from service
@@ -263,7 +268,12 @@ def get_push_reviews():
             start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
             start_timestamp = int(start_datetime.timestamp())
         if end_date:
-            end_datetime = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            # For end_date, add time to include the entire day (23:59:59)
+            if 'T' not in end_date:
+                end_date_with_time = end_date + 'T23:59:59'
+            else:
+                end_date_with_time = end_date
+            end_datetime = datetime.fromisoformat(end_date_with_time.replace('Z', '+00:00'))
             end_timestamp = int(end_datetime.timestamp())
 
         # Get data from service
@@ -337,7 +347,12 @@ def get_project_statistics():
             start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
             start_timestamp = int(start_datetime.timestamp())
         if end_date:
-            end_datetime = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            # For end_date, add time to include the entire day (23:59:59)
+            if 'T' not in end_date:
+                end_date_with_time = end_date + 'T23:59:59'
+            else:
+                end_date_with_time = end_date
+            end_datetime = datetime.fromisoformat(end_date_with_time.replace('Z', '+00:00'))
             end_timestamp = int(end_datetime.timestamp())
 
         # Get data from service
@@ -389,7 +404,12 @@ def get_author_statistics():
             start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
             start_timestamp = int(start_datetime.timestamp())
         if end_date:
-            end_datetime = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            # For end_date, add time to include the entire day (23:59:59)
+            if 'T' not in end_date:
+                end_date_with_time = end_date + 'T23:59:59'
+            else:
+                end_date_with_time = end_date
+            end_datetime = datetime.fromisoformat(end_date_with_time.replace('Z', '+00:00'))
             end_timestamp = int(end_datetime.timestamp())
 
         # Get data from service
@@ -452,7 +472,12 @@ def get_statistics(stat_type):
             start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
             start_timestamp = int(start_datetime.timestamp())
         if end_date:
-            end_datetime = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            # For end_date, add time to include the entire day (23:59:59)
+            if 'T' not in end_date:
+                end_date_with_time = end_date + 'T23:59:59'
+            else:
+                end_date_with_time = end_date
+            end_datetime = datetime.fromisoformat(end_date_with_time.replace('Z', '+00:00'))
             end_timestamp = int(end_datetime.timestamp())
 
         # Get data from service

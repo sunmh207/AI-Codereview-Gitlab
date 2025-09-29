@@ -197,7 +197,7 @@ const filters = reactive<ReviewFilters & { scoreRange?: string }>({
 // 分页
 const pagination = reactive({
   page: 1,
-  pageSize: 20,
+  pageSize: 100,  // 增加默认页面大小，显示更多记录
   total: 0
 })
 

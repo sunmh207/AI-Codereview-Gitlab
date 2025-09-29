@@ -153,7 +153,7 @@
                     <span class="time-text">{{ formatDate(row.updated_at) }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="commit_messages" label="提交信息" min-width="150" show-overflow-tooltip>
+                <el-table-column prop="commit_messages" label="提交信息" min-width="150">
                   <template #default="{ row }">
                     <div class="commit-message" :title="row.commit_messages">
                       {{ getFirstLine(row.commit_messages) }}
@@ -201,8 +201,10 @@ const pushDataForChart = ref<ReviewData[]>([])
 const loadStats = async () => {
   loading.value = true
   try {
-    // 先不使用时间过滤，获取所有数据
-    const filters = {}
+    // 获取所有数据，设置一个很大的page_size
+    const filters = {
+      page_size: 10000  // 获取所有数据
+    }
 
     // 并行获取数据
     const [mrResult, pushResult, metadata] = await Promise.all([

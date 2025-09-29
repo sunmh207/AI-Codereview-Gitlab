@@ -36,6 +36,8 @@ export interface ReviewFilters {
   end_date?: string
   authors?: string[]
   project_names?: string[]
+  page?: number
+  page_size?: number
 }
 
 export interface ApiResponse<T> {
@@ -72,6 +74,8 @@ export const getMRReviews = async (filters: ReviewFilters): Promise<ApiResponse<
   if (filters.project_names) {
     filters.project_names.forEach(project => params.append('project_names', project))
   }
+  if (filters.page) params.append('page', filters.page.toString())
+  if (filters.page_size) params.append('page_size', filters.page_size.toString())
 
   const response = await apiClient.get(`/api/reviews/mr?${params}`)
   return response.data
@@ -89,6 +93,8 @@ export const getPushReviews = async (filters: ReviewFilters): Promise<ApiRespons
   if (filters.project_names) {
     filters.project_names.forEach(project => params.append('project_names', project))
   }
+  if (filters.page) params.append('page', filters.page.toString())
+  if (filters.page_size) params.append('page_size', filters.page_size.toString())
 
   const response = await apiClient.get(`/api/reviews/push?${params}`)
   return response.data

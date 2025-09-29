@@ -106,7 +106,13 @@
       >
         <el-table-column prop="project_name" label="项目" width="150" />
         <el-table-column prop="author" label="开发者" width="120" />
-        <el-table-column prop="commit_messages" label="提交信息" show-overflow-tooltip min-width="200" />
+        <el-table-column prop="commit_messages" label="提交信息" min-width="200">
+          <template #default="{ row }">
+            <div class="commit-message-cell" :title="row.commit_messages">
+              {{ getFirstLine(row.commit_messages) }}
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="score" label="得分" width="80" sortable="custom">
           <template #default="{ row }">
             <el-tag :type="getScoreType(row.score)">{{ row.score }}</el-tag>
@@ -153,7 +159,9 @@
         <el-descriptions :column="2" border>
           <el-descriptions-item label="项目名称">{{ currentDetail.project_name }}</el-descriptions-item>
           <el-descriptions-item label="开发者">{{ currentDetail.author }}</el-descriptions-item>
-          <el-descriptions-item label="提交信息" :span="2">{{ currentDetail.commit_messages }}</el-descriptions-item>
+          <el-descriptions-item label="提交信息" :span="2">
+            <pre class="commit-message-detail">{{ currentDetail.commit_messages }}</pre>
+          </el-descriptions-item>
           <el-descriptions-item label="得分">
             <el-tag :type="getScoreType(currentDetail.score)">{{ currentDetail.score }}</el-tag>
           </el-descriptions-item>
@@ -182,7 +190,7 @@ import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 // 数据状态
 const loading = ref(false)
 const tableData = ref<ReviewData[]>([])
-const metadata = ref({ authors: [], project_names: [] })
+const metadata = ref<{ authors: string[], project_names: string[] }>({ authors: [], project_names: [] })
 const detailVisible = ref(false)
 const currentDetail = ref<ReviewData | null>(null)
 
@@ -197,7 +205,7 @@ const filters = reactive<ReviewFilters & { scoreRange?: string }>({
 // 分页
 const pagination = reactive({
   page: 1,
-  pageSize: 20,
+  pageSize: 100,  // 增加默认页面大小，显示更多记录
   total: 0
 })
 
@@ -310,6 +318,13 @@ const getScoreType = (score: number) => {
   return 'danger'
 }
 
+// 获取提交信息的第一行
+const getFirstLine = (message: string) => {
+  if (!message) return ''
+  return message.split('
+')[0] || message
+}
+
 // 初始化
 onMounted(async () => {
   const [startDate, endDate] = getDefaultDateRange()
@@ -387,6 +402,30 @@ onMounted(async () => {
 .review-content h4 {
   margin: 0 0 12px 0;
   color: #1f2937;
+}
+
+/* 提交信息样式 */
+.commit-message-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.commit-message-detail {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 12px;
+  margin: 0;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #495057;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .review-text {
