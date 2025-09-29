@@ -29,6 +29,7 @@ from biz.utils.queue import handle_queue
 from biz.utils.reporter import Reporter
 
 from biz.utils.config_checker import check_config
+from biz.utils.time_utils import convert_date_to_timestamps, format_dataframe_timestamps
 
 api_app = Flask(__name__)
 
@@ -169,20 +170,8 @@ def get_mr_reviews():
         score_min = request.args.get('score_min', type=int)
         score_max = request.args.get('score_max', type=int)
 
-        # Convert dates to timestamps
-        start_timestamp = None
-        end_timestamp = None
-        if start_date:
-            start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            start_timestamp = int(start_datetime.timestamp())
-        if end_date:
-            # For end_date, add time to include the entire day (23:59:59)
-            if 'T' not in end_date:
-                end_date_with_time = end_date + 'T23:59:59'
-            else:
-                end_date_with_time = end_date
-            end_datetime = datetime.fromisoformat(end_date_with_time.replace('Z', '+00:00'))
-            end_timestamp = int(end_datetime.timestamp())
+        # Convert dates to timestamps using utility function
+        start_timestamp, end_timestamp = convert_date_to_timestamps(start_date, end_date)
 
         # Get data from service
         df = ReviewService().get_mr_review_logs(
@@ -214,13 +203,8 @@ def get_mr_reviews():
         end_idx = start_idx + page_size
         df_page = df.iloc[start_idx:end_idx]
 
-        # Format timestamps
-        if "updated_at" in df_page.columns:
-            df_page = df_page.copy()
-            df_page["updated_at"] = df_page["updated_at"].apply(
-                lambda ts: datetime.fromtimestamp(ts).isoformat() + 'Z'
-                if isinstance(ts, (int, float)) else ts
-            )
+        # Format timestamps using utility function
+        df_page = format_dataframe_timestamps(df_page, 'updated_at')
 
         # Convert to records
         records = df_page.to_dict('records')
@@ -261,20 +245,8 @@ def get_push_reviews():
         score_min = request.args.get('score_min', type=int)
         score_max = request.args.get('score_max', type=int)
 
-        # Convert dates to timestamps
-        start_timestamp = None
-        end_timestamp = None
-        if start_date:
-            start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            start_timestamp = int(start_datetime.timestamp())
-        if end_date:
-            # For end_date, add time to include the entire day (23:59:59)
-            if 'T' not in end_date:
-                end_date_with_time = end_date + 'T23:59:59'
-            else:
-                end_date_with_time = end_date
-            end_datetime = datetime.fromisoformat(end_date_with_time.replace('Z', '+00:00'))
-            end_timestamp = int(end_datetime.timestamp())
+        # Convert dates to timestamps using utility function
+        start_timestamp, end_timestamp = convert_date_to_timestamps(start_date, end_date)
 
         # Get data from service
         df = ReviewService().get_push_review_logs(
@@ -306,13 +278,8 @@ def get_push_reviews():
         end_idx = start_idx + page_size
         df_page = df.iloc[start_idx:end_idx]
 
-        # Format timestamps
-        if "updated_at" in df_page.columns:
-            df_page = df_page.copy()
-            df_page["updated_at"] = df_page["updated_at"].apply(
-                lambda ts: datetime.fromtimestamp(ts).isoformat() + 'Z'
-                if isinstance(ts, (int, float)) else ts
-            )
+        # Format timestamps using utility function
+        df_page = format_dataframe_timestamps(df_page, 'updated_at')
 
         # Convert to records
         records = df_page.to_dict('records')
@@ -340,20 +307,8 @@ def get_project_statistics():
         end_date = request.args.get('end_date')
         review_type = request.args.get('type', 'mr')  # 'mr' or 'push'
 
-        # Convert dates to timestamps
-        start_timestamp = None
-        end_timestamp = None
-        if start_date:
-            start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            start_timestamp = int(start_datetime.timestamp())
-        if end_date:
-            # For end_date, add time to include the entire day (23:59:59)
-            if 'T' not in end_date:
-                end_date_with_time = end_date + 'T23:59:59'
-            else:
-                end_date_with_time = end_date
-            end_datetime = datetime.fromisoformat(end_date_with_time.replace('Z', '+00:00'))
-            end_timestamp = int(end_datetime.timestamp())
+        # Convert dates to timestamps using utility function
+        start_timestamp, end_timestamp = convert_date_to_timestamps(start_date, end_date)
 
         # Get data from service
         if review_type == 'push':
@@ -397,20 +352,8 @@ def get_author_statistics():
         end_date = request.args.get('end_date')
         review_type = request.args.get('type', 'mr')  # 'mr' or 'push'
 
-        # Convert dates to timestamps
-        start_timestamp = None
-        end_timestamp = None
-        if start_date:
-            start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            start_timestamp = int(start_datetime.timestamp())
-        if end_date:
-            # For end_date, add time to include the entire day (23:59:59)
-            if 'T' not in end_date:
-                end_date_with_time = end_date + 'T23:59:59'
-            else:
-                end_date_with_time = end_date
-            end_datetime = datetime.fromisoformat(end_date_with_time.replace('Z', '+00:00'))
-            end_timestamp = int(end_datetime.timestamp())
+        # Convert dates to timestamps using utility function
+        start_timestamp, end_timestamp = convert_date_to_timestamps(start_date, end_date)
 
         # Get data from service
         if review_type == 'push':
@@ -465,20 +408,8 @@ def get_statistics(stat_type):
         end_date = request.args.get('end_date')
         review_type = request.args.get('type', 'mr')  # 'mr' or 'push'
 
-        # Convert dates to timestamps
-        start_timestamp = None
-        end_timestamp = None
-        if start_date:
-            start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            start_timestamp = int(start_datetime.timestamp())
-        if end_date:
-            # For end_date, add time to include the entire day (23:59:59)
-            if 'T' not in end_date:
-                end_date_with_time = end_date + 'T23:59:59'
-            else:
-                end_date_with_time = end_date
-            end_datetime = datetime.fromisoformat(end_date_with_time.replace('Z', '+00:00'))
-            end_timestamp = int(end_datetime.timestamp())
+        # Convert dates to timestamps using utility function
+        start_timestamp, end_timestamp = convert_date_to_timestamps(start_date, end_date)
 
         # Get data from service
         if review_type == 'push':
@@ -559,15 +490,8 @@ def get_metadata():
         end_date = request.args.get('end_date')
         review_type = request.args.get('type', 'mr')  # 'mr' or 'push'
 
-        # Convert dates to timestamps
-        start_timestamp = None
-        end_timestamp = None
-        if start_date:
-            start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            start_timestamp = int(start_datetime.timestamp())
-        if end_date:
-            end_datetime = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-            end_timestamp = int(end_datetime.timestamp())
+        # Convert dates to timestamps using utility function
+        start_timestamp, end_timestamp = convert_date_to_timestamps(start_date, end_date)
 
         # Get data from service
         if review_type == 'push':

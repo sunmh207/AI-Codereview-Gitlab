@@ -1,0 +1,19 @@
+# 开发工具目录 - 不应该提交到生产分支
+# Development tools directory - should not be committed to production branches
+
+# 忽略所有调试脚本
+debug/
+*.debug.py
+
+# 忽略所有测试脚本
+tests/
+test_*.py
+
+# 忽略临时文件
+*.tmp
+*.log
+*.cache
+
+# 但保留README文件用于说明
+!README.md
+!.gitignore
