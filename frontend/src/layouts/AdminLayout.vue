@@ -247,6 +247,25 @@ watch(() => route.path, () => {
   color: #fff;
 }
 
+.sidebar-menu :deep(.el-sub-menu .el-menu) {
+  background-color: #000c17;
+}
+
+.sidebar-menu :deep(.el-sub-menu .el-menu-item) {
+  background-color: #000c17;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.sidebar-menu :deep(.el-sub-menu .el-menu-item:hover) {
+  background-color: #1890ff;
+  color: #fff;
+}
+
+.sidebar-menu :deep(.el-sub-menu .el-menu-item.is-active) {
+  background-color: #1890ff;
+  color: #fff;
+}
+
 .admin-main {
   background: #f0f2f5;
 }

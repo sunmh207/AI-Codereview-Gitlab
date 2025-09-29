@@ -32,8 +32,8 @@ from biz.utils.config_checker import check_config
 
 api_app = Flask(__name__)
 
-# Configure CORS
-CORS(api_app, origins=["http://localhost:3000", "http://localhost:5000", "http://localhost:5002"])
+# Configure CORS - Allow all origins for development
+CORS(api_app, origins=["*"])
 
 # Configure JWT
 api_app.config['JWT_SECRET_KEY'] = os.environ.get('DASHBOARD_SECRET_KEY', 'fac8cf149bdd616c07c1a675c4571ccacc40d7f7fe16914cfe0f9f9d966bb773')

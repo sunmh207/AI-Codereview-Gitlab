@@ -106,7 +106,7 @@
       >
         <el-table-column prop="project_name" label="项目" width="150" />
         <el-table-column prop="author" label="开发者" width="120" />
-        <el-table-column prop="commit_message" label="提交信息" show-overflow-tooltip min-width="200" />
+        <el-table-column prop="commit_messages" label="提交信息" show-overflow-tooltip min-width="200" />
         <el-table-column prop="score" label="得分" width="80" sortable="custom">
           <template #default="{ row }">
             <el-tag :type="getScoreType(row.score)">{{ row.score }}</el-tag>
