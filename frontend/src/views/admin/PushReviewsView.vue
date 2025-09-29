@@ -321,8 +321,9 @@ const getScoreType = (score: number) => {
 // 获取提交信息的第一行
 const getFirstLine = (message: string) => {
   if (!message) return ''
-  return message.split('
-')[0] || message
+  const newlineChar = String.fromCharCode(10)
+  const newlineIndex = message.indexOf(newlineChar)
+  return newlineIndex === -1 ? message : message.substring(0, newlineIndex)
 }
 
 // 初始化
