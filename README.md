@@ -222,17 +222,7 @@ gunicorn -w 4 -b 0.0.0.0:5001 api:app
 # 构建镜像
 docker build -t ai-codereview .
 
-# 运行容器
-docker run -d -p 5001:5001 --env-file .env ai-codereview
-```
 
-## 🤝 贡献指南
-
-1. Fork 项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开 Pull Request
 
 ## 📄 许可证
 
