@@ -65,71 +65,107 @@
     </el-row>
 
     <!-- 图表区域 -->
-    <el-row :gutter="20" class="charts-section">
-      <el-col :xs="24" :lg="12">
-        <el-card class="chart-card">
-          <template #header>
-            <div class="card-header">
-              <span>最近7天审查趋势</span>
+    <div class="charts-section">
+      <!-- 趋势图 - 独占一行 -->
+      <el-row :gutter="20" class="trend-row">
+        <el-col :span="24">
+          <el-card class="chart-card">
+            <template #header>
+              <div class="card-header">
+                <span>最近一月审查趋势</span>
+              </div>
+            </template>
+            <div class="chart-container large">
+              <TrendChart
+                :mr-data="mrDataForChart"
+                :push-data="pushDataForChart"
+                :loading="loading"
+              />
             </div>
-          </template>
-          <div class="chart-container">
-            <StatisticsCharts
-              :data="recentData"
-              :loading="loading"
-              type="mr"
-              chart-type="trend"
-            />
-          </div>
-        </el-card>
-      </el-col>
+          </el-card>
+        </el-col>
+      </el-row>
       
-      <el-col :xs="24" :lg="12">
-        <el-card class="chart-card">
-          <template #header>
-            <div class="card-header">
-              <span>项目分布</span>
+      <!-- 项目分布图 - 独占一行 -->
+      <el-row :gutter="20" class="project-row">
+        <el-col :span="24">
+          <el-card class="chart-card">
+            <template #header>
+              <div class="card-header">
+                <span>项目分布统计</span>
+              </div>
+            </template>
+            <div class="chart-container large">
+              <ProjectChart
+                :mr-data="mrDataForChart"
+                :push-data="pushDataForChart"
+                :loading="loading"
+              />
             </div>
-          </template>
-          <div class="chart-container">
-            <StatisticsCharts
-              :data="projectData"
-              :loading="loading"
-              type="mr"
-              chart-type="project"
-            />
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <!-- 最近审查记录 -->
-    <el-card class="recent-reviews">
-      <template #header>
-        <div class="card-header">
-          <span>最近审查记录</span>
-          <el-button type="primary" size="small" @click="$router.push('/admin/reviews/mr')">
-            查看全部
-          </el-button>
-        </div>
-      </template>
+          </el-card>
+        </el-col>
+      </el-row>
       
-      <el-table :data="recentReviews" :loading="loading" stripe>
-        <el-table-column prop="project_name" label="项目" width="150" />
-        <el-table-column prop="author" label="开发者" width="120" />
-        <el-table-column prop="title" label="标题" show-overflow-tooltip />
-        <el-table-column prop="score" label="得分" width="80">
-          <template #default="{ row }">
-            <el-tag :type="getScoreType(row.score)">{{ row.score }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="updated_at" label="时间" width="160">
-          <template #default="{ row }">
-            {{ formatDate(row.updated_at) }}
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+      <!-- 人员排行榜和最近审查记录 - 同一行 -->
+      <el-row :gutter="20" class="bottom-row">
+        <el-col :xs="24" :lg="12">
+          <el-card class="chart-card">
+            <template #header>
+              <div class="card-header">
+                <span>人员排行榜</span>
+                <el-tooltip content="根据推送数量(30%)、合并数量(40%)、平均得分(30%)综合计算排名" placement="top">
+                  <el-icon><QuestionFilled /></el-icon>
+                </el-tooltip>
+              </div>
+            </template>
+            <div class="ranking-container">
+              <RankingChart
+                :mr-data="mrDataForChart"
+                :push-data="pushDataForChart"
+                :loading="loading"
+              />
+            </div>
+          </el-card>
+        </el-col>
+        
+        <el-col :xs="24" :lg="12">
+          <el-card class="chart-card">
+            <template #header>
+              <div class="card-header">
+                <span>最近审查记录</span>
+                <el-button type="primary" size="small" @click="$router.push('/admin/reviews/mr')">
+                  查看全部
+                </el-button>
+              </div>
+            </template>
+            
+            <div class="table-container">
+              <el-table :data="recentReviews" :loading="loading" stripe size="small">
+                <el-table-column prop="project_name" label="项目" width="100" />
+                <el-table-column prop="author" label="开发者" width="80" />
+                <el-table-column prop="score" label="得分" width="70">
+                  <template #default="{ row }">
+                    <el-tag :type="getScoreType(row.score)" size="small">{{ row.score }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="updated_at" label="时间" width="120">
+                  <template #default="{ row }">
+                    <span class="time-text">{{ formatDate(row.updated_at) }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="commit_messages" label="提交信息" min-width="150" show-overflow-tooltip>
+                  <template #default="{ row }">
+                    <div class="commit-message" :title="row.commit_messages">
+                      {{ getFirstLine(row.commit_messages) }}
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
+    </div>
   </div>
 </template>
 
@@ -137,10 +173,13 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
-  Document, Upload, TrendCharts, FolderOpened
+  Document, Upload, TrendCharts, FolderOpened, QuestionFilled
 } from '@element-plus/icons-vue'
-import { getMRReviews, getPushReviews, getMetadata } from '@/api/reviews'
+import { getMRReviews, getPushReviews, getMetadata, type ReviewData } from '@/api/reviews'
 import StatisticsCharts from '@/components/StatisticsCharts.vue'
+import TrendChart from '@/components/charts/TrendChart.vue'
+import ProjectChart from '@/components/charts/ProjectChart.vue'
+import RankingChart from '@/components/charts/RankingChart.vue'
 import { formatDate } from '@/utils/date'
 
 // 数据状态
@@ -152,49 +191,54 @@ const stats = ref({
   totalProjects: 0
 })
 
-const recentData = ref([])
-const projectData = ref([])
-const recentReviews = ref([])
+const recentData = ref<ReviewData[]>([])
+const projectData = ref<ReviewData[]>([])
+const recentReviews = ref<ReviewData[]>([])
+const mrDataForChart = ref<ReviewData[]>([])
+const pushDataForChart = ref<ReviewData[]>([])
 
 // 获取统计数据
 const loadStats = async () => {
   loading.value = true
   try {
-    // 获取最近7天的数据
-    const endDate = new Date()
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - 7)
-    
-    const filters = {
-      start_date: startDate.toISOString(),
-      end_date: endDate.toISOString()
-    }
+    // 先不使用时间过滤，获取所有数据
+    const filters = {}
 
     // 并行获取数据
     const [mrResult, pushResult, metadata] = await Promise.all([
       getMRReviews(filters),
       getPushReviews(filters),
-      getMetadata({ type: 'mr' })
+      getMetadata({ type: 'push' })
     ])
 
+    // 使用Push数据，因为MR表为空
+    const mainData = pushResult.data && pushResult.data.length > 0 ? pushResult : mrResult
+    
     stats.value = {
-      totalMR: mrResult.total,
-      totalPush: pushResult.total,
-      avgScore: mrResult.data.length > 0 
-        ? Math.round(mrResult.data.reduce((sum, item) => sum + item.score, 0) / mrResult.data.length)
+      totalMR: mrResult.total || 0,
+      totalPush: pushResult.total || 0,
+      avgScore: mainData.data && mainData.data.length > 0 
+        ? Math.round(mainData.data.reduce((sum, item) => sum + (item.score || 0), 0) / mainData.data.length)
         : 0,
-      totalProjects: metadata.project_names.length
+      totalProjects: metadata.project_names ? metadata.project_names.length : 0
     }
 
-    // 最近审查记录（取前5条）
-    recentReviews.value = mrResult.data.slice(0, 5)
+    // 最近审查记录（取前5条）- 优先使用有数据的
+    recentReviews.value = mainData.data ? mainData.data.slice(0, 5) : []
     
-    // 图表数据
-    recentData.value = mrResult.data
-    projectData.value = mrResult.data
+    // 图表数据 - 分别保存MR和Push数据
+    mrDataForChart.value = mrResult.data || []
+    pushDataForChart.value = pushResult.data || []
+    
+    // 为了兼容现有组件，recentData使用主要数据
+    recentData.value = pushResult.data || [] // Push数据用于趋势图
+    projectData.value = mainData.data || [] // 项目分布图使用有数据的
+
+
 
   } catch (error: any) {
-    ElMessage.error('获取统计数据失败')
+    console.error('Dashboard load error:', error)
+    ElMessage.error('获取统计数据失败: ' + (error.message || '未知错误'))
   } finally {
     loading.value = false
   }
@@ -205,6 +249,33 @@ const getScoreType = (score: number) => {
   if (score >= 80) return 'success'
   if (score >= 60) return 'warning'
   return 'danger'
+}
+
+// 获取提交信息的第一行
+const getFirstLine = (message: string) => {
+  if (!message) return '-'
+  // 使用字符编码避免语法错误
+  const CR = String.fromCharCode(13) // 
+
+  const LF = String.fromCharCode(10) // 
+
+  
+  const crIndex = message.indexOf(CR)
+  const lfIndex = message.indexOf(LF)
+  
+  let firstNewlineIndex = -1
+  if (crIndex !== -1 && lfIndex !== -1) {
+    firstNewlineIndex = Math.min(crIndex, lfIndex)
+  } else if (crIndex !== -1) {
+    firstNewlineIndex = crIndex
+  } else if (lfIndex !== -1) {
+    firstNewlineIndex = lfIndex
+  }
+  
+  if (firstNewlineIndex === -1) {
+    return message
+  }
+  return message.substring(0, firstNewlineIndex)
 }
 
 onMounted(() => {
@@ -309,6 +380,39 @@ onMounted(() => {
 
 .chart-container {
   height: 300px;
+}
+
+.chart-container.large {
+  height: 400px;
+}
+
+.trend-row,
+.project-row,
+.bottom-row {
+  margin-bottom: 20px;
+}
+
+.ranking-container {
+  height: 400px;
+  overflow-y: auto;
+}
+
+.table-container {
+  height: 400px;
+  overflow-y: auto;
+}
+
+.time-text {
+  font-size: 12px;
+  color: #606266;
+}
+
+.commit-message {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.4;
 }
 
 /* 响应式设计 */

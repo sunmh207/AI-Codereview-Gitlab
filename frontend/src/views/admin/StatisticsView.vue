@@ -66,77 +66,91 @@
 
     <!-- 统计图表 -->
     <el-row :gutter="20">
-      <!-- 趋势图 -->
+      <!-- 项目数量统计 -->
       <el-col :xs="24" :lg="12">
         <el-card class="chart-card">
           <template #header>
             <div class="card-header">
-              <span>{{ filters.type === 'mr' ? '合并请求' : '代码推送' }}趋势</span>
+              <span>项目审查数量</span>
             </div>
           </template>
           <div class="chart-container">
-            <StatisticsCharts
-              :data="chartData"
+            <SimpleChart
+              :data="projectCounts"
               :loading="loading"
-              :type="filters.type"
-              chart-type="trend"
+              chart-type="project-counts"
             />
           </div>
         </el-card>
       </el-col>
       
-      <!-- 项目分布 -->
+      <!-- 项目得分统计 -->
       <el-col :xs="24" :lg="12">
         <el-card class="chart-card">
           <template #header>
             <div class="card-header">
-              <span>项目分布</span>
+              <span>项目平均得分</span>
             </div>
           </template>
           <div class="chart-container">
-            <StatisticsCharts
-              :data="chartData"
+            <SimpleChart
+              :data="projectScores"
               :loading="loading"
-              :type="filters.type"
-              chart-type="project"
+              chart-type="project-scores"
             />
           </div>
         </el-card>
       </el-col>
       
-      <!-- 开发者排行 -->
+      <!-- 开发者审查数量 -->
       <el-col :xs="24" :lg="12">
         <el-card class="chart-card">
           <template #header>
             <div class="card-header">
-              <span>开发者排行</span>
+              <span>开发者审查数量</span>
             </div>
           </template>
           <div class="chart-container">
-            <StatisticsCharts
-              :data="chartData"
+            <SimpleChart
+              :data="authorCounts"
               :loading="loading"
-              :type="filters.type"
-              chart-type="author"
+              chart-type="author-counts"
             />
           </div>
         </el-card>
       </el-col>
       
-      <!-- 得分分布 -->
+      <!-- 开发者平均得分 -->
       <el-col :xs="24" :lg="12">
         <el-card class="chart-card">
           <template #header>
             <div class="card-header">
-              <span>得分分布</span>
+              <span>开发者平均得分</span>
             </div>
           </template>
           <div class="chart-container">
-            <StatisticsCharts
-              :data="chartData"
+            <SimpleChart
+              :data="authorScores"
               :loading="loading"
-              :type="filters.type"
-              chart-type="score"
+              chart-type="author-scores"
+            />
+          </div>
+        </el-card>
+      </el-col>
+
+      <!-- 开发者代码行数 -->
+      <el-col :xs="24" :lg="12">
+        <el-card class="chart-card">
+          <template #header>
+            <div class="card-header">
+              <span>开发者代码行数</span>
+            </div>
+          </template>
+          <div class="chart-container">
+            <SimpleChart
+              :data="authorCodeLines"
+              :loading="loading"
+              chart-type="author-code-lines"
             />
           </div>
         </el-card>
@@ -157,10 +171,10 @@
       
       <el-table :data="projectStats" :loading="loading" stripe>
         <el-table-column prop="project_name" label="项目名称" />
-        <el-table-column prop="total_count" label="总数量" width="100" />
-        <el-table-column prop="avg_score" label="平均得分" width="100">
+        <el-table-column prop="count" label="审查数量" width="100" />
+        <el-table-column prop="average_score" label="平均得分" width="100">
           <template #default="{ row }">
-            <el-tag :type="getScoreType(row.avg_score)">{{ row.avg_score }}</el-tag>
+            <el-tag :type="getScoreType(row.average_score)">{{ row.average_score?.toFixed(1) || 'N/A' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="total_additions" label="总新增行数" width="120" />
@@ -177,54 +191,156 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, toRaw } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh, Download } from '@element-plus/icons-vue'
-import { getProjectStatistics, getMetadata, type ReviewFilters } from '@/api/reviews'
-import StatisticsCharts from '@/components/StatisticsCharts.vue'
+import { getStatistics, getMetadata, type ReviewFilters } from '@/api/reviews'
+import SimpleChart from '@/components/charts/SimpleChart.vue'
 import { formatDate, getDefaultDateRange } from '@/utils/date'
+
+// 定义数据接口
+interface ProjectStatistics {
+  project_name: string
+  count?: number
+  average_score?: number
+  total_additions?: number
+  total_deletions?: number
+  active_authors?: number
+  last_activity?: string
+}
+
+interface AuthorStatistics {
+  author: string
+  count?: number
+  average_score?: number
+  additions?: number
+  deletions?: number
+}
+
+interface MetadataType {
+  authors: string[]
+  project_names: string[]
+}
 
 // 数据状态
 const loading = ref(false)
-const chartData = ref([])
-const projectStats = ref([])
-const metadata = ref({ authors: [], project_names: [] })
+const projectCounts = ref<ProjectStatistics[]>([])
+const projectScores = ref<ProjectStatistics[]>([])
+const authorCounts = ref<AuthorStatistics[]>([])
+const authorScores = ref<AuthorStatistics[]>([])
+const authorCodeLines = ref<AuthorStatistics[]>([])
+const projectStats = ref<ProjectStatistics[]>([])
+const metadata = ref<MetadataType>({ authors: [], project_names: [] })
 
 // 筛选条件
 const dateRange = ref<[string, string]>(['', ''])
-const filters = reactive<ReviewFilters & { type: string }>({
-  type: 'mr',
+const filters = reactive<ReviewFilters & { type: 'mr' | 'push' }>({
+  type: 'push',
   project_names: []
 })
 
-// 加载数据
-const loadData = async () => {
-  loading.value = true
+// 加载统计数据
+const loadStatisticsData = async () => {
   try {
-    const params: any = {
-      type: filters.type
-    }
-
-    // 添加筛选条件
-    if (dateRange.value[0]) params.start_date = dateRange.value[0]
-    if (dateRange.value[1]) params.end_date = dateRange.value[1]
-    if (filters.project_names?.length) params.project_names = filters.project_names
-
-    const result = await getProjectStatistics(params)
-    chartData.value = result.chart_data || []
-    projectStats.value = result.project_stats || []
-  } catch (error: any) {
+    loading.value = true
+    
+    // 并行获取所有统计数据，传递当前的筛选条件
+    const [
+      projectCountsRes,
+      projectScoresRes,
+      authorCountsRes,
+      authorScoresRes,
+      authorCodeLinesRes
+    ] = await Promise.all([
+      getStatistics('project_counts', { 
+        type: filters.type,
+        start_date: dateRange.value[0],
+        end_date: dateRange.value[1],
+        project_names: filters.project_names
+      }),
+      getStatistics('project_scores', { 
+        type: filters.type,
+        start_date: dateRange.value[0],
+        end_date: dateRange.value[1],
+        project_names: filters.project_names
+      }),
+      getStatistics('author_counts', { 
+        type: filters.type,
+        start_date: dateRange.value[0],
+        end_date: dateRange.value[1],
+        project_names: filters.project_names
+      }),
+      getStatistics('author_scores', { 
+        type: filters.type,
+        start_date: dateRange.value[0],
+        end_date: dateRange.value[1],
+        project_names: filters.project_names
+      }),
+      getStatistics('author_code_lines', { 
+        type: filters.type,
+        start_date: dateRange.value[0],
+        end_date: dateRange.value[1],
+        project_names: filters.project_names
+      })
+    ])
+    
+    // API返回的是 {data: [...]} 格式，直接取 .data
+    const rawProjectCounts = projectCountsRes.data || []
+    const rawProjectScores = projectScoresRes.data || []
+    const rawAuthorCounts = authorCountsRes.data || []
+    const rawAuthorScores = authorScoresRes.data || []
+    const rawAuthorCodeLines = authorCodeLinesRes.data || []
+    
+    // 使用展开语法确保数据是原始数组
+    projectCounts.value = [...rawProjectCounts]
+    projectScores.value = [...rawProjectScores]
+    authorCounts.value = [...rawAuthorCounts]
+    authorScores.value = [...rawAuthorScores]
+    authorCodeLines.value = [...rawAuthorCodeLines]
+    
+    // 合并项目统计数据用于表格显示
+    const projectMap = new Map<string, ProjectStatistics>()
+    
+    projectCounts.value.forEach(item => {
+      if (!projectMap.has(item.project_name)) {
+        projectMap.set(item.project_name, { project_name: item.project_name })
+      }
+      const project = projectMap.get(item.project_name)!
+      project.count = item.count
+    })
+    
+    projectScores.value.forEach(item => {
+      if (!projectMap.has(item.project_name)) {
+        projectMap.set(item.project_name, { project_name: item.project_name })
+      }
+      const project = projectMap.get(item.project_name)!
+      project.average_score = item.average_score
+    })
+    
+    projectStats.value = Array.from(projectMap.values())
+    
+    ElMessage.success('统计数据加载成功')
+  } catch (error) {
+    console.error('获取统计数据失败:', error)
     ElMessage.error('获取统计数据失败')
   } finally {
     loading.value = false
   }
 }
 
+// 加载数据（保持兼容性）
+const loadData = () => {
+  loadStatisticsData()
+}
+
 // 加载元数据
 const loadMetadata = async () => {
   try {
     const result = await getMetadata({ type: filters.type })
-    metadata.value = result
+    metadata.value = {
+      authors: result.authors || [],
+      project_names: result.project_names || []
+    }
   } catch (error: any) {
     ElMessage.error('获取元数据失败')
   }
@@ -243,7 +359,7 @@ const onFiltersChange = () => {
 const resetFilters = () => {
   const [startDate, endDate] = getDefaultDateRange()
   dateRange.value = [startDate, endDate]
-  filters.type = 'mr'
+  filters.type = 'push'
   filters.project_names = []
   loadMetadata()
   loadData()
@@ -253,7 +369,8 @@ const exportData = () => {
   ElMessage.info('导出功能开发中...')
 }
 
-const getScoreType = (score: number) => {
+const getScoreType = (score: number | undefined) => {
+  if (!score) return 'info'
   if (score >= 80) return 'success'
   if (score >= 60) return 'warning'
   return 'danger'
@@ -265,7 +382,7 @@ onMounted(async () => {
   dateRange.value = [startDate, endDate]
   
   await loadMetadata()
-  await loadData()
+  await loadStatisticsData()
 })
 </script>
 
