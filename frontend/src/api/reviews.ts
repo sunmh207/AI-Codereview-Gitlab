@@ -122,6 +122,22 @@ export const getAuthorStatistics = async (
   return response.data
 }
 
+// Get specific statistics by type
+export const getStatistics = async (
+  statType: 'project_counts' | 'project_scores' | 'author_counts' | 'author_scores' | 'author_code_lines',
+  filters?: ReviewFilters & { type?: 'mr' | 'push' }
+): Promise<{ data: any[] }> => {
+  const params = new URLSearchParams()
+
+  if (filters?.start_date) params.append('start_date', filters.start_date)
+  if (filters?.end_date) params.append('end_date', filters.end_date)
+  if (filters?.type) params.append('type', filters.type)
+
+  const url = `/api/statistics/${statType}?${params}`
+  const response = await apiClient.get(url)
+  return response.data
+}
+
 // Get metadata for filters
 export const getMetadata = async (
   filters: { start_date?: string; end_date?: string; type?: 'mr' | 'push' }

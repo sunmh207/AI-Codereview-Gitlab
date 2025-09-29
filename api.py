@@ -418,6 +418,85 @@ def get_author_statistics():
         author_scores = df.groupby('author')['score'].mean().reset_index()
         author_scores.columns = ['author', 'average_score']
 
+        # Calculate code lines statistics
+        author_code_lines = df.groupby('author').agg({
+            'additions': 'sum',
+            'deletions': 'sum'
+        }).reset_index()
+
+        return jsonify({
+            'author_counts': author_counts.to_dict('records'),
+            'author_scores': author_scores.to_dict('records'),
+            'author_code_lines': author_code_lines.to_dict('records')
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Get author statistics error: {e}")
+        return jsonify({'message': 'Failed to get author statistics'}), 500
+
+
+@api_app.route('/api/statistics/<stat_type>', methods=['GET'])
+@jwt_required()
+def get_statistics(stat_type):
+    """Get specific statistics by type"""
+    try:
+        # Get query parameters
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        review_type = request.args.get('type', 'mr')  # 'mr' or 'push'
+
+        # Convert dates to timestamps
+        start_timestamp = None
+        end_timestamp = None
+        if start_date:
+            start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            start_timestamp = int(start_datetime.timestamp())
+        if end_date:
+            end_datetime = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            end_timestamp = int(end_datetime.timestamp())
+
+        # Get data from service
+        if review_type == 'push':
+            df = ReviewService().get_push_review_logs(
+                updated_at_gte=start_timestamp,
+                updated_at_lte=end_timestamp
+            )
+        else:
+            df = ReviewService().get_mr_review_logs(
+                updated_at_gte=start_timestamp,
+                updated_at_lte=end_timestamp
+            )
+
+        if df.empty:
+            return jsonify({'data': []}), 200
+
+        # Calculate statistics based on type
+        if stat_type == 'project_counts':
+            result = df['project_name'].value_counts().reset_index()
+            result.columns = ['project_name', 'count']
+        elif stat_type == 'project_scores':
+            result = df.groupby('project_name')['score'].mean().reset_index()
+            result.columns = ['project_name', 'average_score']
+        elif stat_type == 'author_counts':
+            result = df['author'].value_counts().reset_index()
+            result.columns = ['author', 'count']
+        elif stat_type == 'author_scores':
+            result = df.groupby('author')['score'].mean().reset_index()
+            result.columns = ['author', 'average_score']
+        elif stat_type == 'author_code_lines':
+            result = df.groupby('author').agg({
+                'additions': 'sum',
+                'deletions': 'sum'
+            }).reset_index()
+        else:
+            return jsonify({'message': 'Invalid statistics type'}), 400
+
+        return jsonify({'data': result.to_dict('records')}), 200
+
+    except Exception as e:
+        logger.error(f"Get statistics error: {e}")
+        return jsonify({'message': 'Failed to get statistics'}), 500
+
         # Calculate code lines if available
         author_code_lines = []
         if 'additions' in df.columns and 'deletions' in df.columns:
