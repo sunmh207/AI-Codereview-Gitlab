@@ -1,4 +1,6 @@
 import os
+import os
+import re
 import traceback
 from datetime import datetime
 
@@ -22,6 +24,22 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
         if not commits:
             logger.error('Failed to get commits')
             return
+
+        # 检查是否启用了commit message检查
+        commit_message_check_enabled = os.environ.get('PUSH_COMMIT_MESSAGE_CHECK_ENABLED', '0') == '1'
+        if commit_message_check_enabled:
+            # 获取检查规则（支持正则表达式）
+            check_pattern = os.environ.get('PUSH_COMMIT_MESSAGE_CHECK_PATTERN', 'review')
+            try:
+                # 检查所有commits的message是否匹配正则表达式
+                pattern = re.compile(check_pattern, re.IGNORECASE)
+                has_match = any(pattern.search(commit.get('message', '')) for commit in commits)
+                if not has_match:
+                    logger.info(f'Commits message中未匹配到指定规则 "{check_pattern}"，跳过本次审查。')
+                    return
+                logger.info(f'Commits message匹配规则 "{check_pattern}"，继续执行审查。')
+            except re.error as e:
+                logger.error(f'正则表达式 "{check_pattern}" 格式错误: {e}，跳过检查继续执行。')
 
         review_result = None
         score = 0
@@ -172,6 +190,22 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
         if not commits:
             logger.error('Failed to get commits')
             return
+
+        # 检查是否启用了commit message检查
+        commit_message_check_enabled = os.environ.get('PUSH_COMMIT_MESSAGE_CHECK_ENABLED', '0') == '1'
+        if commit_message_check_enabled:
+            # 获取检查规则（支持正则表达式）
+            check_pattern = os.environ.get('PUSH_COMMIT_MESSAGE_CHECK_PATTERN', 'review')
+            try:
+                # 检查所有commits的message是否匹配正则表达式
+                pattern = re.compile(check_pattern, re.IGNORECASE)
+                has_match = any(pattern.search(commit.get('message', '')) for commit in commits)
+                if not has_match:
+                    logger.info(f'Commits message中未匹配到指定规则 "{check_pattern}"，跳过本次审查。')
+                    return
+                logger.info(f'Commits message匹配规则 "{check_pattern}"，继续执行审查。')
+            except re.error as e:
+                logger.error(f'正则表达式 "{check_pattern}" 格式错误: {e}，跳过检查继续执行。')
 
         review_result = None
         score = 0
