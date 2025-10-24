@@ -67,7 +67,7 @@ class WeComNotifier:
         return formatted_content
 
     def send_message(self, content, msg_type='text', title=None, is_at_all=False, project_name=None,
-                     url_slug=None):
+                     url_slug=None, mentioned_list=None):
         """
         发送企业微信消息
         :param content: 消息内容
@@ -76,6 +76,7 @@ class WeComNotifier:
         :param is_at_all: 是否 @所有人
         :param project_name: 关联项目名称
         :param url_slug: GitLab URL Slug
+        :param mentioned_list: @指定用户列表，优先于is_at_all（仅text类型支持）
         """
         if not self.enabled:
             logger.info("企业微信推送未启用")
@@ -95,24 +96,24 @@ class WeComNotifier:
 
             if content_length <= MAX_CONTENT_BYTES:
                 # 内容长度在限制范围内，直接发送
-                data = self._build_message(content, title, msg_type, is_at_all)
+                data = self._build_message(content, title, msg_type, is_at_all, mentioned_list)
                 self._send_message(post_url, data)
             else:
                 # 内容超过限制，需要分割发送
                 logger.warning(f"消息内容超过{MAX_CONTENT_BYTES}字节限制，将分割发送。总长度: {content_length}字节")
-                self._send_message_in_chunks(content, title, post_url, msg_type, is_at_all, MAX_CONTENT_BYTES)
+                self._send_message_in_chunks(content, title, post_url, msg_type, is_at_all, MAX_CONTENT_BYTES, mentioned_list)
 
         except Exception as e:
             logger.error(f"企业微信消息发送失败! {e}")
 
-    def _send_message_in_chunks(self, content, title, post_url, msg_type, is_at_all, max_bytes):
+    def _send_message_in_chunks(self, content, title, post_url, msg_type, is_at_all, max_bytes, mentioned_list=None):
         """
         将内容分割成多个部分并分别发送
         """
         chunks = self._split_content(content, max_bytes)
         for i, chunk in enumerate(chunks):
             chunk_title = f"{title} (第{i + 1}/{len(chunks)}部分)" if title else f"消息 (第{i + 1}/{len(chunks)}部分)"
-            data = self._build_message(chunk, chunk_title, msg_type, is_at_all)
+            data = self._build_message(chunk, chunk_title, msg_type, is_at_all, mentioned_list)
             self._send_message(post_url, data, chunk_num=i + 1, total_chunks=len(chunks))
 
     def _split_content(self, content, max_bytes):
@@ -169,28 +170,45 @@ class WeComNotifier:
             logger.error(f"企业微信返回的 JSON 解析失败! url:{url}, error: {e}")
         return None
 
-    def _build_message(self, content, title, msg_type, is_at_all):
+    def _build_message(self, content, title, msg_type, is_at_all, mentioned_list=None):
         """ 构造消息 """
         if msg_type == 'text':
-            return self._build_text_message(content, is_at_all)
+            return self._build_text_message(content, is_at_all, mentioned_list)
         elif msg_type =='markdown':
-            return self._build_markdown_message(content, title)
+            return self._build_markdown_message(content, title, mentioned_list)
         else:
             raise ValueError(f"不支持的消息类型: {msg_type}")
 
-    def _build_text_message(self, content, is_at_all):
+    def _build_text_message(self, content, is_at_all, mentioned_list=None):
         """ 构造纯文本消息 """
+        # 如果提供了明确的mentioned_list，使用它；否则根据is_at_all决定
+        if mentioned_list is not None:
+            mentions = mentioned_list if isinstance(mentioned_list, list) else [mentioned_list]
+        else:
+            mentions = ["@all"] if is_at_all else []
+        
+        # 如果有mentioned_list，在content末尾添加<@userid>语法
+        if mentioned_list:
+            mention_tags = ' '.join([f'<@{user}>' for user in (mentioned_list if isinstance(mentioned_list, list) else [mentioned_list])])
+            content = f"{content}\n\n{mention_tags}"
+        
         return {
             "msgtype": "text",
             "text": {
                 "content": content,
-                "mentioned_list": ["@all"] if is_at_all else []
+                "mentioned_list": mentions
             }
         }
 
-    def _build_markdown_message(self, content, title):
+    def _build_markdown_message(self, content, title, mentioned_list=None):
         """ 构造 Markdown 消息 """
         formatted_content = self.format_markdown_content(content, title)
+        
+        # 如果有mentioned_list，在content末尾添加<@userid>语法
+        if mentioned_list:
+            mention_tags = ' '.join([f'<@{user}>' for user in (mentioned_list if isinstance(mentioned_list, list) else [mentioned_list])])
+            formatted_content = f"{formatted_content}\n\n{mention_tags}"
+        
         return {
             "msgtype": "markdown",
             "markdown": {

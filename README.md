@@ -10,6 +10,7 @@
   - 兼容 DeepSeek、ZhipuAI、OpenAI、通义千问 和 Ollama，想用哪个就用哪个。
 - 📢 消息即时推送
   - 审查结果一键直达 钉钉、企业微信 或 飞书，代码问题无处可藏！
+  - 🆕 **企微增强**：支持 text 消息格式，可 @commit 者，并展示 AI Review 评分和详情链接！
 - 📅 自动化日报生成
   - 基于 GitLab & GitHub Commit 记录，自动整理每日开发进展，谁在摸鱼、谁在卷，一目了然 😼。
 - 📊 可视化 Dashboard
@@ -68,6 +69,12 @@ SUPPORTED_EXTENSIONS=.java,.py,.php,.yml,.vue,.go,.c,.cpp,.h,.js,.css,.md,.sql
 #钉钉消息推送: 0不发送钉钉消息,1发送钉钉消息
 DINGTALK_ENABLED=0
 DINGTALK_WEBHOOK_URL={YOUR_WDINGTALK_WEBHOOK_URL}
+
+#企业微信消息推送
+WECOM_ENABLED=0
+WECOM_WEBHOOK_URL={YOUR_WECOM_WEBHOOK_URL}
+# Push事件是否使用text消息类型（支持@人）：1=启用，0=使用markdown（默认）
+PUSH_WECOM_USE_TEXT_MSG=0
 
 #Gitlab配置
 GITLAB_ACCESS_TOKEN={YOUR_GITLAB_ACCESS_TOKEN}
@@ -161,6 +168,8 @@ streamlit run ui.py --server.port=5002 --server.address=0.0.0.0
   ```
 
 企业微信和飞书推送配置类似，具体参见 [常见问题](doc/faq.md)
+
+关于企微增强功能（text 消息 @commit 者及显示 AI Review 评分和链接），请参见 [企微消息优化指南](doc/wecom_text_message_guide.md)
 
 ## 其它
 

@@ -41,10 +41,11 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             except re.error as e:
                 logger.error(f'正则表达式 "{check_pattern}" 格式错误: {e}，跳过检查继续执行。')
 
-        review_result = None
+        review_result = ""
         score = 0
         additions = 0
         deletions = 0
+        note_url = ''  # 存储AI Review结果的URL
         if push_review_enabled:
             # 获取PUSH的changes
             changes = handler.get_push_changes()
@@ -62,7 +63,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
                     additions += item['additions']
                     deletions += item['deletions']
             # 将review结果提交到Gitlab的 notes
-            handler.add_push_notes(f'Auto Review Result: \n{review_result}')
+            note_url = handler.add_push_notes(f'Auto Review Result: \n{review_result}')
 
         event_manager['push_reviewed'].send(PushReviewEntity(
             project_name=webhook_data['project']['name'],
@@ -76,6 +77,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             webhook_data=webhook_data,
             additions=additions,
             deletions=deletions,
+            note_url=note_url,
         ))
 
     except Exception as e:
@@ -207,10 +209,11 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
             except re.error as e:
                 logger.error(f'正则表达式 "{check_pattern}" 格式错误: {e}，跳过检查继续执行。')
 
-        review_result = None
+        review_result = ""
         score = 0
         additions = 0
         deletions = 0
+        note_url = ''  # 存储AI Review结果的URL
         if push_review_enabled:
             # 获取PUSH的changes
             changes = handler.get_push_changes()
@@ -228,7 +231,7 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
                     additions += item.get('additions', 0)
                     deletions += item.get('deletions', 0)
             # 将review结果提交到GitHub的 notes
-            handler.add_push_notes(f'Auto Review Result: \n{review_result}')
+            note_url = handler.add_push_notes(f'Auto Review Result: \n{review_result}')
 
         event_manager['push_reviewed'].send(PushReviewEntity(
             project_name=webhook_data['repository']['name'],
@@ -242,6 +245,7 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
             webhook_data=webhook_data,
             additions=additions,
             deletions=deletions,
+            note_url=note_url,
         ))
 
     except Exception as e:

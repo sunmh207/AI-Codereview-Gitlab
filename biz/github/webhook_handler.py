@@ -239,13 +239,13 @@ class PushHandler:
         # 添加评论到 GitHub Push 请求的提交中（此处假设是在最后一次提交上添加注释）
         if not self.commit_list:
             logger.warn("No commits found to add notes to.")
-            return
+            return ''
 
         # 获取最后一个提交的ID
         last_commit_id = self.commit_list[-1].get('id')
         if not last_commit_id:
             logger.error("Last commit ID not found.")
-            return
+            return ''
 
         url = f"https://api.github.com/repos/{self.repo_full_name}/commits/{last_commit_id}/comments"
         headers = {
@@ -259,9 +259,13 @@ class PushHandler:
         logger.debug(f"Add comment to commit {last_commit_id}: {response.status_code}, {response.text}")
         if response.status_code == 201:
             logger.info("Comment successfully added to push commit.")
+            # 返回commit的URL，用户可以在这里查看评论
+            commit_url = self.commit_list[-1].get('url', '')
+            return commit_url
         else:
             logger.error(f"Failed to add comment: {response.status_code}")
             logger.error(response.text)
+            return ''
 
     def __repository_commits(self, sha: str = "", per_page: int = 100, page: int = 1):
         # 获取仓库提交信息
