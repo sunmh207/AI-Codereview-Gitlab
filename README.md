@@ -84,9 +84,10 @@ GITLAB_ACCESS_TOKEN={YOUR_GITLAB_ACCESS_TOKEN}
 
 ```bash
 docker-compose up -d
-docker-compose restart
 docker-compose stop 
-docker-compose ps 
+docker-compose rm
+docker-compose ps
+docker-compose restart
 ```
 
 **3. 验证部署**
