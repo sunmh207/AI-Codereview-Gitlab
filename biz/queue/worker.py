@@ -10,6 +10,7 @@ from biz.gitlab.webhook_handler import filter_changes, MergeRequestHandler, Push
 from biz.github.webhook_handler import filter_changes as filter_github_changes, PullRequestHandler as GithubPullRequestHandler, PushHandler as GithubPushHandler
 from biz.service.review_service import ReviewService
 from biz.utils.code_reviewer import CodeReviewer
+from biz.utils.config_loader import config_loader
 from biz.utils.im import notifier
 from biz.utils.log import logger
 
@@ -18,6 +19,13 @@ from biz.utils.log import logger
 def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_url_slug: str):
     push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
     try:
+        # 提取项目路径
+        project_path = webhook_data.get('project', {}).get('path_with_namespace', '')
+        logger.info(f'Project path: {project_path}')
+        
+        # 加载项目专属配置（优先级：项目级别 > 默认）
+        config_loader.load_env(project_path=project_path, override=True)
+        
         handler = PushHandler(webhook_data, gitlab_token, gitlab_url)
         logger.info('Push Hook event received')
         commits = handler.get_push_commits()
@@ -57,7 +65,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
 
             if len(changes) > 0:
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+                review_result = CodeReviewer(project_path=project_path).review_and_strip_code(str(changes), commits_text)
                 score = CodeReviewer.parse_review_score(review_text=review_result)
                 for item in changes:
                     additions += item['additions']
@@ -97,6 +105,13 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
     '''
     merge_review_only_protected_branches = os.environ.get('MERGE_REVIEW_ONLY_PROTECTED_BRANCHES_ENABLED', '0') == '1'
     try:
+        # 提取项目路径
+        project_path = webhook_data.get('project', {}).get('path_with_namespace', '')
+        logger.info(f'Project path: {project_path}')
+        
+        # 加载项目专属配置（优先级：项目级别 > 默认）
+        config_loader.load_env(project_path=project_path, override=True)
+        
         # 解析Webhook数据
         handler = MergeRequestHandler(webhook_data, gitlab_token, gitlab_url)
         logger.info('Merge Request Hook event received')
@@ -153,7 +168,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
 
         # review 代码
         commits_text = ';'.join(commit['title'] for commit in commits)
-        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        review_result = CodeReviewer(project_path=project_path).review_and_strip_code(str(changes), commits_text)
 
         # 将review结果提交到Gitlab的 notes
         handler.add_merge_request_notes(f'Auto Review Result: \n{review_result}')
@@ -186,6 +201,13 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
 def handle_github_push_event(webhook_data: dict, github_token: str, github_url: str, github_url_slug: str):
     push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
     try:
+        # 提取项目路径
+        project_path = webhook_data.get('repository', {}).get('full_name', '')
+        logger.info(f'Project path: {project_path}')
+        
+        # 加载项目专属配置（优先级：项目级别 > 默认）
+        config_loader.load_env(project_path=project_path, override=True)
+        
         handler = GithubPushHandler(webhook_data, github_token, github_url)
         logger.info('GitHub Push event received')
         commits = handler.get_push_commits()
@@ -225,7 +247,7 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
 
             if len(changes) > 0:
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+                review_result = CodeReviewer(project_path=project_path).review_and_strip_code(str(changes), commits_text)
                 score = CodeReviewer.parse_review_score(review_text=review_result)
                 for item in changes:
                     additions += item.get('additions', 0)
@@ -265,6 +287,13 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
     '''
     merge_review_only_protected_branches = os.environ.get('MERGE_REVIEW_ONLY_PROTECTED_BRANCHES_ENABLED', '0') == '1'
     try:
+        # 提取项目路径
+        project_path = webhook_data.get('repository', {}).get('full_name', '')
+        logger.info(f'Project path: {project_path}')
+        
+        # 加载项目专属配置（优先级：项目级别 > 默认）
+        config_loader.load_env(project_path=project_path, override=True)
+        
         # 解析Webhook数据
         handler = GithubPullRequestHandler(webhook_data, github_token, github_url)
         logger.info('GitHub Pull Request event received')
@@ -311,7 +340,7 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
 
         # review 代码
         commits_text = ';'.join(commit['title'] for commit in commits)
-        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        review_result = CodeReviewer(project_path=project_path).review_and_strip_code(str(changes), commits_text)
 
         # 将review结果提交到GitHub的 notes
         handler.add_pull_request_notes(f'Auto Review Result: \n{review_result}')

@@ -1,12 +1,13 @@
 import abc
 import os
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 import yaml
 from jinja2 import Template
 
 from biz.llm.factory import Factory
+from biz.utils.config_loader import config_loader
 from biz.utils.log import logger
 from biz.utils.token_util import count_tokens, truncate_text_by_tokens
 
@@ -14,29 +15,29 @@ from biz.utils.token_util import count_tokens, truncate_text_by_tokens
 class BaseReviewer(abc.ABC):
     """代码审查基类"""
 
-    def __init__(self, prompt_key: str):
+    def __init__(self, prompt_key: str, app_name: Optional[str] = None, project_path: Optional[str] = None):
         self.client = Factory().getClient()
+        self.app_name = app_name
+        self.project_path = project_path
         self.prompts = self._load_prompts(prompt_key, os.getenv("REVIEW_STYLE", "professional"))
 
     def _load_prompts(self, prompt_key: str, style="professional") -> Dict[str, Any]:
         """加载提示词配置"""
-        prompt_templates_file = "conf/prompt_templates.yml"
         try:
-            # 在打开 YAML 文件时显式指定编码为 UTF-8，避免使用系统默认的 GBK 编码。
-            with open(prompt_templates_file, "r", encoding="utf-8") as file:
-                prompts = yaml.safe_load(file).get(prompt_key, {})
+            # 使用ConfigLoader加载Prompt模板
+            prompts: dict[Any, Any] = config_loader.load_prompt_template(prompt_key, self.app_name, self.project_path)
 
-                # 使用Jinja2渲染模板
-                def render_template(template_str: str) -> str:
-                    return Template(template_str).render(style=style)
+            # 使用Jinja2渲染模板
+            def render_template(template_str: str) -> str:
+                return Template(template_str).render(style=style)
 
-                system_prompt = render_template(prompts["system_prompt"])
-                user_prompt = render_template(prompts["user_prompt"])
+            system_prompt = render_template(prompts["system_prompt"])
+            user_prompt = render_template(prompts["user_prompt"])
 
-                return {
-                    "system_message": {"role": "system", "content": system_prompt},
-                    "user_message": {"role": "user", "content": user_prompt},
-                }
+            return {
+                "system_message": {"role": "system", "content": system_prompt},
+                "user_message": {"role": "user", "content": user_prompt},
+            }
         except (FileNotFoundError, KeyError, yaml.YAMLError) as e:
             logger.error(f"加载提示词配置失败: {e}")
             raise Exception(f"提示词配置加载失败: {e}")
@@ -57,8 +58,8 @@ class BaseReviewer(abc.ABC):
 class CodeReviewer(BaseReviewer):
     """代码 Diff 级别的审查"""
 
-    def __init__(self):
-        super().__init__("code_review_prompt")
+    def __init__(self, app_name: Optional[str] = None, project_path: Optional[str] = None):
+        super().__init__("code_review_prompt", app_name, project_path)
 
     def review_and_strip_code(self, changes_text: str, commits_text: str = "") -> str:
         """
