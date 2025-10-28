@@ -20,9 +20,12 @@
   - 讽刺型 😈：毒舌吐槽，专治不服（“这代码是用脚写的吗？”） 
   - 绅士型 🌸：温柔建议，如沐春风（“或许这里可以再优化一下呢~”） 
   - 幽默型 🤪：搞笑点评，快乐改码（“这段 if-else 比我的相亲经历还曲折！”）
-- 🎯 **应用专属配置**
-  - 支持按应用名独立配置 `.env` 和 `prompt_templates.yml`，不同项目可使用不同的 LLM、Review 风格、Prompt 模板等
-  - 详情参见 [应用专属配置指南](doc/app_config_guide.md)
+- 🎯 **多级配置系统**
+  - 支持项目级别、命名空间级别、全局配置，优先级：项目 > 命名空间 > 全局
+  - 可为不同项目配置独立的 LLM、Review 风格、Prompt 模板等
+- 🎯 **白名单控制**
+  - 支持按命名空间或项目配置 Review 白名单，精准控制哪些项目允许进行代码审查
+  - 支持 commit message 规则过滤，仅匹配特定 message 时才触发 Review
 
 **效果图:**
 
@@ -176,7 +179,76 @@ streamlit run ui.py --server.port=5002 --server.address=0.0.0.0
 
 企业微信和飞书推送配置类似，具体参见 [常见问题](doc/faq.md)
 
-关于企微增强功能（text 消息 @commit 者及显示 AI Review 评分和链接），请参见 [企微消息优化指南](doc/wecom_text_message_guide.md)
+## 高级配置
+
+### 多级配置系统
+
+支持为不同项目或命名空间配置独立的审查规则：
+
+```bash
+# 全局配置：conf/.env
+LLM_PROVIDER=deepseek
+REVIEW_STYLE=professional
+
+# 命名空间级别：conf/{namespace}/.env
+# 项目级别：conf/{namespace}/{project_name}/.env
+# 优先级：项目级别 > 命名空间级别 > 全局配置
+```
+
+### Review 白名单
+
+控制哪些项目允许进行代码审查：
+
+```bash
+# 开启白名单功能
+REVIEW_WHITELIST_ENABLED=1
+
+# 配置白名单（支持命名空间或完整项目路径）
+# 示例1：按命名空间
+REVIEW_WHITELIST=asset,frontend
+
+# 示例2：按项目路径
+REVIEW_WHITELIST=asset/asset-batch-center,frontend/web-app
+
+# 示例3：混合配置
+REVIEW_WHITELIST=asset,frontend/web-app,backend/api-gateway
+```
+
+### Commit Message 过滤
+
+仅当 commit message 匹配指定规则时才触发 Review：
+
+```bash
+# 开启 commit message 检查
+PUSH_COMMIT_MESSAGE_CHECK_ENABLED=1
+
+# 配置匹配规则（支持正则表达式）
+PUSH_COMMIT_MESSAGE_CHECK_PATTERN=review
+# 或者：PUSH_COMMIT_MESSAGE_CHECK_PATTERN=\[review\]
+# 或者：PUSH_COMMIT_MESSAGE_CHECK_PATTERN=(review|codereview)
+```
+
+### 企业微信 @人功能
+
+Push 事件支持 text 消息格式，可 @commit 者：
+
+```bash
+# 启用 text 消息类型（支持@人）
+PUSH_WECOM_USE_TEXT_MSG=1
+```
+
+### 其他高级配置
+
+```bash
+# 仅对保护分支的合并请求进行 Review
+MERGE_REVIEW_ONLY_PROTECTED_BRANCHES_ENABLED=1
+
+# Review 风格：professional | sarcastic | gentle | humorous
+REVIEW_STYLE=professional
+
+# 每次 Review 的最大 Token 限制
+REVIEW_MAX_TOKENS=10000
+```
 
 ## 其它
 
@@ -190,7 +262,21 @@ python -m biz.cmd.review
 
 运行后，请按照命令行中的提示进行操作即可。
 
-**2.其它问题**
+**2.如何运行测试？**
+
+项目的所有测试代码统一存放在 `test/` 目录下，组织结构与 `biz/` 目录对应。
+
+```bash
+# 运行所有测试
+python -m unittest discover -s test -p "test_*.py" -v
+
+# 运行特定模块的测试
+python -m unittest test.biz.queue.test_whitelist -v
+```
+
+详细的测试说明请参见 [test/README.md](test/README.md)
+
+**3.其它问题**
 
 参见 [常见问题](doc/faq.md)
 

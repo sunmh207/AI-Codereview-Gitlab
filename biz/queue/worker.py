@@ -15,6 +15,51 @@ from biz.utils.im import notifier
 from biz.utils.log import logger
 
 
+def check_project_whitelist(project_path: str) -> bool:
+    """
+    检查项目是否在白名单中
+    :param project_path: 项目路径，格式为 namespace/project_name（如：asset/asset-batch-center）
+    :return: True表示在白名单中，False表示不在白名单中
+    """
+    whitelist_enabled = os.environ.get('REVIEW_WHITELIST_ENABLED', '0') == '1'
+    if not whitelist_enabled:
+        # 白名单功能未开启，所有项目都允许
+        return True
+    
+    whitelist_str = os.environ.get('REVIEW_WHITELIST', '')
+    if not whitelist_str:
+        logger.warning('白名单功能已开启但REVIEW_WHITELIST配置为空，将拒绝所有项目的Review')
+        return False
+    
+    # 解析白名单配置（逗号分隔）
+    whitelist_items = [item.strip() for item in whitelist_str.split(',') if item.strip()]
+    
+    if not project_path:
+        logger.warning('项目路径为空，无法进行白名单检查')
+        return False
+    
+    # 提取命名空间和项目名
+    if '/' in project_path:
+        namespace = project_path.split('/', 1)[0]
+    else:
+        # 如果没有/，则整个project_path就是命名空间
+        namespace = project_path
+    
+    # 检查是否在白名单中
+    for item in whitelist_items:
+        # 完全匹配项目路径（如：asset/asset-batch-center）
+        if item == project_path:
+            logger.info(f'项目 {project_path} 在白名单中（完全匹配：{item}）')
+            return True
+        # 匹配命名空间（如：asset）
+        if '/' not in item and item == namespace:
+            logger.info(f'项目 {project_path} 在白名单中（命名空间匹配：{item}）')
+            return True
+    
+    logger.info(f'项目 {project_path} 不在白名单中，跳过Review。白名单配置：{whitelist_str}')
+    return False
+
+
 
 def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_url_slug: str):
     push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
@@ -22,6 +67,11 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
         # 提取项目路径
         project_path = webhook_data.get('project', {}).get('path_with_namespace', '')
         logger.info(f'Project path: {project_path}')
+        
+        # 检查白名单
+        if not check_project_whitelist(project_path):
+            logger.info(f'项目 {project_path} 不在白名单中，跳过Push Review')
+            return
         
         # 加载项目专属配置（优先级：项目级别 > 默认）
         config_loader.load_env(project_path=project_path, override=True)
@@ -108,6 +158,11 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
         # 提取项目路径
         project_path = webhook_data.get('project', {}).get('path_with_namespace', '')
         logger.info(f'Project path: {project_path}')
+        
+        # 检查白名单
+        if not check_project_whitelist(project_path):
+            logger.info(f'项目 {project_path} 不在白名单中，跳过Merge Request Review')
+            return
         
         # 加载项目专属配置（优先级：项目级别 > 默认）
         config_loader.load_env(project_path=project_path, override=True)
@@ -205,6 +260,11 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
         project_path = webhook_data.get('repository', {}).get('full_name', '')
         logger.info(f'Project path: {project_path}')
         
+        # 检查白名单
+        if not check_project_whitelist(project_path):
+            logger.info(f'项目 {project_path} 不在白名单中，跳过GitHub Push Review')
+            return
+        
         # 加载项目专属配置（优先级：项目级别 > 默认）
         config_loader.load_env(project_path=project_path, override=True)
         
@@ -290,6 +350,11 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
         # 提取项目路径
         project_path = webhook_data.get('repository', {}).get('full_name', '')
         logger.info(f'Project path: {project_path}')
+        
+        # 检查白名单
+        if not check_project_whitelist(project_path):
+            logger.info(f'项目 {project_path} 不在白名单中，跳过GitHub Pull Request Review')
+            return
         
         # 加载项目专属配置（优先级：项目级别 > 默认）
         config_loader.load_env(project_path=project_path, override=True)
