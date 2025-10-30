@@ -81,6 +81,8 @@ WECOM_ENABLED=0
 WECOM_WEBHOOK_URL={YOUR_WECOM_WEBHOOK_URL}
 # Push事件是否使用text消息类型（支持@人）：1=启用，0=使用markdown（默认）
 PUSH_WECOM_USE_TEXT_MSG=0
+# 日报专用webhook（可选）
+# WECOM_WEBHOOK_URL_DAILY_REPORT={YOUR_DAILY_REPORT_WEBHOOK_URL}
 
 #Gitlab配置
 GITLAB_ACCESS_TOKEN={YOUR_GITLAB_ACCESS_TOKEN}
@@ -236,6 +238,26 @@ Push 事件支持 text 消息格式，可 @commit 者：
 # 启用 text 消息类型（支持@人）
 PUSH_WECOM_USE_TEXT_MSG=1
 ```
+
+### 日报专用推送配置
+
+支持为日报功能配置独立的 webhook，与 push/merge 事件通知分开：
+
+```bash
+# 企业微信日报专用 webhook（可选）
+WECOM_WEBHOOK_URL_DAILY_REPORT=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=daily-report-key
+
+# 钉钉日报专用 webhook（可选）
+DINGTALK_WEBHOOK_URL_DAILY_REPORT=https://oapi.dingtalk.com/robot/send?access_token=daily-report-token
+
+# 飞书日报专用 webhook（可选）
+FEISHU_WEBHOOK_URL_DAILY_REPORT=https://open.feishu.cn/open-apis/bot/v2/hook/daily-report-hook
+```
+
+**说明**：
+- 日报专用配置仅使用全局默认配置（`conf/.env`），不查找项目或命名空间级别配置
+- 如果未配置专用 webhook，则使用默认的 `{PLATFORM}_WEBHOOK_URL`
+- 可以将日报推送到管理群，而 push/merge 事件推送到开发群
 
 ### 其他高级配置
 

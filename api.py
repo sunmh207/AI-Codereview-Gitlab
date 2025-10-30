@@ -41,8 +41,8 @@ def home():
 @api_app.route('/review/daily_report', methods=['GET'])
 def daily_report():
     # 获取当前日期0点和23点59分59秒的时间戳
-    start_time = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
-    end_time = datetime.now().replace(hour=23, minute=59, second=59, microsecond=0).timestamp()
+    start_time = int(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+    end_time = int(datetime.now().replace(hour=23, minute=59, second=59, microsecond=0).timestamp())
 
     try:
         if push_review_enabled:
@@ -53,6 +53,7 @@ def daily_report():
         if df.empty:
             logger.info("No data to process.")
             return jsonify({'message': 'No data to process.'}), 200
+        
         # 去重：基于 (author, message) 组合
         df_unique = df.drop_duplicates(subset=["author", "commit_messages"])
         # 按照 author 排序
@@ -61,8 +62,15 @@ def daily_report():
         commits = df_sorted.to_dict(orient="records")
         # 生成日报内容
         report_txt = Reporter().generate_report(json.dumps(commits))
-        # 发送钉钉通知
-        notifier.send_notification(content=report_txt, msg_type="markdown", title="代码提交日报")
+        
+        # 发送IM通知，使用 msg_category='daily_report' 来使用独立的日报webhook
+        # 注意：不传递 project_name 和 url_slug，确保只使用全局默认配置
+        notifier.send_notification(
+            content=report_txt, 
+            msg_type="markdown", 
+            title="代码提交日报",
+            msg_category="daily_report"
+        )
 
         # 返回生成的日报内容
         return json.dumps(report_txt, ensure_ascii=False, indent=4)

@@ -5,7 +5,7 @@ from biz.utils.im.wecom import WeComNotifier
 
 
 def send_notification(content, msg_type='text', title="通知", is_at_all=False, project_name=None, url_slug=None,
-                      webhook_data: dict={}, mentioned_list=None):
+                      webhook_data: dict={}, mentioned_list=None, msg_category=None):
     """
     发送通知消息到配置的平台(钉钉和企业微信)
     :param content: 消息内容
@@ -15,21 +15,23 @@ def send_notification(content, msg_type='text', title="通知", is_at_all=False,
     :param url_slug: 由gitlab服务器的url地址(如:http://www.gitlab.com)转换成的slug格式，如: www_gitlab_com
     :param webhook_data: push event、merge event的数据内容
     :param mentioned_list: @指定用户列表，优先于is_at_all（仅企微和部分平台的text类型支持）
+    :param msg_category: 消息类别（如：daily_report），用于区分不同场景的webhook
     """
     # 钉钉推送
     dingtalk_notifier = DingTalkNotifier()
     dingtalk_notifier.send_message(content=content, msg_type=msg_type, title=title, is_at_all=is_at_all,
-                                   project_name=project_name, url_slug=url_slug)
+                                   project_name=project_name, url_slug=url_slug, msg_category=msg_category)
 
     # 企业微信推送
     wecom_notifier = WeComNotifier()
     wecom_notifier.send_message(content=content, msg_type=msg_type, title=title, is_at_all=is_at_all,
-                                project_name=project_name, url_slug=url_slug, mentioned_list=mentioned_list)
+                                project_name=project_name, url_slug=url_slug, mentioned_list=mentioned_list,
+                                msg_category=msg_category)
 
     # 飞书推送
     feishu_notifier = FeishuNotifier()
     feishu_notifier.send_message(content=content, msg_type=msg_type, title=title, is_at_all=is_at_all,
-                                 project_name=project_name, url_slug=url_slug)
+                                 project_name=project_name, url_slug=url_slug, msg_category=msg_category)
 
     # 额外自定义webhook通知
     extra_webhook_notifier = ExtraWebhookNotifier()

@@ -76,6 +76,9 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
         # 加载项目专属配置（优先级：项目级别 > 默认）
         config_loader.load_env(project_path=project_path, override=True)
         
+        # 重新读取项目专属配置中的 GITLAB_ACCESS_TOKEN
+        gitlab_token = os.environ.get('GITLAB_ACCESS_TOKEN', gitlab_token)
+        
         handler = PushHandler(webhook_data, gitlab_token, gitlab_url)
         logger.info('Push Hook event received')
         commits = handler.get_push_commits()
@@ -166,6 +169,9 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
         
         # 加载项目专属配置（优先级：项目级别 > 默认）
         config_loader.load_env(project_path=project_path, override=True)
+        
+        # 重新读取项目专属配置中的 GITLAB_ACCESS_TOKEN
+        gitlab_token = os.environ.get('GITLAB_ACCESS_TOKEN', gitlab_token)
         
         # 解析Webhook数据
         handler = MergeRequestHandler(webhook_data, gitlab_token, gitlab_url)
@@ -268,6 +274,9 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
         # 加载项目专属配置（优先级：项目级别 > 默认）
         config_loader.load_env(project_path=project_path, override=True)
         
+        # 重新读取项目专属配置中的 GITHUB_ACCESS_TOKEN（如果有配置）
+        github_token = os.environ.get('GITHUB_ACCESS_TOKEN', github_token)
+        
         handler = GithubPushHandler(webhook_data, github_token, github_url)
         logger.info('GitHub Push event received')
         commits = handler.get_push_commits()
@@ -358,6 +367,9 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
         
         # 加载项目专属配置（优先级：项目级别 > 默认）
         config_loader.load_env(project_path=project_path, override=True)
+        
+        # 重新读取项目专属配置中的 GITHUB_ACCESS_TOKEN（如果有配置）
+        github_token = os.environ.get('GITHUB_ACCESS_TOKEN', github_token)
         
         # 解析Webhook数据
         handler = GithubPullRequestHandler(webhook_data, github_token, github_url)
