@@ -38,8 +38,11 @@ def home():
               """
 
 
-@api_app.route('/review/daily_report', methods=['GET'])
-def daily_report():
+def generate_daily_report_core():
+    """
+    日报生成核心逻辑，供Flask路由和定时任务共同调用
+    :return: (report_text, error_message)
+    """
     # 获取当前日期0点和23点59分59秒的时间戳
     start_time = int(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
     end_time = int(datetime.now().replace(hour=23, minute=59, second=59, microsecond=0).timestamp())
@@ -52,7 +55,7 @@ def daily_report():
 
         if df.empty:
             logger.info("No data to process.")
-            return jsonify({'message': 'No data to process.'}), 200
+            return None, "No data to process."
         
         # 去重：基于 (author, message) 组合
         df_unique = df.drop_duplicates(subset=["author", "commit_messages"])
@@ -60,25 +63,49 @@ def daily_report():
         df_sorted = df_unique.sort_values(by="author")
         # 转换为适合生成日报的格式
         commits = df_sorted.to_dict(orient="records")
-        # 生成日报内容
+        
+        # 生成日报内容(Reporter会从环境变量读取LLM配置)
         report_txt = Reporter().generate_report(json.dumps(commits))
         
         # 发送IM通知，使用 msg_category='daily_report' 来使用独立的日报webhook
-        # 注意：不传递 project_name 和 url_slug，确保只使用全局默认配置
-        # project_config=None 表示使用全局配置（日报是全局任务，不针对特定项目）
         notifier.send_notification(
             content=report_txt, 
             msg_type="markdown", 
             title="代码提交日报",
             msg_category="daily_report",
-            project_config=None
+            project_config=None  # 日报是全局任务,使用默认配置
         )
 
-        # 返回生成的日报内容
-        return json.dumps(report_txt, ensure_ascii=False, indent=4)
+        return report_txt, None
     except Exception as e:
-        logger.error(f"Failed to generate daily report: {e}")
-        return jsonify({'message': f"Failed to generate daily report: {e}"}), 500
+        logger.error(f"❌ Failed to generate daily report: {e}")
+        return None, str(e)
+
+
+@api_app.route('/review/daily_report', methods=['GET'])
+def daily_report():
+    """
+    日报生成Flask路由接口
+    """
+    report_txt, error = generate_daily_report_core()
+    
+    if error:
+        return jsonify({'message': error}), 500 if report_txt is None else 200
+    
+    # 返回生成的日报内容
+    return json.dumps(report_txt, ensure_ascii=False, indent=4)
+
+
+def daily_report_scheduled():
+    """
+    定时任务专用的日报生成函数（不依赖Flask应用上下文）
+    """
+    report_txt, error = generate_daily_report_core()
+    
+    if error and report_txt is None:
+        logger.error(f"❌ Scheduled daily report failed: {error}")
+    else:
+        logger.info("✅ Scheduled daily report generated successfully")
 
 
 def setup_scheduler():
@@ -92,8 +119,9 @@ def setup_scheduler():
         cron_minute, cron_hour, cron_day, cron_month, cron_day_of_week = cron_parts
 
         # Schedule the task based on the crontab expression
+        # 使用 daily_report_scheduled 而不是 daily_report，避免在定时任务中调用Flask路由
         scheduler.add_job(
-            daily_report,
+            daily_report_scheduled,
             trigger=CronTrigger(
                 minute=cron_minute,
                 hour=cron_hour,

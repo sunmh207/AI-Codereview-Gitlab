@@ -244,7 +244,9 @@ class WeComNotifier:
         
         # 如果有mentioned_list，在content末尾添加<@userid>语法
         if mentioned_list:
-            mention_tags = ' '.join([f'<@{user}>' for user in (mentioned_list if isinstance(mentioned_list, list) else [mentioned_list])])
+            # 确保mentioned_list是列表，并去重
+            users = list(set(mentioned_list if isinstance(mentioned_list, list) else [mentioned_list]))
+            mention_tags = ' '.join([f'<@{user}>' for user in users])
             content = f"{content}\n\n{mention_tags}"
         
         return {
@@ -261,7 +263,9 @@ class WeComNotifier:
         
         # 如果有mentioned_list，在content末尾添加<@userid>语法
         if mentioned_list:
-            mention_tags = ' '.join([f'<@{user}>' for user in (mentioned_list if isinstance(mentioned_list, list) else [mentioned_list])])
+            # 确保mentioned_list是列表，并去重
+            users = list(set(mentioned_list if isinstance(mentioned_list, list) else [mentioned_list]))
+            mention_tags = ' '.join([f'<@{user}>' for user in users])
             formatted_content = f"{formatted_content}\n\n{mention_tags}"
         
         return {

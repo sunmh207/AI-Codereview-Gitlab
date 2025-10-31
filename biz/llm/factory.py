@@ -20,7 +20,8 @@ class Factory:
         :return: LLM客户端实例
         """
         config = config or {}
-        provider = provider or config.get("LLM_PROVIDER", "openai")
+        # 优先从 config 读取，其次从 provider 参数，最后从环境变量读取
+        provider = provider or config.get("LLM_PROVIDER") or os.environ.get("LLM_PROVIDER", "openai")
         chat_model_providers = {
             'zhipuai': lambda: ZhipuAIClient(config=config),
             'openai': lambda: OpenAIClient(config=config),
