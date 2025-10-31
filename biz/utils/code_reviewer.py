@@ -15,11 +15,14 @@ from biz.utils.token_util import count_tokens, truncate_text_by_tokens
 class BaseReviewer(abc.ABC):
     """代码审查基类"""
 
-    def __init__(self, prompt_key: str, app_name: Optional[str] = None, project_path: Optional[str] = None):
-        self.client = Factory().getClient()
+    def __init__(self, prompt_key: str, app_name: Optional[str] = None, project_path: Optional[str] = None, config: Optional[Dict[str, str]] = None):
+        self.config = config or {}  # 项目专属配置
+        self.client = Factory().getClient(config=self.config)
         self.app_name = app_name
         self.project_path = project_path
-        self.prompts = self._load_prompts(prompt_key, os.getenv("REVIEW_STYLE", "professional"))
+        # 优先从config中读取REVIEW_STYLE，其次从全局环境变量
+        review_style = self.config.get("REVIEW_STYLE") or os.getenv("REVIEW_STYLE", "professional")
+        self.prompts = self._load_prompts(prompt_key, review_style)
 
     def _load_prompts(self, prompt_key: str, style="professional") -> Dict[str, Any]:
         """加载提示词配置"""
@@ -58,8 +61,8 @@ class BaseReviewer(abc.ABC):
 class CodeReviewer(BaseReviewer):
     """代码 Diff 级别的审查"""
 
-    def __init__(self, app_name: Optional[str] = None, project_path: Optional[str] = None):
-        super().__init__("code_review_prompt", app_name, project_path)
+    def __init__(self, app_name: Optional[str] = None, project_path: Optional[str] = None, config: Optional[Dict[str, str]] = None):
+        super().__init__("code_review_prompt", app_name, project_path, config)
 
     def review_and_strip_code(self, changes_text: str, commits_text: str = "") -> str:
         """
@@ -69,8 +72,8 @@ class CodeReviewer(BaseReviewer):
         :param commits_text:
         :return:
         """
-        # 如果超长，取前REVIEW_MAX_TOKENS个token
-        review_max_tokens = int(os.getenv("REVIEW_MAX_TOKENS", 10000))
+        # 优先从config中读取REVIEW_MAX_TOKENS，其次从全局环境变量
+        review_max_tokens = int(self.config.get("REVIEW_MAX_TOKENS") or os.getenv("REVIEW_MAX_TOKENS", 10000))
         # 如果changes为空,打印日志
         if not changes_text:
             logger.info("代码为空, diffs_text = %", str(changes_text))

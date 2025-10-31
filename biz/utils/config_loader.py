@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
-from typing import Optional
-from dotenv import load_dotenv
+from typing import Optional, Dict
+from dotenv import load_dotenv, dotenv_values
 import yaml
 
 from biz.utils.log import logger
@@ -152,6 +152,36 @@ class ConfigLoader:
         except (FileNotFoundError, KeyError, yaml.YAMLError) as e:
             logger.error(f"加载Prompt模板配置失败: {e}")
             raise Exception(f"Prompt模板配置加载失败: {e}")
+    
+    def get_config(self, app_name: Optional[str] = None, project_path: Optional[str] = None) -> Dict[str, str]:
+        """
+        获取项目专属配置字典（不修改全局环境变量）
+        :param app_name: 应用名称（URL slug，已废弃，保留用于兼容）
+        :param project_path: 项目路径（如：asset/asset-batch-center）
+        :return: 配置字典，包含从.env文件加载的所有配置项
+        """
+        env_path = self.get_env_file_path(app_name, project_path)
+        
+        # 首先加载默认配置
+        default_env_path = Path(self.DEFAULT_CONF_DIR) / self.ENV_FILE_NAME
+        config = {}
+        
+        # 加载默认配置作为基础
+        if os.path.exists(default_env_path):
+            config.update(dotenv_values(default_env_path))
+            logger.debug(f"加载默认配置: {default_env_path}")
+        
+        # 如果有项目专属配置，覆盖默认配置
+        if env_path != str(default_env_path) and os.path.exists(env_path):
+            config.update(dotenv_values(env_path))
+            logger.info(f"加载项目配置并覆盖默认值: {env_path}")
+        
+        # 与全局环境变量合并（全局环境变量优先级最低，仅用于未在配置文件中定义的值）
+        for key in config.keys():
+            if config[key] is None and key in os.environ:
+                config[key] = os.environ[key]
+        
+        return config
     
     @staticmethod
     def create_app_config_dir(app_name: str) -> Path:

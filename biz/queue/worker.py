@@ -73,11 +73,12 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             logger.info(f'项目 {project_path} 不在白名单中，跳过Push Review')
             return
         
-        # 加载项目专属配置（优先级：项目级别 > 默认）
-        config_loader.load_env(project_path=project_path, override=True)
+        # 加载项目专属配置（不修改全局环境变量）
+        project_config = config_loader.get_config(project_path=project_path)
+        logger.info(f'项目 {project_path} 使用独立配置上下文')
         
-        # 重新读取项目专属配置中的 GITLAB_ACCESS_TOKEN
-        gitlab_token = os.environ.get('GITLAB_ACCESS_TOKEN', gitlab_token)
+        # 从项目配置中读取 GITLAB_ACCESS_TOKEN
+        gitlab_token = project_config.get('GITLAB_ACCESS_TOKEN') or gitlab_token
         
         handler = PushHandler(webhook_data, gitlab_token, gitlab_url)
         logger.info('Push Hook event received')
@@ -87,10 +88,10 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             return
 
         # 检查是否启用了commit message检查
-        commit_message_check_enabled = os.environ.get('PUSH_COMMIT_MESSAGE_CHECK_ENABLED', '0') == '1'
+        commit_message_check_enabled = project_config.get('PUSH_COMMIT_MESSAGE_CHECK_ENABLED') == '1' or os.environ.get('PUSH_COMMIT_MESSAGE_CHECK_ENABLED', '0') == '1'
         if commit_message_check_enabled:
             # 获取检查规则（支持正则表达式）
-            check_pattern = os.environ.get('PUSH_COMMIT_MESSAGE_CHECK_PATTERN', 'review')
+            check_pattern = project_config.get('PUSH_COMMIT_MESSAGE_CHECK_PATTERN') or os.getenv('PUSH_COMMIT_MESSAGE_CHECK_PATTERN', 'review')
             try:
                 # 检查所有commits的message是否匹配正则表达式
                 pattern = re.compile(check_pattern, re.IGNORECASE)
@@ -118,7 +119,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
 
             if len(changes) > 0:
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-                review_result = CodeReviewer(project_path=project_path).review_and_strip_code(str(changes), commits_text)
+                review_result = CodeReviewer(project_path=project_path, config=project_config).review_and_strip_code(str(changes), commits_text)
                 score = CodeReviewer.parse_review_score(review_text=review_result)
                 for item in changes:
                     additions += item['additions']
@@ -167,11 +168,12 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
             logger.info(f'项目 {project_path} 不在白名单中，跳过Merge Request Review')
             return
         
-        # 加载项目专属配置（优先级：项目级别 > 默认）
-        config_loader.load_env(project_path=project_path, override=True)
+        # 加载项目专属配置（不修改全局环境变量）
+        project_config = config_loader.get_config(project_path=project_path)
+        logger.info(f'项目 {project_path} 使用独立配置上下文')
         
-        # 重新读取项目专属配置中的 GITLAB_ACCESS_TOKEN
-        gitlab_token = os.environ.get('GITLAB_ACCESS_TOKEN', gitlab_token)
+        # 从项目配置中读取 GITLAB_ACCESS_TOKEN
+        gitlab_token = project_config.get('GITLAB_ACCESS_TOKEN') or gitlab_token
         
         # 解析Webhook数据
         handler = MergeRequestHandler(webhook_data, gitlab_token, gitlab_url)
@@ -229,7 +231,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
 
         # review 代码
         commits_text = ';'.join(commit['title'] for commit in commits)
-        review_result = CodeReviewer(project_path=project_path).review_and_strip_code(str(changes), commits_text)
+        review_result = CodeReviewer(project_path=project_path, config=project_config).review_and_strip_code(str(changes), commits_text)
 
         # 将review结果提交到Gitlab的 notes
         handler.add_merge_request_notes(f'Auto Review Result: \n{review_result}')
@@ -271,11 +273,12 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
             logger.info(f'项目 {project_path} 不在白名单中，跳过GitHub Push Review')
             return
         
-        # 加载项目专属配置（优先级：项目级别 > 默认）
-        config_loader.load_env(project_path=project_path, override=True)
+        # 加载项目专属配置（不修改全局环境变量）
+        project_config = config_loader.get_config(project_path=project_path)
+        logger.info(f'项目 {project_path} 使用独立配置上下文')
         
-        # 重新读取项目专属配置中的 GITHUB_ACCESS_TOKEN（如果有配置）
-        github_token = os.environ.get('GITHUB_ACCESS_TOKEN', github_token)
+        # 从项目配置中读取 GITHUB_ACCESS_TOKEN
+        github_token = project_config.get('GITHUB_ACCESS_TOKEN') or github_token
         
         handler = GithubPushHandler(webhook_data, github_token, github_url)
         logger.info('GitHub Push event received')
@@ -285,10 +288,10 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
             return
 
         # 检查是否启用了commit message检查
-        commit_message_check_enabled = os.environ.get('PUSH_COMMIT_MESSAGE_CHECK_ENABLED', '0') == '1'
+        commit_message_check_enabled = project_config.get('PUSH_COMMIT_MESSAGE_CHECK_ENABLED') == '1' or os.environ.get('PUSH_COMMIT_MESSAGE_CHECK_ENABLED', '0') == '1'
         if commit_message_check_enabled:
             # 获取检查规则（支持正则表达式）
-            check_pattern = os.environ.get('PUSH_COMMIT_MESSAGE_CHECK_PATTERN', 'review')
+            check_pattern = project_config.get('PUSH_COMMIT_MESSAGE_CHECK_PATTERN') or os.getenv('PUSH_COMMIT_MESSAGE_CHECK_PATTERN', 'review')
             try:
                 # 检查所有commits的message是否匹配正则表达式
                 pattern = re.compile(check_pattern, re.IGNORECASE)
@@ -316,7 +319,7 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
 
             if len(changes) > 0:
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-                review_result = CodeReviewer(project_path=project_path).review_and_strip_code(str(changes), commits_text)
+                review_result = CodeReviewer(project_path=project_path, config=project_config).review_and_strip_code(str(changes), commits_text)
                 score = CodeReviewer.parse_review_score(review_text=review_result)
                 for item in changes:
                     additions += item.get('additions', 0)
@@ -365,11 +368,12 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
             logger.info(f'项目 {project_path} 不在白名单中，跳过GitHub Pull Request Review')
             return
         
-        # 加载项目专属配置（优先级：项目级别 > 默认）
-        config_loader.load_env(project_path=project_path, override=True)
+        # 加载项目专属配置（不修改全局环境变量）
+        project_config = config_loader.get_config(project_path=project_path)
+        logger.info(f'项目 {project_path} 使用独立配置上下文')
         
-        # 重新读取项目专属配置中的 GITHUB_ACCESS_TOKEN（如果有配置）
-        github_token = os.environ.get('GITHUB_ACCESS_TOKEN', github_token)
+        # 从项目配置中读取 GITHUB_ACCESS_TOKEN
+        github_token = project_config.get('GITHUB_ACCESS_TOKEN') or github_token
         
         # 解析Webhook数据
         handler = GithubPullRequestHandler(webhook_data, github_token, github_url)
@@ -417,7 +421,7 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
 
         # review 代码
         commits_text = ';'.join(commit['title'] for commit in commits)
-        review_result = CodeReviewer(project_path=project_path).review_and_strip_code(str(changes), commits_text)
+        review_result = CodeReviewer(project_path=project_path, config=project_config).review_and_strip_code(str(changes), commits_text)
 
         # 将review结果提交到GitHub的 notes
         handler.add_pull_request_notes(f'Auto Review Result: \n{review_result}')
