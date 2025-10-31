@@ -106,8 +106,21 @@ class WeComNotifier:
             # https://developer.work.weixin.qq.com/document/path/91770#markdown%E7%B1%BB%E5%9E%8B
             MAX_CONTENT_BYTES = 4096 if msg_type == 'markdown' else 2048
 
-            # 检查内容长度
-            content_length = len(content.encode('utf-8'))
+            # 对于 markdown 类型，需要计算格式化后的实际长度（包括标题）
+            if msg_type == 'markdown':
+                # 模拟格式化后的内容，计算实际字节数
+                formatted_content = self.format_markdown_content(content, title)
+                if mentioned_list:
+                    mention_tags = ' '.join([f'<@{user}>' for user in (mentioned_list if isinstance(mentioned_list, list) else [mentioned_list])])
+                    formatted_content = f"{formatted_content}\n\n{mention_tags}"
+                content_length = len(formatted_content.encode('utf-8'))
+            else:
+                # text 类型直接检查原始内容长度
+                content_length = len(content.encode('utf-8'))
+                # text 类型如果有 mentioned_list，也需要加上 mention_tags 的长度
+                if mentioned_list:
+                    mention_tags = ' '.join([f'<@{user}>' for user in (mentioned_list if isinstance(mentioned_list, list) else [mentioned_list])])
+                    content_length += len(f"\n\n{mention_tags}".encode('utf-8'))
 
             if content_length <= MAX_CONTENT_BYTES:
                 # 内容长度在限制范围内，直接发送
@@ -125,7 +138,30 @@ class WeComNotifier:
         """
         将内容分割成多个部分并分别发送
         """
-        chunks = self._split_content(content, max_bytes)
+        # 对于 markdown 类型，需要预留空间给标题和 mention_tags
+        if msg_type == 'markdown':
+            # 计算标题的开销（模拟格式："## {title} (第X/Y部分)\n\n"）
+            # 使用最长的标题来计算（假设最多99个分块）
+            sample_title = f"## {title} (第99/99部分)\n\n" if title else ""
+            title_overhead = len(sample_title.encode('utf-8'))
+            
+            # 计算 mention_tags 的开销
+            mention_overhead = 0
+            if mentioned_list:
+                mention_tags = ' '.join([f'<@{user}>' for user in (mentioned_list if isinstance(mentioned_list, list) else [mentioned_list])])
+                mention_overhead = len(f"\n\n{mention_tags}".encode('utf-8'))
+            
+            # 实际可用的内容空间
+            available_bytes = max_bytes - title_overhead - mention_overhead
+        else:
+            available_bytes = max_bytes
+            # text 类型也需要考虑 mention_tags
+            if mentioned_list:
+                mention_tags = ' '.join([f'<@{user}>' for user in (mentioned_list if isinstance(mentioned_list, list) else [mentioned_list])])
+                mention_overhead = len(f"\n\n{mention_tags}".encode('utf-8'))
+                available_bytes -= mention_overhead
+        
+        chunks = self._split_content(content, available_bytes)
         for i, chunk in enumerate(chunks):
             chunk_title = f"{title} (第{i + 1}/{len(chunks)}部分)" if title else f"消息 (第{i + 1}/{len(chunks)}部分)"
             data = self._build_message(chunk, chunk_title, msg_type, is_at_all, mentioned_list)
