@@ -20,8 +20,8 @@ class BaseReviewer(abc.ABC):
         self.client = Factory().getClient(config=self.config)
         self.app_name = app_name
         self.project_path = project_path
-        # 优先从config中读取REVIEW_STYLE，其次从全局环境变量
-        review_style = self.config.get("REVIEW_STYLE") or os.getenv("REVIEW_STYLE", "professional")
+        # 从config中读取REVIEW_STYLE（已包含默认值）
+        review_style = self.config.get("REVIEW_STYLE", "professional")
         self.prompts = self._load_prompts(prompt_key, review_style)
 
     def _load_prompts(self, prompt_key: str, style="professional") -> Dict[str, Any]:
@@ -72,8 +72,8 @@ class CodeReviewer(BaseReviewer):
         :param commits_text:
         :return:
         """
-        # 优先从config中读取REVIEW_MAX_TOKENS，其次从全局环境变量
-        review_max_tokens = int(self.config.get("REVIEW_MAX_TOKENS") or os.getenv("REVIEW_MAX_TOKENS", 10000))
+        # 从config中读取REVIEW_MAX_TOKENS（已包含默认值）
+        review_max_tokens = int(self.config.get("REVIEW_MAX_TOKENS", "10000"))
         # 如果changes为空,打印日志
         if not changes_text:
             logger.info("代码为空, diffs_text = %", str(changes_text))

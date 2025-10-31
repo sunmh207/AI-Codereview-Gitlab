@@ -40,9 +40,8 @@ def on_merge_request_reviewed(mr_review_entity: MergeRequestReviewEntity):
 
 
 def on_push_reviewed(entity: PushReviewEntity):
-    # 获取配置：是否使用text消息类型
-    import os
-    use_text_msg = os.environ.get('PUSH_WECOM_USE_TEXT_MSG', '0') == '1'
+    # 从项目配置中获取：是否使用text消息类型
+    use_text_msg = entity.project_config.get('PUSH_WECOM_USE_TEXT_MSG', '0') == '1'
     msg_type = 'text' if use_text_msg else 'markdown'
     
     # 提取commit者用于@（text和markdown都支持）

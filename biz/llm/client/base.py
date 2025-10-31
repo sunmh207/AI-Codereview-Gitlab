@@ -17,13 +17,12 @@ class BaseClient:
     
     def get_config(self, key: str, default: Optional[str] = None) -> Optional[str]:
         """
-        获取配置项，优先从projec_config中读取，其次从全局环境变量
+        获取配置项，从projec_config中读取（已包含默认配置和环境变量）
         :param key: 配置键
         :param default: 默认值
         :return: 配置值
         """
-        import os
-        return self.config.get(key) or os.getenv(key, default)
+        return self.config.get(key, default)
 
     def ping(self) -> bool:
         """Ping the model to check connectivity."""

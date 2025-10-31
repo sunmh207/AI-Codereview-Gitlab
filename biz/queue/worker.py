@@ -4,6 +4,8 @@ import re
 import traceback
 from datetime import datetime
 
+from typing import Dict, Optional
+
 from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity
 from biz.event.event_manager import event_manager
 from biz.gitlab.webhook_handler import filter_changes, MergeRequestHandler, PushHandler
@@ -15,18 +17,27 @@ from biz.utils.im import notifier
 from biz.utils.log import logger
 
 
-def check_project_whitelist(project_path: str) -> bool:
+def check_project_whitelist(project_path: str, project_config: Optional[Dict[str, str]] = None) -> bool:
     """
     检查项目是否在白名单中
     :param project_path: 项目路径，格式为 namespace/project_name（如：asset/asset-batch-center）
+    :param project_config: 项目专属配置字典，优先级高于全局环境变量
     :return: True表示在白名单中，False表示不在白名单中
     """
+    # 全局开关始终从os.environ读取
     whitelist_enabled = os.environ.get('REVIEW_WHITELIST_ENABLED', '0') == '1'
     if not whitelist_enabled:
         # 白名单功能未开启，所有项目都允许
         return True
     
-    whitelist_str = os.environ.get('REVIEW_WHITELIST', '')
+    # 优先从project_config读取白名单列表
+    whitelist_str = ''
+    if project_config:
+        whitelist_str = project_config.get('REVIEW_WHITELIST', '')
+    
+    # 降级到全局环境变量
+    if not whitelist_str:
+        whitelist_str = os.environ.get('REVIEW_WHITELIST', '')
     if not whitelist_str:
         logger.warning('白名单功能已开启但REVIEW_WHITELIST配置为空，将拒绝所有项目的Review')
         return False
@@ -62,23 +73,25 @@ def check_project_whitelist(project_path: str) -> bool:
 
 
 def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_url_slug: str):
-    push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
     try:
         # 提取项目路径
         project_path = webhook_data.get('project', {}).get('path_with_namespace', '')
         logger.info(f'Project path: {project_path}')
         
-        # 检查白名单
-        if not check_project_whitelist(project_path):
-            logger.info(f'项目 {project_path} 不在白名单中，跳过Push Review')
-            return
-        
         # 加载项目专属配置（不修改全局环境变量）
         project_config = config_loader.get_config(project_path=project_path)
+        
+        # 检查白名单（传递project_config确保配置隔离）
+        if not check_project_whitelist(project_path, project_config=project_config):
+            logger.info(f'项目 {project_path} 不在白名单中，跳过Push Review')
+            return
         logger.info(f'项目 {project_path} 使用独立配置上下文')
         
         # 从项目配置中读取 GITLAB_ACCESS_TOKEN
         gitlab_token = project_config.get('GITLAB_ACCESS_TOKEN') or gitlab_token
+        
+        # 检查是否启用Push Review
+        push_review_enabled = project_config.get('PUSH_REVIEW_ENABLED', '0') == '1'
         
         handler = PushHandler(webhook_data, gitlab_token, gitlab_url)
         logger.info('Push Hook event received')
@@ -88,10 +101,10 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             return
 
         # 检查是否启用了commit message检查
-        commit_message_check_enabled = project_config.get('PUSH_COMMIT_MESSAGE_CHECK_ENABLED') == '1' or os.environ.get('PUSH_COMMIT_MESSAGE_CHECK_ENABLED', '0') == '1'
+        commit_message_check_enabled = project_config.get('PUSH_COMMIT_MESSAGE_CHECK_ENABLED', '0') == '1'
         if commit_message_check_enabled:
             # 获取检查规则（支持正则表达式）
-            check_pattern = project_config.get('PUSH_COMMIT_MESSAGE_CHECK_PATTERN') or os.getenv('PUSH_COMMIT_MESSAGE_CHECK_PATTERN', 'review')
+            check_pattern = project_config.get('PUSH_COMMIT_MESSAGE_CHECK_PATTERN', 'review')
             try:
                 # 检查所有commits的message是否匹配正则表达式
                 pattern = re.compile(check_pattern, re.IGNORECASE)
@@ -112,7 +125,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             # 获取PUSH的changes
             changes = handler.get_push_changes()
             logger.info('changes: %s', changes)
-            changes = filter_changes(changes)
+            changes = filter_changes(changes, project_config)
             if not changes:
                 logger.info('未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
             review_result = "关注的文件没有修改"
@@ -140,6 +153,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             additions=additions,
             deletions=deletions,
             note_url=note_url,
+            project_config=project_config,
         ))
 
     except Exception as e:
@@ -157,23 +171,25 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
     :param gitlab_url_slug:
     :return:
     '''
-    merge_review_only_protected_branches = os.environ.get('MERGE_REVIEW_ONLY_PROTECTED_BRANCHES_ENABLED', '0') == '1'
     try:
         # 提取项目路径
         project_path = webhook_data.get('project', {}).get('path_with_namespace', '')
         logger.info(f'Project path: {project_path}')
         
-        # 检查白名单
-        if not check_project_whitelist(project_path):
-            logger.info(f'项目 {project_path} 不在白名单中，跳过Merge Request Review')
-            return
-        
         # 加载项目专属配置（不修改全局环境变量）
         project_config = config_loader.get_config(project_path=project_path)
+        
+        # 检查白名单（传递project_config确保配置隔离）
+        if not check_project_whitelist(project_path, project_config=project_config):
+            logger.info(f'项目 {project_path} 不在白名单中，跳过Merge Request Review')
+            return
         logger.info(f'项目 {project_path} 使用独立配置上下文')
         
         # 从项目配置中读取 GITLAB_ACCESS_TOKEN
         gitlab_token = project_config.get('GITLAB_ACCESS_TOKEN') or gitlab_token
+        
+        # 检查是否仅review protected branches
+        merge_review_only_protected_branches = project_config.get('MERGE_REVIEW_ONLY_PROTECTED_BRANCHES_ENABLED', '0') == '1'
         
         # 解析Webhook数据
         handler = MergeRequestHandler(webhook_data, gitlab_token, gitlab_url)
@@ -212,7 +228,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
         # 获取Merge Request的changes
         changes = handler.get_merge_request_changes()
         logger.info('changes: %s', changes)
-        changes = filter_changes(changes)
+        changes = filter_changes(changes, project_config)
         if not changes:
             logger.info('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
             return
@@ -262,23 +278,25 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
         logger.error('出现未知错误: %s', error_message)
 
 def handle_github_push_event(webhook_data: dict, github_token: str, github_url: str, github_url_slug: str):
-    push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
     try:
         # 提取项目路径
         project_path = webhook_data.get('repository', {}).get('full_name', '')
         logger.info(f'Project path: {project_path}')
         
-        # 检查白名单
-        if not check_project_whitelist(project_path):
-            logger.info(f'项目 {project_path} 不在白名单中，跳过GitHub Push Review')
-            return
-        
         # 加载项目专属配置（不修改全局环境变量）
         project_config = config_loader.get_config(project_path=project_path)
+        
+        # 检查白名单（传递project_config确保配置隔离）
+        if not check_project_whitelist(project_path, project_config=project_config):
+            logger.info(f'项目 {project_path} 不在白名单中，跳过GitHub Push Review')
+            return
         logger.info(f'项目 {project_path} 使用独立配置上下文')
         
         # 从项目配置中读取 GITHUB_ACCESS_TOKEN
         github_token = project_config.get('GITHUB_ACCESS_TOKEN') or github_token
+        
+        # 检查是否启用Push Review
+        push_review_enabled = project_config.get('PUSH_REVIEW_ENABLED', '0') == '1'
         
         handler = GithubPushHandler(webhook_data, github_token, github_url)
         logger.info('GitHub Push event received')
@@ -288,10 +306,10 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
             return
 
         # 检查是否启用了commit message检查
-        commit_message_check_enabled = project_config.get('PUSH_COMMIT_MESSAGE_CHECK_ENABLED') == '1' or os.environ.get('PUSH_COMMIT_MESSAGE_CHECK_ENABLED', '0') == '1'
+        commit_message_check_enabled = project_config.get('PUSH_COMMIT_MESSAGE_CHECK_ENABLED', '0') == '1'
         if commit_message_check_enabled:
             # 获取检查规则（支持正则表达式）
-            check_pattern = project_config.get('PUSH_COMMIT_MESSAGE_CHECK_PATTERN') or os.getenv('PUSH_COMMIT_MESSAGE_CHECK_PATTERN', 'review')
+            check_pattern = project_config.get('PUSH_COMMIT_MESSAGE_CHECK_PATTERN', 'review')
             try:
                 # 检查所有commits的message是否匹配正则表达式
                 pattern = re.compile(check_pattern, re.IGNORECASE)
@@ -312,7 +330,7 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
             # 获取PUSH的changes
             changes = handler.get_push_changes()
             logger.info('changes: %s', changes)
-            changes = filter_github_changes(changes)
+            changes = filter_github_changes(changes, project_config)
             if not changes:
                 logger.info('未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
             review_result = "关注的文件没有修改"
@@ -340,6 +358,7 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
             additions=additions,
             deletions=deletions,
             note_url=note_url,
+            project_config=project_config,
         ))
 
     except Exception as e:
@@ -357,23 +376,25 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
     :param github_url_slug:
     :return:
     '''
-    merge_review_only_protected_branches = os.environ.get('MERGE_REVIEW_ONLY_PROTECTED_BRANCHES_ENABLED', '0') == '1'
     try:
         # 提取项目路径
         project_path = webhook_data.get('repository', {}).get('full_name', '')
         logger.info(f'Project path: {project_path}')
         
-        # 检查白名单
-        if not check_project_whitelist(project_path):
-            logger.info(f'项目 {project_path} 不在白名单中，跳过GitHub Pull Request Review')
-            return
-        
         # 加载项目专属配置（不修改全局环境变量）
         project_config = config_loader.get_config(project_path=project_path)
+        
+        # 检查白名单（传递project_config确保配置隔离）
+        if not check_project_whitelist(project_path, project_config=project_config):
+            logger.info(f'项目 {project_path} 不在白名单中，跳过GitHub Pull Request Review')
+            return
         logger.info(f'项目 {project_path} 使用独立配置上下文')
         
         # 从项目配置中读取 GITHUB_ACCESS_TOKEN
         github_token = project_config.get('GITHUB_ACCESS_TOKEN') or github_token
+        
+        # 检查是否仅review protected branches
+        merge_review_only_protected_branches = project_config.get('MERGE_REVIEW_ONLY_PROTECTED_BRANCHES_ENABLED', '0') == '1'
         
         # 解析Webhook数据
         handler = GithubPullRequestHandler(webhook_data, github_token, github_url)
@@ -402,7 +423,7 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
         # 获取Pull Request的changes
         changes = handler.get_pull_request_changes()
         logger.info('changes: %s', changes)
-        changes = filter_github_changes(changes)
+        changes = filter_github_changes(changes, project_config)
         if not changes:
             logger.info('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
             return
