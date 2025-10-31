@@ -4,13 +4,16 @@ from biz.utils.log import logger
 
 
 class FeishuNotifier:
-    def __init__(self, webhook_url=None):
+    def __init__(self, webhook_url=None, project_config=None):
         """
         初始化飞书通知器
         :param webhook_url: 飞书机器人webhook地址
+        :param project_config: 项目专属配置字典
         """
-        self.default_webhook_url = webhook_url or os.environ.get('FEISHU_WEBHOOK_URL', '')
-        self.enabled = os.environ.get('FEISHU_ENABLED', '0') == '1'
+        self.project_config = project_config or {}
+        # 优先从 project_config 获取，如果没有则降级到 os.environ
+        self.default_webhook_url = webhook_url or self.project_config.get('FEISHU_WEBHOOK_URL', '') or os.environ.get('FEISHU_WEBHOOK_URL', '')
+        self.enabled = (self.project_config.get('FEISHU_ENABLED', '0') or os.environ.get('FEISHU_ENABLED', '0')) == '1'
 
     def _get_webhook_url(self, project_name=None, url_slug=None, msg_category=None):
         """
@@ -24,7 +27,8 @@ class FeishuNotifier:
         # 如果指定了消息类别（如日报），只使用全局默认的专用 webhook，不查找项目级别配置
         if msg_category:
             category_webhook_key = f"FEISHU_WEBHOOK_URL_{msg_category.upper()}"
-            category_webhook_url = os.environ.get(category_webhook_key)
+            # 优先从 project_config 获取，如果没有则降级到 os.environ
+            category_webhook_url = self.project_config.get(category_webhook_key) or os.environ.get(category_webhook_key)
             if category_webhook_url:
                 return category_webhook_url
             # 如果没有配置专用webhook，降级使用默认webhook
@@ -44,15 +48,15 @@ class FeishuNotifier:
         target_key_project = f"FEISHU_WEBHOOK_URL_{project_name.upper()}"
         target_key_url_slug = f"FEISHU_WEBHOOK_URL_{url_slug.upper()}" if url_slug else None
 
-        # 遍历环境变量
-        for env_key, env_value in os.environ.items():
-            env_key_upper = env_key.upper()
-            if env_key_upper == target_key_project:
-                return env_value  # 找到项目名称对应的 Webhook URL，直接返回
-            if target_key_url_slug and env_key_upper == target_key_url_slug:
-                return env_value  # 找到 GitLab URL 对应的 Webhook URL，直接返回
+        # 遍历项目配置
+        for config_key, config_value in self.project_config.items():
+            config_key_upper = config_key.upper()
+            if config_key_upper == target_key_project:
+                return config_value  # 找到项目名称对应的 Webhook URL，直接返回
+            if target_key_url_slug and config_key_upper == target_key_url_slug:
+                return config_value  # 找到 GitLab URL 对应的 Webhook URL，直接返回
 
-        # 如果未找到匹配的环境变量，降级使用全局的 Webhook URL
+        # 如果未找到匹配的配置项，降级使用全局的 Webhook URL
         if self.default_webhook_url:
             return self.default_webhook_url
 

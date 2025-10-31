@@ -31,9 +31,11 @@ def on_merge_request_reviewed(mr_review_entity: MergeRequestReviewEntity):
 
 {mr_review_entity.review_result}
     """
+    # 从 entity 中获取 project_config，如果没有则传递 None
+    project_config = getattr(mr_review_entity, 'project_config', None)
     notifier.send_notification(content=im_msg, msg_type='markdown', title='Merge Request Review',
                                project_name=mr_review_entity.project_name, url_slug=mr_review_entity.url_slug,
-                               webhook_data=mr_review_entity.webhook_data)
+                               webhook_data=mr_review_entity.webhook_data, project_config=project_config)
 
     # 记录到数据库
     ReviewService().insert_mr_review_log(mr_review_entity)
@@ -106,7 +108,8 @@ def on_push_reviewed(entity: PushReviewEntity):
         project_name=entity.project_name, 
         url_slug=entity.url_slug,
         webhook_data=entity.webhook_data,
-        mentioned_list=mentioned_list
+        mentioned_list=mentioned_list,
+        project_config=entity.project_config
     )
 
     # 记录到数据库

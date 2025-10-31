@@ -158,7 +158,11 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
 
     except Exception as e:
         error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
-        notifier.send_notification(content=error_message)
+        # 尝试获取project_config，如果异常发生在配置加载之前则为None
+        try:
+            notifier.send_notification(content=error_message, project_config=project_config)
+        except NameError:
+            notifier.send_notification(content=error_message)
         logger.error('出现未知错误: %s', error_message)
 
 
@@ -200,7 +204,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
         is_draft = object_attributes.get('draft') or object_attributes.get('work_in_progress')
         if is_draft:
             msg = f"[通知] MR为草稿（draft），未触发AI审查。\n项目: {webhook_data['project']['name']}\n作者: {webhook_data['user']['username']}\n源分支: {object_attributes.get('source_branch')}\n目标分支: {object_attributes.get('target_branch')}\n链接: {object_attributes.get('url')}"
-            notifier.send_notification(content=msg)
+            notifier.send_notification(content=msg, project_config=project_config)
             logger.info("MR为draft，仅发送通知，不触发AI review。")
             return
 
@@ -269,12 +273,17 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
                 additions=additions,
                 deletions=deletions,
                 last_commit_id=last_commit_id,
+                project_config=project_config,
             )
         )
 
     except Exception as e:
         error_message = f'AI Code Review 服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
-        notifier.send_notification(content=error_message)
+        # 尝试获取project_config，如果异常发生在配置加载之前则为None
+        try:
+            notifier.send_notification(content=error_message, project_config=project_config)
+        except NameError:
+            notifier.send_notification(content=error_message)
         logger.error('出现未知错误: %s', error_message)
 
 def handle_github_push_event(webhook_data: dict, github_token: str, github_url: str, github_url_slug: str):
@@ -363,7 +372,11 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
 
     except Exception as e:
         error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
-        notifier.send_notification(content=error_message)
+        # 尝试获取project_config，如果异常发生在配置加载之前则为None
+        try:
+            notifier.send_notification(content=error_message, project_config=project_config)
+        except NameError:
+            notifier.send_notification(content=error_message)
         logger.error('出现未知错误: %s', error_message)
 
 
@@ -464,9 +477,14 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
                 additions=additions,
                 deletions=deletions,
                 last_commit_id=github_last_commit_id,
+                project_config=project_config,
             ))
 
     except Exception as e:
         error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
-        notifier.send_notification(content=error_message)
+        # 尝试获取project_config，如果异常发生在配置加载之前则为None
+        try:
+            notifier.send_notification(content=error_message, project_config=project_config)
+        except NameError:
+            notifier.send_notification(content=error_message)
         logger.error('出现未知错误: %s', error_message)

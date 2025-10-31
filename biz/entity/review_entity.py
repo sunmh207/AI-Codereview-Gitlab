@@ -4,7 +4,7 @@ from typing import Optional, Dict
 class MergeRequestReviewEntity:
     def __init__(self, project_name: str, author: str, source_branch: str, target_branch: str, updated_at: int,
                  commits: list, score: float, url: str, review_result: str, url_slug: str, webhook_data: dict,
-                 additions: int, deletions: int, last_commit_id: str):
+                 additions: int, deletions: int, last_commit_id: str, project_config: Optional[Dict[str, str]] = None):
         self.project_name = project_name
         self.author = author
         self.source_branch = source_branch
@@ -19,6 +19,7 @@ class MergeRequestReviewEntity:
         self.additions = additions
         self.deletions = deletions
         self.last_commit_id = last_commit_id
+        self.project_config = project_config or {}  # 项目专属配置
 
     @property
     def commit_messages(self):

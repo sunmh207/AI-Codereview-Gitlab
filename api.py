@@ -65,11 +65,13 @@ def daily_report():
         
         # 发送IM通知，使用 msg_category='daily_report' 来使用独立的日报webhook
         # 注意：不传递 project_name 和 url_slug，确保只使用全局默认配置
+        # project_config=None 表示使用全局配置（日报是全局任务，不针对特定项目）
         notifier.send_notification(
             content=report_txt, 
             msg_type="markdown", 
             title="代码提交日报",
-            msg_category="daily_report"
+            msg_category="daily_report",
+            project_config=None
         )
 
         # 返回生成的日报内容
