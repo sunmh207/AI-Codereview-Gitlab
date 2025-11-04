@@ -272,6 +272,52 @@ REVIEW_STYLE=professional
 REVIEW_MAX_TOKENS=10000
 ```
 
+### 数据库配置
+
+系统支持 SQLite 和 MySQL 两种数据库存储方式，默认使用 SQLite。
+
+#### 使用 SQLite（默认）
+
+```bash
+# 数据库类型（默认：sqlite）
+DB_TYPE=sqlite
+
+# SQLite 数据库文件路径（默认：data/data.db）
+DB_FILE=data/data.db
+```
+
+#### 使用 MySQL
+
+```bash
+# 数据库类型
+DB_TYPE=mysql
+
+# MySQL 数据库配置
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=ai_codereview
+```
+
+**MySQL 初始化**：
+
+1. 创建数据库：
+```sql
+CREATE DATABASE ai_codereview CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+2. 导入表结构（可选，系统会自动创建）：
+```bash
+mysql -u root -p ai_codereview < doc/mysql_schema.sql
+```
+
+**说明**：
+- SQLite：适合小型团队或个人使用，无需额外配置数据库服务
+- MySQL：适合中大型团队，支持更高的并发性能和数据规模
+- 切换数据库类型前，建议备份现有数据
+- 详细使用说明请参见 [数据库使用指南](doc/database.md)
+
 ## 其它
 
 **1.如何对整个代码库进行Review?**
