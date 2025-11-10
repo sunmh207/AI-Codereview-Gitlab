@@ -117,6 +117,7 @@ def daily_report_scheduled():
     """
     定时任务专用的日报生成函数（不依赖Flask应用上下文）
     """
+    logger.info("⏰ Scheduled daily report task started...")
     report_txt, error = generate_daily_report_core()
     
     if error and report_txt is None:
@@ -135,9 +136,12 @@ def setup_scheduler():
         cron_parts = crontab_expression.split()
         cron_minute, cron_hour, cron_day, cron_month, cron_day_of_week = cron_parts
 
+        logger.info(f"Configuring scheduler with cron expression: {crontab_expression}")
+        logger.info(f"Parsed cron: minute={cron_minute}, hour={cron_hour}, day={cron_day}, month={cron_month}, day_of_week={cron_day_of_week}")
+
         # Schedule the task based on the crontab expression
         # 使用 daily_report_scheduled 而不是 daily_report，避免在定时任务中调用Flask路由
-        scheduler.add_job(
+        job = scheduler.add_job(
             daily_report_scheduled,
             trigger=CronTrigger(
                 minute=cron_minute,
@@ -145,12 +149,20 @@ def setup_scheduler():
                 day=cron_day,
                 month=cron_month,
                 day_of_week=cron_day_of_week
-            )
+            ),
+            id='daily_report_job'
         )
 
         # Start the scheduler
         scheduler.start()
         logger.info("Scheduler started successfully.")
+        
+        # Log next run time
+        next_run = job.next_run_time
+        if next_run:
+            logger.info(f"Next scheduled run time: {next_run}")
+        else:
+            logger.warning("Could not determine next run time for the scheduled job")
 
         # Shut down the scheduler when exiting the app
         atexit.register(lambda: scheduler.shutdown())
@@ -267,4 +279,5 @@ if __name__ == '__main__':
 
     # 启动Flask API服务
     port = int(os.environ.get('SERVER_PORT', 5001))
-    api_app.run(host='0.0.0.0', port=port)
+    # 使用 use_reloader=False 避免在开发模式下调度器被初始化两次
+    api_app.run(host='0.0.0.0', port=port, use_reloader=False)
