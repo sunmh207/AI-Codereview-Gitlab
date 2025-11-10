@@ -99,6 +99,7 @@ class MySQLService(BaseDBService):
                      entity.url, entity.review_result, entity.additions, entity.deletions,
                      entity.last_commit_id))
                     conn.commit()
+                    logger.info(f"插入MR审核日志成功: {entity.project_name}#{entity.source_branch}->{entity.target_branch}")
             finally:
                 conn.close()
         except pymysql.Error as e:
@@ -139,6 +140,7 @@ class MySQLService(BaseDBService):
                 query += " ORDER BY updated_at DESC"
                 
                 df = pd.read_sql_query(sql=query, con=conn, params=params)
+                logger.info(f"查询MR审核日志成功: 条数={len(df)}, 条件=[authors={authors}, projects={project_names}, time_range={updated_at_gte}-{updated_at_lte}]")
                 return df
             finally:
                 conn.close()
@@ -158,7 +160,9 @@ class MySQLService(BaseDBService):
                         WHERE project_name = %s AND source_branch = %s AND target_branch = %s AND last_commit_id = %s
                     ''', (project_name, source_branch, target_branch, last_commit_id))
                     result = cursor.fetchone()
-                    return result['count'] > 0 if result else False
+                    exists = result['count'] > 0 if result else False
+                    logger.info(f"检查last_commit_id: {project_name}#{source_branch}->{target_branch}#{last_commit_id}, 结果={exists}")
+                    return exists
             finally:
                 conn.close()
         except pymysql.Error as e:
@@ -180,6 +184,7 @@ class MySQLService(BaseDBService):
                      entity.updated_at, entity.commit_messages, entity.score,
                      entity.review_result, entity.additions, entity.deletions))
                     conn.commit()
+                    logger.info(f"插入Push审核日志成功: {entity.project_name}#{entity.branch}")
             finally:
                 conn.close()
         except pymysql.Error as e:
@@ -220,6 +225,7 @@ class MySQLService(BaseDBService):
                 query += " ORDER BY updated_at DESC"
                 
                 df = pd.read_sql_query(sql=query, con=conn, params=params)
+                logger.info(f"查询Push审核日志成功: 条数={len(df)}, 条件=[authors={authors}, projects={project_names}, time_range={updated_at_gte}-{updated_at_lte}]")
                 return df
             finally:
                 conn.close()

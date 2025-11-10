@@ -43,31 +43,47 @@ def generate_daily_report_core():
     日报生成核心逻辑，供Flask路由和定时任务共同调用
     :return: (report_text, error_message)
     """
+    logger.info("开始生成日报...")
+    
     # 获取当前日期0点和23点59分59秒的时间戳
     start_time = int(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
     end_time = int(datetime.now().replace(hour=23, minute=59, second=59, microsecond=0).timestamp())
+    
+    logger.info(f"查询时间范围: {start_time} - {end_time}")
 
     try:
         if push_review_enabled:
+            logger.info("PUSH_REVIEW_ENABLED=true, 获取push review日志")
             df = ReviewService().get_push_review_logs(updated_at_gte=start_time, updated_at_lte=end_time)
         else:
+            logger.info("PUSH_REVIEW_ENABLED=false, 获取merge request review日志")
             df = ReviewService().get_mr_review_logs(updated_at_gte=start_time, updated_at_lte=end_time)
 
         if df.empty:
-            logger.info("No data to process.")
+            logger.info("没有找到相关数据.")
             return None, "No data to process."
+        
+        logger.info(f"获取到 {len(df)} 条原始记录")
         
         # 去重：基于 (author, message) 组合
         df_unique = df.drop_duplicates(subset=["author", "commit_messages"])
+        logger.info(f"去重后剩余 {len(df_unique)} 条记录")
+        
         # 按照 author 排序
         df_sorted = df_unique.sort_values(by="author")
+        logger.info("数据已按作者排序")
+        
         # 转换为适合生成日报的格式
         commits = df_sorted.to_dict(orient="records")
+        logger.info(f"转换为 {len(commits)} 条提交记录用于日报生成")
         
         # 生成日报内容(Reporter会从环境变量读取LLM配置)
+        logger.info("开始调用LLM生成日报内容...")
         report_txt = Reporter().generate_report(json.dumps(commits))
+        logger.info("LLM日报内容生成完成")
         
         # 发送IM通知，使用 msg_category='daily_report' 来使用独立的日报webhook
+        logger.info("开始发送IM通知...")
         notifier.send_notification(
             content=report_txt, 
             msg_type="markdown", 
@@ -75,10 +91,11 @@ def generate_daily_report_core():
             msg_category="daily_report",
             project_config=None  # 日报是全局任务,使用默认配置
         )
+        logger.info("IM通知发送完成")
 
         return report_txt, None
     except Exception as e:
-        logger.error(f"❌ Failed to generate daily report: {e}")
+        logger.error(f"❌ Failed to generate daily report: {e}", exc_info=True)
         return None, str(e)
 
 

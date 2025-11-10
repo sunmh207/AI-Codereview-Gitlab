@@ -61,6 +61,7 @@ class DBServiceFactory:
         :return: 数据库服务实例
         """
         if cls._instance is None:
+            logger.info("创建数据库服务实例")
             cls._instance = cls.create_db_service()
             cls._instance.init_db()
         return cls._instance
