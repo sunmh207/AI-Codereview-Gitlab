@@ -73,6 +73,8 @@ def check_project_whitelist(project_path: str, project_config: Optional[Dict[str
 
 
 def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_url_slug: str):
+    # 初始化project_config为None，确保在异常处理中可以访问
+    project_config = None
     try:
         # 提取项目路径
         project_path = webhook_data.get('project', {}).get('path_with_namespace', '')
@@ -175,6 +177,8 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
     :param gitlab_url_slug:
     :return:
     '''
+    # 初始化project_config为None，确保在异常处理中可以访问
+    project_config = None
     try:
         # 提取项目路径
         project_path = webhook_data.get('project', {}).get('path_with_namespace', '')
@@ -224,7 +228,8 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
             source_branch = object_attributes.get('source_branch', '')
             target_branch = object_attributes.get('target_branch', '')
             
-            if ReviewService.check_mr_last_commit_id_exists(project_name, source_branch, target_branch, last_commit_id):
+            # 创建ReviewService实例并调用方法
+            if ReviewService().check_mr_last_commit_id_exists(project_name, source_branch, target_branch, last_commit_id):
                 logger.info(f"Merge Request with last_commit_id {last_commit_id} already exists, skipping review for {project_name}.")
                 return
 
@@ -287,6 +292,8 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
         logger.error('出现未知错误: %s', error_message)
 
 def handle_github_push_event(webhook_data: dict, github_token: str, github_url: str, github_url_slug: str):
+    # 初始化project_config为None，确保在异常处理中可以访问
+    project_config = None
     try:
         # 提取项目路径
         project_path = webhook_data.get('repository', {}).get('full_name', '')
@@ -389,6 +396,8 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
     :param github_url_slug:
     :return:
     '''
+    # 初始化project_config为None，确保在异常处理中可以访问
+    project_config = None
     try:
         # 提取项目路径
         project_path = webhook_data.get('repository', {}).get('full_name', '')
@@ -428,7 +437,8 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
             source_branch = webhook_data['pull_request']['head']['ref']
             target_branch = webhook_data['pull_request']['base']['ref']
             
-            if ReviewService.check_mr_last_commit_id_exists(project_name, source_branch, target_branch, github_last_commit_id):
+            # 创建ReviewService实例并调用方法
+            if ReviewService().check_mr_last_commit_id_exists(project_name, source_branch, target_branch, github_last_commit_id):
                 logger.info(f"Pull Request with last_commit_id {github_last_commit_id} already exists, skipping review for {project_name}.")
                 return
 

@@ -15,7 +15,12 @@ class WeComNotifier:
         self.project_config = project_config or {}
         # 优先从 project_config 获取，如果没有则降级到 os.environ
         self.default_webhook_url = webhook_url or self.project_config.get('WECOM_WEBHOOK_URL', '') or os.environ.get('WECOM_WEBHOOK_URL', '')
-        self.enabled = (self.project_config.get('WECOM_ENABLED', '0') or os.environ.get('WECOM_ENABLED', '0')) == '1'
+        
+        # 修复启用状态判断逻辑
+        wecom_enabled = self.project_config.get('WECOM_ENABLED')
+        if wecom_enabled is None:
+            wecom_enabled = os.environ.get('WECOM_ENABLED', '0')
+        self.enabled = wecom_enabled == '1'
 
     def _get_webhook_url(self, project_name=None, url_slug=None, msg_category=None):
         """

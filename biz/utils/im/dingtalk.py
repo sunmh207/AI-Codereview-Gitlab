@@ -20,8 +20,15 @@ class DingTalkNotifier:
         """
         self.project_config = project_config or {}
         # 优先从 project_config 获取，如果没有则降级到 os.environ
-        self.enabled = (self.project_config.get('DINGTALK_ENABLED', '0') or os.environ.get('DINGTALK_ENABLED', '0')) == '1'
+        self.enabled = self._get_enabled_status('DINGTALK_ENABLED', '0')
         self.default_webhook_url = webhook_url or self.project_config.get('DINGTALK_WEBHOOK_URL') or os.environ.get('DINGTALK_WEBHOOK_URL')
+
+    def _get_enabled_status(self, config_key, default_value='0'):
+        """获取启用状态，修复逻辑错误"""
+        enabled = self.project_config.get(config_key)
+        if enabled is None:
+            enabled = os.environ.get(config_key, default_value)
+        return enabled == '1'
 
     def _get_webhook_url(self, project_name=None, url_slug=None, msg_category=None):
         """
