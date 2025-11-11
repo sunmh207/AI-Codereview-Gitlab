@@ -224,7 +224,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
             source_branch = object_attributes.get('source_branch', '')
             target_branch = object_attributes.get('target_branch', '')
             
-            if ReviewService.check_mr_last_commit_id_exists(project_name, source_branch, target_branch, last_commit_id):
+            if ReviewService().check_mr_last_commit_id_exists(project_name, source_branch, target_branch, last_commit_id):
                 logger.info(f"Merge Request with last_commit_id {last_commit_id} already exists, skipping review for {project_name}.")
                 return
 
@@ -428,7 +428,7 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
             source_branch = webhook_data['pull_request']['head']['ref']
             target_branch = webhook_data['pull_request']['base']['ref']
             
-            if ReviewService.check_mr_last_commit_id_exists(project_name, source_branch, target_branch, github_last_commit_id):
+            if ReviewService().check_mr_last_commit_id_exists(project_name, source_branch, target_branch, github_last_commit_id):
                 logger.info(f"Pull Request with last_commit_id {github_last_commit_id} already exists, skipping review for {project_name}.")
                 return
 
