@@ -77,6 +77,21 @@ class MergeRequestHandler:
         self.project_id = merge_request.get('target_project_id')
         self.action = merge_request.get('action')
 
+    def is_author_excluded(self, excluded_users: Optional[list] = None) -> bool:
+        """
+        检查MR的作者是否在排除列表中
+        :param excluded_users: 排除的用户名列表，如 ['howbuyscm', 'admin']
+        :return: True表示作者在排除列表中，False表示不在
+        """
+        if not excluded_users:
+            excluded_users = ['howbuyscm']  # 默认排除用户
+        
+        author_username = self.webhook_data.get('user', {}).get('username', '')
+        if author_username in excluded_users:
+            logger.info(f"MR author '{author_username}' is in excluded users list. Skipping review.")
+            return True
+        return False
+
     def get_merge_request_changes(self) -> list:
         # 检查是否为 Merge Request Hook 事件
         if self.event_type != 'merge_request':

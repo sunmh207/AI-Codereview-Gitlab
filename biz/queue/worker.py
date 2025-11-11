@@ -203,6 +203,12 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
         handler = MergeRequestHandler(webhook_data, gitlab_token, gitlab_url)
         logger.info('Merge Request Hook event received')
 
+        # 检查MR作者是否在排除列表中
+        excluded_users = project_config.get('MERGE_REVIEW_EXCLUDED_USERS', 'howbuyscm').split(',')
+        excluded_users = [user.strip() for user in excluded_users if user.strip()]
+        if handler.is_author_excluded(excluded_users):
+            return
+
         # 新增：判断是否为draft（草稿）MR
         object_attributes = webhook_data.get('object_attributes', {})
         is_draft = object_attributes.get('draft') or object_attributes.get('work_in_progress')
