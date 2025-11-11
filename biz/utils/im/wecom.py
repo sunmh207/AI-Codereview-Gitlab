@@ -67,7 +67,7 @@ class WeComNotifier:
 
     def format_markdown_content(self, content, title=None):
         """
-        格式化markdown内容以适配企业微信
+        格式化内容以适配企业微信
         """
         # 处理标题
         formatted_content = f"## {title}\n\n" if title else ""
@@ -107,7 +107,7 @@ class WeComNotifier:
             # text类型最大2048字节
             # https://developer.work.weixin.qq.com/document/path/91770#%E6%96%87%E6%9C%AC%E7%B1%BB%E5%9E%8B
             # markdown类型最大4096字节
-            # https://developer.work.weixin.qq.com/document/path/91770#markdown%E7%B1%BB%E5%9E%8B
+            # https://developer.work.weixin.qq.com/document/path/91770#%E6%96%87%E6%9C%AC%E7%B1%BB%E5%9E%8B
             MAX_CONTENT_BYTES = 4096 if msg_type == 'markdown' else 2048
 
             # 对于 markdown 类型，需要计算格式化后的实际长度（包括标题）
@@ -253,7 +253,8 @@ class WeComNotifier:
             "msgtype": "text",
             "text": {
                 "content": content,
-                "mentioned_list": mentions
+                # 不再传递mentioned_list，避免重复@人
+                "mentioned_list": []
             }
         }
 
