@@ -10,6 +10,8 @@ from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity
 from biz.event.event_manager import event_manager
 from biz.gitlab.webhook_handler import filter_changes, MergeRequestHandler, PushHandler
 from biz.github.webhook_handler import filter_changes as filter_github_changes, PullRequestHandler as GithubPullRequestHandler, PushHandler as GithubPushHandler
+from biz.gitea.webhook_handler import filter_changes as filter_gitea_changes, PullRequestHandler as GiteaPullRequestHandler, \
+    PushHandler as GiteaPushHandler
 from biz.service.review_service import ReviewService
 from biz.utils.code_reviewer import CodeReviewer
 from biz.utils.config_loader import config_loader
@@ -503,4 +505,137 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
             notifier.send_notification(content=error_message, project_config=project_config)
         except NameError:
             notifier.send_notification(content=error_message)
+        logger.error('出现未知错误: %s', error_message)
+
+
+def handle_gitea_push_event(webhook_data: dict, gitea_token: str, gitea_url: str, gitea_url_slug: str):
+    push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
+    try:
+        handler = GiteaPushHandler(webhook_data, gitea_token, gitea_url)
+        logger.info('Gitea Push event received')
+        commits = handler.get_push_commits()
+        if not commits:
+            logger.error('Failed to get commits')
+            return
+
+        review_result = None
+        score = 0
+        additions = 0
+        deletions = 0
+        if push_review_enabled:
+            changes = handler.get_push_changes()
+            logger.info('changes: %s', changes)
+            changes = filter_gitea_changes(changes)
+            if not changes:
+                logger.info('未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
+            review_result = "关注的文件没有修改"
+
+            if len(changes) > 0:
+                commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
+                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+                score = CodeReviewer.parse_review_score(review_text=review_result)
+                for item in changes:
+                    additions += item.get('additions', 0)
+                    deletions += item.get('deletions', 0)
+            handler.add_push_notes(f'Auto Review Result: \n{review_result}')
+
+        repository = webhook_data.get('repository', {})
+        sender = webhook_data.get('sender', {}) or webhook_data.get('pusher', {}) or {}
+
+        event_manager['push_reviewed'].send(PushReviewEntity(
+            project_name=repository.get('name'),
+            author=sender.get('login') or sender.get('username'),
+            branch=handler.branch_name,
+            updated_at=int(datetime.now().timestamp()),
+            commits=commits,
+            score=score,
+            review_result=review_result,
+            url_slug=gitea_url_slug,
+            webhook_data=webhook_data,
+            additions=additions,
+            deletions=deletions,
+        ))
+
+    except Exception as e:
+        error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
+        notifier.send_notification(content=error_message)
+        logger.error('出现未知错误: %s', error_message)
+
+
+def handle_gitea_pull_request_event(webhook_data: dict, gitea_token: str, gitea_url: str, gitea_url_slug: str):
+    merge_review_only_protected_branches = os.environ.get('MERGE_REVIEW_ONLY_PROTECTED_BRANCHES_ENABLED', '0') == '1'
+    try:
+        handler = GiteaPullRequestHandler(webhook_data, gitea_token, gitea_url)
+        logger.info('Gitea Pull Request event received')
+
+        pull_request = webhook_data.get('pull_request', {})
+
+        if merge_review_only_protected_branches and not handler.target_branch_protected():
+            logger.info("Pull Request target branch not match protected branches, ignored.")
+            return
+
+        if handler.action not in ['opened', 'open', 'reopened', 'synchronize', 'synchronized']:
+            logger.info(f"Pull Request Hook event, action={handler.action}, ignored.")
+            return
+
+        head_info = pull_request.get('head') or {}
+        base_info = pull_request.get('base') or {}
+
+        last_commit_id = head_info.get('sha') or pull_request.get('merge_commit_sha') or pull_request.get('last_commit_id')
+        if last_commit_id:
+            project_name = webhook_data.get('repository', {}).get('name')
+            source_branch = head_info.get('ref') or pull_request.get('head_branch', '')
+            target_branch = base_info.get('ref') or pull_request.get('base_branch', '')
+
+            if ReviewService.check_mr_last_commit_id_exists(project_name, source_branch, target_branch, last_commit_id):
+                logger.info(f"Pull Request with last_commit_id {last_commit_id} already exists, skipping review for {project_name}.")
+                return
+
+        changes = handler.get_pull_request_changes()
+        logger.info('changes: %s', changes)
+        changes = filter_gitea_changes(changes)
+        if not changes:
+            logger.info('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
+            return
+
+        additions = 0
+        deletions = 0
+        for item in changes:
+            additions += item.get('additions', 0)
+            deletions += item.get('deletions', 0)
+
+        commits = handler.get_pull_request_commits()
+        if not commits:
+            logger.error('Failed to get commits for Gitea pull request')
+            return
+
+        commits_text = ';'.join(commit.get('title', '') for commit in commits)
+        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+
+        handler.add_pull_request_notes(f'Auto Review Result: \n{review_result}')
+
+        repository = webhook_data.get('repository', {})
+        author_info = pull_request.get('user', {}) or webhook_data.get('sender', {}) or {}
+
+        event_manager['merge_request_reviewed'].send(
+            MergeRequestReviewEntity(
+                project_name=repository.get('name'),
+                author=author_info.get('login') or author_info.get('username'),
+                source_branch=head_info.get('ref') or pull_request.get('head_branch', ''),
+                target_branch=base_info.get('ref') or pull_request.get('base_branch', ''),
+                updated_at=int(datetime.now().timestamp()),
+                commits=commits,
+                score=CodeReviewer.parse_review_score(review_text=review_result),
+                url=pull_request.get('html_url') or pull_request.get('url'),
+                review_result=review_result,
+                url_slug=gitea_url_slug,
+                webhook_data=webhook_data,
+                additions=additions,
+                deletions=deletions,
+                last_commit_id=last_commit_id,
+            ))
+
+    except Exception as e:
+        error_message = f'AI Code Review 服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
+        notifier.send_notification(content=error_message)
         logger.error('出现未知错误: %s', error_message)

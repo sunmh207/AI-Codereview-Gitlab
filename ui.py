@@ -34,7 +34,6 @@ def set_global_font():
         try:
             fm.fontManager.addfont(font_path)
             mpl.rcParams["font.family"] = "Source Han Sans CN"
-            st.write("已加载字体：Source Han Sans CN")
         except Exception as e:
             st.warning(f"字体加载失败，使用默认字体。错误信息：{e}")
     else:
@@ -449,10 +448,10 @@ def logout():
 
 # 主要内容
 def main_page():
-    st.markdown("#### 📊 代码审查统计")
-
-    # 在标题后面添加退出按钮，使用更合适的列宽比例
+    # 将标题和退出按钮放在同一行
     col_title, col_space, col_logout = st.columns([7, 2, 1.2])
+    with col_title:
+        st.markdown("#### 📊 代码审查统计")
     with col_logout:
         if st.button("退出登录", key="logout_button", use_container_width=True):
             logout()
