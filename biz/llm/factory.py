@@ -4,6 +4,7 @@ from typing import Dict, Optional
 from biz.llm.client.base import BaseClient
 from biz.llm.client.deepseek import DeepSeekClient
 from biz.llm.client.kimi import KimiClient
+from biz.llm.client.minimax import MinimaxClient
 from biz.llm.client.ollama_client import OllamaClient
 from biz.llm.client.openai import OpenAIClient
 from biz.llm.client.qwen import QwenClient
@@ -29,7 +30,8 @@ class Factory:
             'deepseek': lambda: DeepSeekClient(config=config),
             'qwen': lambda: QwenClient(config=config),
             'ollama': lambda : OllamaClient(config=config),
-            'kimi': lambda: KimiClient(config=config)
+            'kimi': lambda: KimiClient(config=config),
+            'minimax': lambda: MinimaxClient(config=config)
         }
 
         provider_func = chat_model_providers.get(provider)

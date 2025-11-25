@@ -16,3 +16,5 @@ __pycache__/
 /conf/*/*
 !/conf/group/*
 server.log
+.claude/settings.local.json
+.serena
