@@ -109,7 +109,15 @@ class MySQLService(BaseDBService):
                           updated_at_gte: Optional[int] = None, updated_at_lte: Optional[int] = None) -> pd.DataFrame:
         """获取符合条件的合并请求审核日志"""
         try:
-            conn = self._get_connection()
+            # 使用普通连接而不是DictCursor,避免pd.read_sql_query解析问题
+            conn = pymysql.connect(
+                host=self.host,
+                port=self.port,
+                user=self.user,
+                password=self.password,
+                db=self.database,
+                charset='utf8mb4'
+            )
             try:
                 query = """
                     SELECT project_name, author, source_branch, target_branch, updated_at, 
@@ -140,6 +148,13 @@ class MySQLService(BaseDBService):
                 query += " ORDER BY updated_at DESC"
                 
                 df = pd.read_sql_query(sql=query, con=conn, params=params)
+                # 确保数值字段类型正确,避免字符串类型导致的类型错误
+                if 'additions' in df.columns:
+                    df['additions'] = pd.to_numeric(df['additions'], errors='coerce')
+                if 'deletions' in df.columns:
+                    df['deletions'] = pd.to_numeric(df['deletions'], errors='coerce')
+                if 'score' in df.columns:
+                    df['score'] = pd.to_numeric(df['score'], errors='coerce')
                 logger.info(f"查询MR审核日志成功: 条数={len(df)}, 条件=[authors={authors}, projects={project_names}, time_range={updated_at_gte}-{updated_at_lte}]")
                 return df
             finally:
@@ -194,7 +209,15 @@ class MySQLService(BaseDBService):
                             updated_at_gte: Optional[int] = None, updated_at_lte: Optional[int] = None) -> pd.DataFrame:
         """获取符合条件的推送审核日志"""
         try:
-            conn = self._get_connection()
+            # 使用普通连接而不是DictCursor,避免pd.read_sql_query解析问题
+            conn = pymysql.connect(
+                host=self.host,
+                port=self.port,
+                user=self.user,
+                password=self.password,
+                db=self.database,
+                charset='utf8mb4'
+            )
             try:
                 query = """
                     SELECT project_name, author, branch, updated_at, commit_messages, 
@@ -225,6 +248,13 @@ class MySQLService(BaseDBService):
                 query += " ORDER BY updated_at DESC"
                 
                 df = pd.read_sql_query(sql=query, con=conn, params=params)
+                # 确保数值字段类型正确,避免字符串类型导致的类型错误
+                if 'additions' in df.columns:
+                    df['additions'] = pd.to_numeric(df['additions'], errors='coerce')
+                if 'deletions' in df.columns:
+                    df['deletions'] = pd.to_numeric(df['deletions'], errors='coerce')
+                if 'score' in df.columns:
+                    df['score'] = pd.to_numeric(df['score'], errors='coerce')
                 logger.info(f"查询Push审核日志成功: 条数={len(df)}, 条件=[authors={authors}, projects={project_names}, time_range={updated_at_gte}-{updated_at_lte}]")
                 return df
             finally:
