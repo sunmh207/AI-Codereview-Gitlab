@@ -7,7 +7,7 @@
 ## 功能
 
 - 🚀 多模型支持
-  - 兼容 DeepSeek、ZhipuAI、OpenAI、通义千问 和 Ollama，想用哪个就用哪个。
+  - 兼容 DeepSeek、ZhipuAI、OpenAI、通义千问、Ollama 和 Claude Code，想用哪个就用哪个。
 - 📢 消息即时推送
   - 审查结果一键直达 钉钉、企业微信 或 飞书，代码问题无处可藏！
 - 📅 自动化日报生成
@@ -56,11 +56,16 @@ cp conf/.env.dist conf/.env
 - 编辑 conf/.env 文件，配置以下关键参数：
 
 ```bash
-#大模型供应商配置,支持 zhipuai , openai , deepseek 和 ollama
+#大模型供应商配置,支持 zhipuai, openai, deepseek, ollama 和 claudecode
 LLM_PROVIDER=deepseek
 
 #DeepSeek
 DEEPSEEK_API_KEY={YOUR_DEEPSEEK_API_KEY}
+
+#Claude Code (需要先安装 CLI: npm install -g @anthropic-ai/claude-code)
+#CLAUDE_CODE_API_KEY={YOUR_ANTHROPIC_API_KEY}
+#CLAUDE_CODE_API_BASE_URL=https://api.anthropic.com
+#CLAUDE_CODE_API_MODEL=sonnet
 
 #支持review的文件类型(未配置的文件类型不会被审查)
 SUPPORTED_EXTENSIONS=.java,.py,.php,.yml,.vue,.go,.c,.cpp,.h,.js,.css,.md,.sql

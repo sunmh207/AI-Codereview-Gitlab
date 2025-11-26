@@ -160,3 +160,119 @@ WORKER_QUEUE=gitlab_test_cn
   GITHUB_ACCESS_TOKEN=your-access-token  #替换为你的Access Token
   ```
 
+### 如何使用 Claude Code 进行代码审查？
+
+Claude Code 是 Anthropic 提供的专门针对代码理解和生成优化的 AI 模型。要使用 Claude Code 进行代码审查，需要完成以下配置：
+
+**1. 安装 Claude Code CLI**
+
+Claude Code 需要通过命令行工具调用。首先确保你的系统已安装 Node.js 18 或更高版本，然后全局安装 Claude Code CLI：
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+**2. 获取 Anthropic API 密钥**
+
+- 访问 [Anthropic Console](https://console.anthropic.com/settings/keys)
+- 登录或注册账号
+- 创建新的 API 密钥
+- 复制 API 密钥（以 sk-ant- 开头）
+
+**3. 配置 .env 文件**
+
+在 .env 文件中添加以下配置：
+
+```bash
+# 设置 LLM 提供商为 claudecode
+LLM_PROVIDER=claudecode
+
+# Claude Code API 密钥
+CLAUDE_CODE_API_KEY=sk-ant-your-api-key-here
+
+# Claude API Base URL（可选，默认为 https://api.anthropic.com）
+# 如果使用自定义 API 端点，可以修改此配置
+CLAUDE_CODE_API_BASE_URL=https://api.anthropic.com
+
+# 选择模型（可选，默认为 sonnet）
+# 可选值: sonnet(推荐), opus(最高质量), haiku(最快速度)
+CLAUDE_CODE_API_MODEL=sonnet
+```
+
+**4. 配置额外环境变量（可选）**
+
+如果你需要通过代理访问 Claude API 或使用自定义 CA 证书，可以在 .env 文件中使用 `CLAUDE_CODE_ENV_` 前缀配置:
+
+```bash
+# Claude Code 环境变量配置
+# HTTP 代理配置
+CLAUDE_CODE_ENV_http_proxy=http://127.0.0.1:8899
+CLAUDE_CODE_ENV_https_proxy=http://127.0.0.1:8899
+CLAUDE_CODE_ENV_HTTP_PROXY=http://127.0.0.1:8899
+CLAUDE_CODE_ENV_HTTPS_PROXY=http://127.0.0.1:8899
+
+# 自定义 CA 证书（用于企业内网环境）
+CLAUDE_CODE_ENV_NODE_EXTRA_CA_CERTS=/path/to/rootCA.cer
+```
+
+**配置说明**:
+- **代理配置**: 使用 `CLAUDE_CODE_ENV_http_proxy` 和 `CLAUDE_CODE_ENV_https_proxy` 配置代理地址,建议同时配置小写和大写形式以确保兼容性
+- **CA 证书**: 使用 `CLAUDE_CODE_ENV_NODE_EXTRA_CA_CERTS` 指定自定义根证书路径,常用于企业内网环境中需要自签名证书的场景
+- **配置隔离**: 使用 `CLAUDE_CODE_ENV_` 前缀保持配置的统一性和隔离性,这些配置只会影响 Claude Code CLI 的执行,不会影响系统其他部分
+
+**5. 重启服务**
+
+```bash
+docker-compose restart
+# 或
+python api.py
+```
+
+### Claude Code 配置常见错误排查
+
+**错误：Claude Code CLI 未安装**
+
+- 错误信息：`Claude Code CLI 未安装,请运行: npm install -g @anthropic-ai/claude-code`
+- 解决方案：
+  - 确保已安装 Node.js 18 或更高版本：`node --version`
+  - 运行安装命令：`npm install -g @anthropic-ai/claude-code`
+  - 验证安装：`claude --version`
+
+**错误：Claude Code 认证失败**
+
+- 错误信息：`Claude Code 认证失败,请检查 ANTHROPIC_API_KEY 是否正确配置`
+- 解决方案：
+  - 检查 .env 文件中的 CLAUDE_CODE_API_KEY 是否正确配置
+  - 确认 API 密钥以 sk-ant- 开头
+  - 验证 API 密钥是否过期或被撤销
+  - 在 [Anthropic Console](https://console.anthropic.com/settings/keys) 重新生成密钥
+
+**错误：Claude Code 模型配置错误**
+
+- 错误信息：`Claude Code 模型配置错误,请使用 sonnet/opus/haiku`
+- 解决方案：
+  - 检查 CLAUDE_CODE_API_MODEL 配置值
+  - 确保使用正确的模型名称：sonnet、opus 或 haiku
+  - 如果未配置，系统将使用默认模型 sonnet
+
+**错误：Claude Code 执行超时**
+
+- 错误信息：`Claude Code 执行超时,请稍后重试或检查代码大小`
+- 解决方案：
+  - 检查代码文件是否过大（超过 10000 tokens）
+  - 尝试减小 REVIEW_MAX_TOKENS 配置值
+  - 检查网络连接是否正常
+  - 稍后重试
+
+**Docker 部署注意事项**
+
+如果使用 Docker 部署，需要确保容器内也安装了 Node.js 和 Claude Code CLI。建议在 Dockerfile 中添加：
+
+```dockerfile
+# 安装 Node.js
+RUN apt-get update && apt-get install -y nodejs npm
+
+# 安装 Claude Code CLI
+RUN npm install -g @anthropic-ai/claude-code
+```
+

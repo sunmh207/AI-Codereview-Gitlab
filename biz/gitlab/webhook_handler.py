@@ -17,11 +17,15 @@ def filter_changes(changes: list):
 
     filter_deleted_files_changes = [change for change in changes if not change.get("deleted_file")]
 
-    # 过滤 `new_path` 以支持的扩展名结尾的元素, 仅保留diff和new_path字段
+    # 过滤 `new_path` 以支持的扩展名结尾的元素, 保留必要的字段信息
     filtered_changes = [
         {
             'diff': item.get('diff', ''),
             'new_path': item['new_path'],
+            'old_path': item.get('old_path', ''),
+            'new_file': item.get('new_file', False),
+            'renamed_file': item.get('renamed_file', False),
+            'deleted_file': item.get('deleted_file', False),
             'additions': len(re.findall(r'^\+(?!\+\+)', item.get('diff', ''), re.MULTILINE)),
             'deletions': len(re.findall(r'^-(?!--)', item.get('diff', ''), re.MULTILINE))
         }
