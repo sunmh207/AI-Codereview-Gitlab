@@ -1,6 +1,7 @@
 import os
 import re
 import time
+from typing import Optional, Dict
 from urllib.parse import urljoin
 
 import fnmatch
@@ -9,12 +10,16 @@ import requests
 from biz.utils.log import logger
 
 
-def filter_changes(changes: list):
+def filter_changes(changes: list, project_config: Optional[Dict[str, str]] = None):
     """
     过滤数据，只保留支持的文件类型以及必要的字段信息
+    :param changes: 变更列表
+    :param project_config: 项目专属配置字典
     """
+    # 从项目配置中获取支持的文件扩展名
+    project_config = project_config or {}
     supported_extensions = [
-        ext.strip() for ext in os.getenv('SUPPORTED_EXTENSIONS', '.java,.py,.php').split(',')
+        ext.strip() for ext in project_config.get('SUPPORTED_EXTENSIONS', '.java,.py,.php').split(',')
         if ext.strip()
     ]
 

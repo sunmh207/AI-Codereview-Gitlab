@@ -1,5 +1,4 @@
 import os
-import os
 import re
 import traceback
 from datetime import datetime
@@ -509,8 +508,29 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
 
 
 def handle_gitea_push_event(webhook_data: dict, gitea_token: str, gitea_url: str, gitea_url_slug: str):
-    push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
+    # 初始化project_config为None，确保在异常处理中可以访问
+    project_config = None
     try:
+        # 提取项目路径
+        repository = webhook_data.get('repository', {})
+        project_path = repository.get('full_name', '')
+        logger.info(f'Project path: {project_path}')
+
+        # 加载项目专属配置（不修改全局环境变量）
+        project_config = config_loader.get_config(project_path=project_path)
+
+        # 检查白名单（传递project_config确保配置隔离）
+        if not check_project_whitelist(project_path, project_config=project_config):
+            logger.info(f'项目 {project_path} 不在白名单中，跳过Gitea Push Review')
+            return
+        logger.info(f'项目 {project_path} 使用独立配置上下文')
+
+        # 从项目配置中读取 GITEA_ACCESS_TOKEN
+        gitea_token = project_config.get('GITEA_ACCESS_TOKEN') or gitea_token
+
+        # 检查是否启用Push Review
+        push_review_enabled = project_config.get('PUSH_REVIEW_ENABLED', '0') == '1'
+
         handler = GiteaPushHandler(webhook_data, gitea_token, gitea_url)
         logger.info('Gitea Push event received')
         commits = handler.get_push_commits()
@@ -518,28 +538,44 @@ def handle_gitea_push_event(webhook_data: dict, gitea_token: str, gitea_url: str
             logger.error('Failed to get commits')
             return
 
-        review_result = None
+        # 检查是否启用了commit message检查
+        commit_message_check_enabled = project_config.get('PUSH_COMMIT_MESSAGE_CHECK_ENABLED', '0') == '1'
+        if commit_message_check_enabled:
+            # 获取检查规则（支持正则表达式）
+            check_pattern = project_config.get('PUSH_COMMIT_MESSAGE_CHECK_PATTERN', 'review')
+            try:
+                # 检查所有commits的message是否匹配正则表达式
+                pattern = re.compile(check_pattern, re.IGNORECASE)
+                has_match = any(pattern.search(commit.get('message', '')) for commit in commits)
+                if not has_match:
+                    logger.info(f'Commits message中未匹配到指定规则 "{check_pattern}"，跳过本次审查。')
+                    return
+                logger.info(f'Commits message匹配规则 "{check_pattern}"，继续执行审查。')
+            except re.error as e:
+                logger.error(f'正则表达式 "{check_pattern}" 格式错误: {e}，跳过检查继续执行。')
+
+        review_result = ""
         score = 0
         additions = 0
         deletions = 0
+        note_url = ''  # 存储AI Review结果的URL
         if push_review_enabled:
             changes = handler.get_push_changes()
             logger.info('changes: %s', changes)
-            changes = filter_gitea_changes(changes)
+            changes = filter_gitea_changes(changes, project_config)
             if not changes:
                 logger.info('未检测到PUSH代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
             review_result = "关注的文件没有修改"
 
             if len(changes) > 0:
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+                review_result = CodeReviewer(project_path=project_path, config=project_config).review_and_strip_code(str(changes), commits_text)
                 score = CodeReviewer.parse_review_score(review_text=review_result)
                 for item in changes:
                     additions += item.get('additions', 0)
                     deletions += item.get('deletions', 0)
-            handler.add_push_notes(f'Auto Review Result: \n{review_result}')
+            note_url = handler.add_push_notes(f'Auto Review Result: \n{review_result}')
 
-        repository = webhook_data.get('repository', {})
         sender = webhook_data.get('sender', {}) or webhook_data.get('pusher', {}) or {}
 
         event_manager['push_reviewed'].send(PushReviewEntity(
@@ -554,17 +590,44 @@ def handle_gitea_push_event(webhook_data: dict, gitea_token: str, gitea_url: str
             webhook_data=webhook_data,
             additions=additions,
             deletions=deletions,
+            note_url=note_url,
+            project_config=project_config,
         ))
 
     except Exception as e:
         error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
-        notifier.send_notification(content=error_message)
+        # 尝试获取project_config，如果异常发生在配置加载之前则为None
+        try:
+            notifier.send_notification(content=error_message, project_config=project_config)
+        except NameError:
+            notifier.send_notification(content=error_message)
         logger.error('出现未知错误: %s', error_message)
 
 
 def handle_gitea_pull_request_event(webhook_data: dict, gitea_token: str, gitea_url: str, gitea_url_slug: str):
-    merge_review_only_protected_branches = os.environ.get('MERGE_REVIEW_ONLY_PROTECTED_BRANCHES_ENABLED', '0') == '1'
+    # 初始化project_config为None，确保在异常处理中可以访问
+    project_config = None
     try:
+        # 提取项目路径
+        repository = webhook_data.get('repository', {})
+        project_path = repository.get('full_name', '')
+        logger.info(f'Project path: {project_path}')
+
+        # 加载项目专属配置（不修改全局环境变量）
+        project_config = config_loader.get_config(project_path=project_path)
+
+        # 检查白名单（传递project_config确保配置隔离）
+        if not check_project_whitelist(project_path, project_config=project_config):
+            logger.info(f'项目 {project_path} 不在白名单中，跳过Gitea Pull Request Review')
+            return
+        logger.info(f'项目 {project_path} 使用独立配置上下文')
+
+        # 从项目配置中读取 GITEA_ACCESS_TOKEN
+        gitea_token = project_config.get('GITEA_ACCESS_TOKEN') or gitea_token
+
+        # 检查是否仅review protected branches
+        merge_review_only_protected_branches = project_config.get('MERGE_REVIEW_ONLY_PROTECTED_BRANCHES_ENABLED', '0') == '1'
+
         handler = GiteaPullRequestHandler(webhook_data, gitea_token, gitea_url)
         logger.info('Gitea Pull Request event received')
 
@@ -593,7 +656,7 @@ def handle_gitea_pull_request_event(webhook_data: dict, gitea_token: str, gitea_
 
         changes = handler.get_pull_request_changes()
         logger.info('changes: %s', changes)
-        changes = filter_gitea_changes(changes)
+        changes = filter_gitea_changes(changes, project_config)
         if not changes:
             logger.info('未检测到有关代码的修改,修改文件可能不满足SUPPORTED_EXTENSIONS。')
             return
@@ -610,11 +673,10 @@ def handle_gitea_pull_request_event(webhook_data: dict, gitea_token: str, gitea_
             return
 
         commits_text = ';'.join(commit.get('title', '') for commit in commits)
-        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        review_result = CodeReviewer(project_path=project_path, config=project_config).review_and_strip_code(str(changes), commits_text)
 
         handler.add_pull_request_notes(f'Auto Review Result: \n{review_result}')
 
-        repository = webhook_data.get('repository', {})
         author_info = pull_request.get('user', {}) or webhook_data.get('sender', {}) or {}
 
         event_manager['merge_request_reviewed'].send(
@@ -633,9 +695,14 @@ def handle_gitea_pull_request_event(webhook_data: dict, gitea_token: str, gitea_
                 additions=additions,
                 deletions=deletions,
                 last_commit_id=last_commit_id,
+                project_config=project_config,
             ))
 
     except Exception as e:
         error_message = f'AI Code Review 服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
-        notifier.send_notification(content=error_message)
+        # 尝试获取project_config，如果异常发生在配置加载之前则为None
+        try:
+            notifier.send_notification(content=error_message, project_config=project_config)
+        except NameError:
+            notifier.send_notification(content=error_message)
         logger.error('出现未知错误: %s', error_message)
