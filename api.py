@@ -15,7 +15,7 @@ from flask import Flask, request, jsonify
 
 from biz.gitlab.webhook_handler import slugify_url
 from biz.queue.worker import handle_merge_request_event, handle_push_event, handle_github_pull_request_event, \
-    handle_github_push_event, handle_gitea_pull_request_event, handle_gitea_push_event
+    handle_github_push_event, handle_gitea_pull_request_event, handle_gitea_push_event, handle_note_event
 from biz.service.review_service import ReviewService
 from biz.utils.im import notifier
 from biz.utils.log import logger
@@ -268,8 +268,13 @@ def handle_gitlab_webhook(data):
         # 立马返回响应
         return jsonify(
             {'message': f'Request received(object_kind={object_kind}), will process asynchronously.'}), 200
+    elif object_kind == "note":
+        # 处理 Note Hook 事件（@机器人触发审查）
+        handle_queue(handle_note_event, data, gitlab_token, gitlab_url, gitlab_url_slug)
+        return jsonify(
+            {'message': f'Request received(object_kind={object_kind}), will process asynchronously.'}), 200
     else:
-        error_message = f'Only merge_request and push events are supported (both Webhook and System Hook), but received: {object_kind}.'
+        error_message = f'Only merge_request, push and note events are supported (both Webhook and System Hook), but received: {object_kind}.'
         logger.error(error_message)
         return jsonify(error_message), 400
 

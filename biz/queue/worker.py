@@ -7,12 +7,12 @@ from typing import Dict, Optional
 
 from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity
 from biz.event.event_manager import event_manager
-from biz.gitlab.webhook_handler import filter_changes, MergeRequestHandler, PushHandler
+from biz.gitlab.webhook_handler import filter_changes, MergeRequestHandler, PushHandler, NoteHandler
 from biz.github.webhook_handler import filter_changes as filter_github_changes, PullRequestHandler as GithubPullRequestHandler, PushHandler as GithubPushHandler
 from biz.gitea.webhook_handler import filter_changes as filter_gitea_changes, PullRequestHandler as GiteaPullRequestHandler, \
     PushHandler as GiteaPushHandler
 from biz.service.review_service import ReviewService
-from biz.utils.code_reviewer import CodeReviewer
+from biz.utils.code_reviewer import CodeReviewer, LineReviewer
 from biz.utils.config_loader import config_loader
 from biz.utils.im import notifier
 from biz.utils.log import logger
@@ -169,6 +169,198 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
         logger.error('出现未知错误: %s', error_message)
 
 
+def handle_note_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_url_slug: str):
+    """
+    处理 Note Hook 事件（@机器人触发的代码审查）
+    
+    :param webhook_data: GitLab Note Hook 的 payload
+    :param gitlab_token: GitLab access token
+    :param gitlab_url: GitLab URL
+    :param gitlab_url_slug: GitLab URL slug
+    """
+    project_config = None
+    try:
+        # 提取项目路径
+        project_path = webhook_data.get('project', {}).get('path_with_namespace', '')
+        logger.info(f'Note event received for project: {project_path}')
+        
+        # 加载项目专属配置
+        project_config = config_loader.get_config(project_path=project_path)
+        
+        # 检查是否启用 @触发功能（总开关）
+        mention_trigger_enabled = project_config.get('MENTION_TRIGGER_ENABLED', '0') == '1'
+        if not mention_trigger_enabled:
+            logger.info("@触发功能未启用（MENTION_TRIGGER_ENABLED=0），跳过处理")
+            return
+        
+        # 从项目配置中读取 GITLAB_ACCESS_TOKEN
+        gitlab_token = project_config.get('GITLAB_ACCESS_TOKEN') or gitlab_token
+        
+        # 解析 Note Hook 数据
+        handler = NoteHandler(webhook_data, gitlab_token, gitlab_url)
+        
+        # 获取机器人用户名配置（支持多个用户名，逗号分隔）
+        bot_usernames_str = project_config.get('REVIEW_BOT_USERNAMES', 'code-review-bot,ai-reviewer,codereview')
+        bot_usernames = [name.strip().lower() for name in bot_usernames_str.split(',') if name.strip()]
+        
+        # 检查是否通过 @机器人 触发
+        if not handler.is_triggered_by_mention(bot_usernames):
+            logger.info("评论中未检测到 @机器人，跳过处理")
+            return
+        
+        # 检查评论类型并分别处理
+        if handler.is_merge_request_note():
+            # MR 评论触发开关
+            mr_mention_enabled = project_config.get('MENTION_TRIGGER_MR_ENABLED', '1') == '1'
+            if not mr_mention_enabled:
+                logger.info("MR @触发功能未启用（MENTION_TRIGGER_MR_ENABLED=0），跳过处理")
+                return
+            _handle_mr_note_review(handler, webhook_data, project_path, project_config, gitlab_url_slug)
+            
+        elif handler.is_commit_note():
+            # Commit 评论触发开关
+            commit_mention_enabled = project_config.get('MENTION_TRIGGER_COMMIT_ENABLED', '1') == '1'
+            if not commit_mention_enabled:
+                logger.info("Commit @触发功能未启用（MENTION_TRIGGER_COMMIT_ENABLED=0），跳过处理")
+                return
+            _handle_commit_note_review(handler, webhook_data, project_path, project_config, gitlab_url_slug)
+            
+        else:
+            logger.info(f"不支持的评论类型: {handler.noteable_type}，跳过处理")
+            return
+
+    except Exception as e:
+        error_message = f'@触发代码审查出现错误: {str(e)}\n{traceback.format_exc()}'
+        try:
+            notifier.send_notification(content=error_message, project_config=project_config)
+        except NameError:
+            notifier.send_notification(content=error_message)
+        logger.error('处理 Note 事件出现错误: %s', error_message)
+
+
+def _handle_mr_note_review(handler: NoteHandler, webhook_data: dict, project_path: str, 
+                            project_config: dict, gitlab_url_slug: str):
+    """处理 MR 评论触发的代码审查"""
+    logger.info(f"检测到 MR @机器人触发代码审查，开始处理")
+    
+    # 获取 MR 的代码变更
+    changes = handler.get_merge_request_changes()
+    changes = filter_changes(changes, project_config)
+    
+    if not changes:
+        handler.add_merge_request_notes("📝 未检测到需要审查的代码变更（修改文件可能不满足 SUPPORTED_EXTENSIONS 配置）")
+        logger.info("未检测到代码变更")
+        return
+    
+    # 统计代码变更量
+    additions = sum(item.get('additions', 0) for item in changes)
+    deletions = sum(item.get('deletions', 0) for item in changes)
+    
+    # 获取提交记录
+    commits = handler.get_merge_request_commits()
+    commits_text = ';'.join(commit.get('title', '') for commit in commits) if commits else ''
+    
+    # 检查是否启用行级评审
+    line_review_enabled = project_config.get('LINE_REVIEW_ENABLED', '0') == '1'
+    
+    if line_review_enabled:
+        # 使用行级审查器
+        logger.info("使用行级代码审查模式（MR @触发）")
+        line_reviewer = LineReviewer(project_path=project_path, config=project_config)
+        line_review_result = line_reviewer.review_and_parse(str(changes), commits_text)
+        
+        # 获取行级评论
+        line_comments = line_review_result.get('line_comments', [])
+        
+        # 先添加行级评论
+        if line_comments:
+            success_count = handler.add_line_level_comments(line_comments)
+            logger.info(f"成功添加 {success_count} 条行级评论")
+        
+        # 获取格式化的摘要
+        review_result = line_reviewer.get_formatted_summary(line_review_result)
+        score = line_review_result.get('score', 0)
+    else:
+        # 使用传统总结式审查
+        logger.info("使用总结式代码审查模式（MR @触发）")
+        reviewer = CodeReviewer(project_path=project_path, config=project_config)
+        review_result = reviewer.review_and_strip_code(str(changes), commits_text)
+        score = CodeReviewer.parse_review_score(review_text=review_result)
+    
+    # 添加触发信息到评审结果
+    trigger_info = f"\n\n---\n*🤖 此评审由 @{webhook_data.get('user', {}).get('username', 'unknown')} 通过评论触发*"
+    review_result_with_info = f"Auto Review Result:\n{review_result}{trigger_info}"
+    
+    # 发布评审结果
+    handler.add_merge_request_notes(review_result_with_info)
+    
+    logger.info(f"MR @触发代码审查完成，评分: {score}")
+    
+    # 发送 IM 通知（可选）
+    _send_mention_notification(webhook_data, project_config, score, additions, deletions, "MR")
+
+
+def _handle_commit_note_review(handler: NoteHandler, webhook_data: dict, project_path: str,
+                                project_config: dict, gitlab_url_slug: str):
+    """处理 Commit 评论触发的代码审查"""
+    logger.info(f"检测到 Commit @机器人触发代码审查，开始处理")
+    
+    # 获取 Commit 的代码变更
+    changes = handler.get_commit_diff()
+    
+    # 转换格式以适配 filter_changes
+    formatted_changes = []
+    for change in changes:
+        formatted_changes.append({
+            'diff': change.get('diff', ''),
+            'new_path': change.get('new_path', ''),
+            'old_path': change.get('old_path', ''),
+            'deleted_file': change.get('deleted_file', False)
+        })
+    
+    changes = filter_changes(formatted_changes, project_config)
+    
+    if not changes:
+        handler.add_commit_notes("📝 未检测到需要审查的代码变更（修改文件可能不满足 SUPPORTED_EXTENSIONS 配置）")
+        logger.info("未检测到代码变更")
+        return
+    
+    # 统计代码变更量
+    additions = sum(item.get('additions', 0) for item in changes)
+    deletions = sum(item.get('deletions', 0) for item in changes)
+    
+    # 获取 commit 信息
+    commit_info = handler.get_commit_info()
+    commits_text = commit_info.get('title', '') or commit_info.get('message', '')
+    
+    # 使用总结式审查（Commit 不支持行级评论）
+    logger.info("使用总结式代码审查模式（Commit @触发）")
+    reviewer = CodeReviewer(project_path=project_path, config=project_config)
+    review_result = reviewer.review_and_strip_code(str(changes), commits_text)
+    score = CodeReviewer.parse_review_score(review_text=review_result)
+    
+    # 添加触发信息到评审结果
+    trigger_info = f"\n\n---\n*🤖 此评审由 @{webhook_data.get('user', {}).get('username', 'unknown')} 通过评论触发*"
+    review_result_with_info = f"Auto Review Result:\n{review_result}{trigger_info}"
+    
+    # 发布评审结果
+    handler.add_commit_notes(review_result_with_info)
+    
+    logger.info(f"Commit @触发代码审查完成，评分: {score}")
+    
+    # 发送 IM 通知（可选）
+    _send_mention_notification(webhook_data, project_config, score, additions, deletions, "Commit")
+
+
+def _send_mention_notification(webhook_data: dict, project_config: dict, score: int, 
+                                additions: int, deletions: int, review_type: str):
+    """发送 @触发审查的 IM 通知"""
+    notify_enabled = project_config.get('MENTION_TRIGGER_NOTIFY_ENABLED', '0') == '1'
+    if notify_enabled:
+        notify_msg = f"🤖 代码审查完成（{review_type}）\n项目: {webhook_data.get('project', {}).get('name')}\n触发者: @{webhook_data.get('user', {}).get('username')}\n评分: {score}\n新增: {additions} 行 / 删除: {deletions} 行"
+        notifier.send_notification(content=notify_msg, project_config=project_config)
+
+
 def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_url_slug: str):
     '''
     处理Merge Request Hook事件
@@ -261,12 +453,38 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
             logger.error('Failed to get commits')
             return
 
+        # 检查是否启用行级评审
+        line_review_enabled = project_config.get('MERGE_REQUEST_LINE_REVIEW_ENABLED', '0') == '1'
+        
         # review 代码
         commits_text = ';'.join(commit['title'] for commit in commits)
-        review_result = CodeReviewer(project_path=project_path, config=project_config).review_and_strip_code(str(changes), commits_text)
-
-        # 将review结果提交到Gitlab的 notes
-        handler.add_merge_request_notes(f'Auto Review Result: \n{review_result}')
+        
+        if line_review_enabled:
+            # 使用行级审查器
+            logger.info("启用行级代码审查模式")
+            line_reviewer = LineReviewer(project_path=project_path, config=project_config)
+            line_review_result = line_reviewer.review_and_parse(str(changes), commits_text)
+            
+            # 获取行级评论
+            line_comments = line_review_result.get('line_comments', [])
+            
+            # 先添加行级评论
+            if line_comments:
+                success_count = handler.add_line_level_comments(line_comments)
+                logger.info(f"成功添加 {success_count} 条行级评论")
+            
+            # 获取格式化的摘要作为总体评论
+            review_result = line_reviewer.get_formatted_summary(line_review_result)
+            score = line_review_result.get('score', 0)
+            
+            # 将摘要作为总体评论提交到Gitlab的 notes
+            handler.add_merge_request_notes(f'Auto Review Result: \n{review_result}')
+        else:
+            # 使用原有的总结式审查
+            review_result = CodeReviewer(project_path=project_path, config=project_config).review_and_strip_code(str(changes), commits_text)
+            score = CodeReviewer.parse_review_score(review_text=review_result)
+            # 将review结果提交到Gitlab的 notes
+            handler.add_merge_request_notes(f'Auto Review Result: \n{review_result}')
 
         # dispatch merge_request_reviewed event
         event_manager['merge_request_reviewed'].send(
@@ -277,7 +495,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
                 target_branch=webhook_data['object_attributes']['target_branch'],
                 updated_at=int(datetime.now().timestamp()),
                 commits=commits,
-                score=CodeReviewer.parse_review_score(review_text=review_result),
+                score=score,
                 url=webhook_data['object_attributes']['url'],
                 review_result=review_result,
                 url_slug=gitlab_url_slug,

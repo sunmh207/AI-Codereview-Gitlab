@@ -271,6 +271,77 @@ FEISHU_WEBHOOK_URL_DAILY_REPORT=https://open.feishu.cn/open-apis/bot/v2/hook/dai
 - 如果未配置专用 webhook，则使用默认的 `{PLATFORM}_WEBHOOK_URL`
 - 可以将日报推送到管理群，而 push/merge 事件推送到开发群
 
+### @机器人触发审查（类似 CodeRabbit）
+
+支持在 MR 或 Commit 评论中通过 @机器人用户名来按需触发代码审查，而不是自动触发。
+
+**效果图：**
+
+![@ 触发审查](doc/img/open/mention-trigger.png)
+
+#### 配置步骤
+
+**1. 创建 GitLab 机器人用户**
+
+- 在 GitLab 中创建一个专用用户（如 `code-review-bot`）
+- 将该用户添加到需要审查的项目中，赋予 `Developer` 权限
+- 生成该用户的 Personal Access Token，配置到 `GITLAB_ACCESS_TOKEN`
+
+**2. 配置 Webhook**
+
+在 GitLab 项目设置中，确保勾选了 **Comments** 事件：
+- URL: `http://your-server-ip:5001/review/webhook`
+- Trigger Events: 
+  - ✅ Push events
+  - ✅ Merge request events  
+  - ✅ **Comments** ← 必须勾选！
+
+**3. 配置 .env 文件**
+
+```bash
+# 总开关：启用 @机器人触发功能
+MENTION_TRIGGER_ENABLED=1
+
+# 机器人用户名（支持多个，逗号分隔，不区分大小写）
+REVIEW_BOT_USERNAMES=code-review-bot,ai-reviewer
+
+# MR 评论触发开关
+MENTION_TRIGGER_MR_ENABLED=1
+
+# Commit 评论触发开关
+MENTION_TRIGGER_COMMIT_ENABLED=1
+
+# @触发审查完成后是否发送 IM 通知
+MENTION_TRIGGER_NOTIFY_ENABLED=0
+```
+
+#### 使用方式
+
+| 场景 | 使用方法 |
+|------|----------|
+| MR 评论触发 | 在 MR 的评论区输入 `@code-review-bot` 或 `@code-review-bot 请帮我审查` |
+| Commit 评论触发 | 在 Commit 的评论区输入 `@code-review-bot` |
+
+机器人会自动回复审查结果到对应的 MR 或 Commit 评论中。
+
+### 行级代码审查（类似 CodeRabbit）
+
+启用后，AI 会在代码的具体行上添加评论，而不是只发一个总结评论。
+
+```bash
+# MR 自动触发时启用行级评审
+MR_LINE_REVIEW_ENABLED=1
+
+# @触发时启用行级评审（仅 MR 支持）
+LINE_REVIEW_ENABLED=1
+```
+
+**效果：**
+- 🚨 **严重问题** - 在有安全漏洞或重大 bug 的代码行添加评论
+- ⚠️ **警告** - 在有潜在问题的代码行添加评论
+- 💡 **建议** - 在可优化的代码行添加改进建议
+- ℹ️ **提示** - 在需要注意的代码行添加提示信息
+
 ### 其他高级配置
 
 ```bash
