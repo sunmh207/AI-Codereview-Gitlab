@@ -495,6 +495,7 @@ class NoteHandler:
             object_attributes = self.webhook_data.get('object_attributes', {})
             self.note_content = object_attributes.get('note', '')
             self.noteable_type = object_attributes.get('noteable_type', '')
+            self.note_type = object_attributes.get('type', '')  # DiffNote or Note
             self.project_id = self.webhook_data.get('project', {}).get('id')
             
             # 如果是 MR 上的评论
@@ -506,6 +507,10 @@ class NoteHandler:
             elif self.noteable_type == 'Commit':
                 commit = self.webhook_data.get('commit', {})
                 self.commit_id = commit.get('id')
+
+    def is_diff_note(self) -> bool:
+        """检查是否是代码行上的评论"""
+        return self.note_type == 'DiffNote'
 
     def is_triggered_by_mention(self, bot_usernames: List[str] = None) -> bool:
         """
@@ -719,6 +724,65 @@ class NoteHandler:
         else:
             logger.error(f"Failed to add discussion: {response.status_code}, {response.text}")
             return False
+
+    def add_commit_discussion(self, body: str, file_path: str, line: int) -> bool:
+        """在 Commit 的指定代码行上创建讨论（行级评论）"""
+        if not self.is_commit_note():
+            return False
+            
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/repository/commits/{self.commit_id}/discussions")
+        headers = {
+            'Private-Token': self.gitlab_token,
+            'Content-Type': 'application/json'
+        }
+        
+        data = {
+            'body': body,
+            'path': file_path,
+            'line': line,
+            'line_type': 'new'
+        }
+        
+        response = requests.post(url, headers=headers, json=data, verify=False)
+        
+        if response.status_code == 201:
+            logger.info(f"Commit discussion successfully added to {file_path}:{line}")
+            return True
+        else:
+            logger.error(f"Failed to add commit discussion: {response.status_code}, {response.text}")
+            return False
+
+    def add_line_level_commit_comments(self, line_comments: List[Dict]) -> int:
+        """批量添加 Commit 行级评论"""
+        success_count = 0
+        for comment in line_comments:
+            file_path = comment.get('file_path', '')
+            line_number = comment.get('line_number', 0)
+            comment_body = comment.get('comment', '')
+            severity = comment.get('severity', 'info')
+            
+            if not all([file_path, line_number, comment_body]):
+                continue
+            
+            severity_prefix = {
+                'critical': '🚨 **严重问题**',
+                'warning': '⚠️ **警告**',
+                'suggestion': '💡 **建议**',
+                'info': 'ℹ️ **提示**'
+            }.get(severity, 'ℹ️ **提示**')
+            
+            formatted_body = f"{severity_prefix}\n\n{comment_body}"
+            
+            if self.add_commit_discussion(
+                body=formatted_body,
+                file_path=file_path,
+                line=line_number
+            ):
+                success_count += 1
+        
+        logger.info(f"成功添加 {success_count}/{len(line_comments)} 条 Commit 行级评论")
+        return success_count
 
     def add_line_level_comments(self, line_comments: List[Dict]) -> int:
         """批量添加行级评论"""

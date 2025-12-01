@@ -267,7 +267,16 @@ def _handle_mr_note_review(handler: NoteHandler, webhook_data: dict, project_pat
     commits_text = ';'.join(commit.get('title', '') for commit in commits) if commits else ''
     
     # 检查是否启用行级评审
-    line_review_enabled = project_config.get('LINE_REVIEW_ENABLED', '0') == '1'
+    # 逻辑：
+    # 1. 如果 MENTION_TRIGGER_LINE_REVIEW_ENABLED=1，则强制启用行级评审
+    # 2. 如果 MENTION_TRIGGER_LINE_REVIEW_ENABLED=0，但用户是在代码行上评论（DiffNote），则自动启用行级评审
+    config_line_review_enabled = project_config.get('MENTION_TRIGGER_LINE_REVIEW_ENABLED', '0') == '1'
+    is_diff_note = handler.is_diff_note()
+    
+    line_review_enabled = config_line_review_enabled or is_diff_note
+    
+    if is_diff_note and not config_line_review_enabled:
+        logger.info("检测到代码行评论（DiffNote），自动启用行级审查模式")
     
     if line_review_enabled:
         # 使用行级审查器
@@ -339,11 +348,41 @@ def _handle_commit_note_review(handler: NoteHandler, webhook_data: dict, project
     commit_info = handler.get_commit_info()
     commits_text = commit_info.get('title', '') or commit_info.get('message', '')
     
-    # 使用总结式审查（Commit 不支持行级评论）
-    logger.info("使用总结式代码审查模式（Commit @触发）")
-    reviewer = CodeReviewer(project_path=project_path, config=project_config)
-    review_result = reviewer.review_and_strip_code(str(changes), commits_text)
-    score = CodeReviewer.parse_review_score(review_text=review_result)
+    # 检查是否启用行级评审
+    # 逻辑：
+    # 1. 如果 MENTION_TRIGGER_LINE_REVIEW_ENABLED=1，则强制启用行级评审
+    # 2. 如果 MENTION_TRIGGER_LINE_REVIEW_ENABLED=0，但用户是在代码行上评论（DiffNote），则自动启用行级评审
+    config_line_review_enabled = project_config.get('MENTION_TRIGGER_LINE_REVIEW_ENABLED', '0') == '1'
+    is_diff_note = handler.is_diff_note()
+    
+    line_review_enabled = config_line_review_enabled or is_diff_note
+    
+    if is_diff_note and not config_line_review_enabled:
+        logger.info("检测到代码行评论（DiffNote），自动启用行级审查模式")
+
+    if line_review_enabled:
+        # 使用行级审查器
+        logger.info("使用行级代码审查模式（Commit @触发）")
+        line_reviewer = LineReviewer(project_path=project_path, config=project_config)
+        line_review_result = line_reviewer.review_and_parse(str(changes), commits_text)
+        
+        # 获取行级评论
+        line_comments = line_review_result.get('line_comments', [])
+        
+        # 先添加行级评论
+        if line_comments:
+            success_count = handler.add_line_level_commit_comments(line_comments)
+            logger.info(f"成功添加 {success_count} 条 Commit 行级评论")
+        
+        # 获取格式化的摘要
+        review_result = line_reviewer.get_formatted_summary(line_review_result)
+        score = line_review_result.get('score', 0)
+    else:
+        # 使用总结式审查（Commit 不支持行级评论）
+        logger.info("使用总结式代码审查模式（Commit @触发）")
+        reviewer = CodeReviewer(project_path=project_path, config=project_config)
+        review_result = reviewer.review_and_strip_code(str(changes), commits_text)
+        score = CodeReviewer.parse_review_score(review_text=review_result)
     
     # 添加触发信息到评审结果
     trigger_info = f"\n\n---\n*🤖 此评审由 @{webhook_data.get('user', {}).get('username', 'unknown')} 通过评论触发*"
