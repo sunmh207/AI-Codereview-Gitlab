@@ -203,6 +203,12 @@ def handle_note_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
         bot_usernames_str = project_config.get('REVIEW_BOT_USERNAMES', 'code-review-bot,ai-reviewer,codereview')
         bot_usernames = [name.strip().lower() for name in bot_usernames_str.split(',') if name.strip()]
         
+        # 检查评论作者是否为机器人自己，防止无限循环
+        author_username = webhook_data.get('user', {}).get('username', '').lower()
+        if author_username in bot_usernames:
+            logger.info(f"检测到评论作者为机器人 ({author_username})，跳过处理以防止循环触发")
+            return
+
         # 检查是否通过 @机器人 触发
         if not handler.is_triggered_by_mention(bot_usernames):
             logger.info("评论中未检测到 @机器人，跳过处理")
