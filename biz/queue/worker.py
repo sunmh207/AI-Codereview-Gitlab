@@ -199,6 +199,12 @@ def handle_note_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
         # 解析 Note Hook 数据
         handler = NoteHandler(webhook_data, gitlab_token, gitlab_url)
         
+        # 防止机器人回复触发循环：检查评论内容是否包含机器人生成的特定标识
+        # 场景：用户使用自己的账号作为机器人账号，机器人回复中包含 @用户，导致无限循环
+        if handler.note_content and handler.note_content.strip().startswith("Auto Review Result"):
+            logger.info("检测到评论内容为自动审查结果，跳过处理以防止循环触发")
+            return
+        
         # 获取机器人用户名配置（支持多个用户名，逗号分隔）
         bot_usernames_str = project_config.get('REVIEW_BOT_USERNAMES', 'code-review-bot,ai-reviewer,codereview')
         bot_usernames = [name.strip().lower() for name in bot_usernames_str.split(',') if name.strip()]
