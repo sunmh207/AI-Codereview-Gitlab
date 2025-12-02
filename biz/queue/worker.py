@@ -288,7 +288,7 @@ def _handle_mr_note_review(handler: NoteHandler, webhook_data: dict, project_pat
         # 使用行级审查器
         logger.info("使用行级代码审查模式（MR @触发）")
         line_reviewer = LineReviewer(project_path=project_path, config=project_config)
-        line_review_result = line_reviewer.review_and_parse(str(changes), commits_text)
+        line_review_result = line_reviewer.review_and_parse(str(changes), commits_text, user_note=handler.note_content)
         
         # 获取行级评论
         line_comments = line_review_result.get('line_comments', [])
@@ -305,7 +305,7 @@ def _handle_mr_note_review(handler: NoteHandler, webhook_data: dict, project_pat
         # 使用传统总结式审查
         logger.info("使用总结式代码审查模式（MR @触发）")
         reviewer = CodeReviewer(project_path=project_path, config=project_config)
-        review_result = reviewer.review_and_strip_code(str(changes), commits_text)
+        review_result = reviewer.review_and_strip_code(str(changes), commits_text, user_note=handler.note_content)
         score = CodeReviewer.parse_review_score(review_text=review_result)
     
     # 添加触发信息到评审结果
@@ -370,7 +370,7 @@ def _handle_commit_note_review(handler: NoteHandler, webhook_data: dict, project
         # 使用行级审查器
         logger.info("使用行级代码审查模式（Commit @触发）")
         line_reviewer = LineReviewer(project_path=project_path, config=project_config)
-        line_review_result = line_reviewer.review_and_parse(str(changes), commits_text)
+        line_review_result = line_reviewer.review_and_parse(str(changes), commits_text, user_note=handler.note_content)
         
         # 获取行级评论
         line_comments = line_review_result.get('line_comments', [])
@@ -387,7 +387,7 @@ def _handle_commit_note_review(handler: NoteHandler, webhook_data: dict, project
         # 使用总结式审查（Commit 不支持行级评论）
         logger.info("使用总结式代码审查模式（Commit @触发）")
         reviewer = CodeReviewer(project_path=project_path, config=project_config)
-        review_result = reviewer.review_and_strip_code(str(changes), commits_text)
+        review_result = reviewer.review_and_strip_code(str(changes), commits_text, user_note=handler.note_content)
         score = CodeReviewer.parse_review_score(review_text=review_result)
     
     # 添加触发信息到评审结果

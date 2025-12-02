@@ -65,12 +65,13 @@ class CodeReviewer(BaseReviewer):
     def __init__(self, app_name: Optional[str] = None, project_path: Optional[str] = None, config: Optional[Dict[str, str]] = None):
         super().__init__("code_review_prompt", app_name, project_path, config)
 
-    def review_and_strip_code(self, changes_text: str, commits_text: str = "") -> str:
+    def review_and_strip_code(self, changes_text: str, commits_text: str = "", user_note: str = "") -> str:
         """
         Review判断changes_text超出取前REVIEW_MAX_TOKENS个token，超出则截断changes_text，
         调用review_code方法，返回review_result，如果review_result是markdown格式，则去掉头尾的```
         :param changes_text:
         :param commits_text:
+        :param user_note: 用户触发Review时的评论内容
         :return:
         """
         # 从config中读取REVIEW_MAX_TOKENS（已包含默认值）
@@ -85,20 +86,27 @@ class CodeReviewer(BaseReviewer):
         if tokens_count > review_max_tokens:
             changes_text = truncate_text_by_tokens(changes_text, review_max_tokens)
 
-        review_result = self.review_code(changes_text, commits_text).strip()
+        review_result = self.review_code(changes_text, commits_text, user_note).strip()
         if review_result.startswith("```markdown") and review_result.endswith("```"):
             return review_result[11:-3].strip()
         return review_result
 
-    def review_code(self, diffs_text: str, commits_text: str = "") -> str:
+    def review_code(self, diffs_text: str, commits_text: str = "", user_note: str = "") -> str:
         """Review 代码并返回结果"""
+        
+        content = self.prompts["user_message"]["content"].format(
+            diffs_text=diffs_text, commits_text=commits_text
+        )
+        
+        # 如果有用户评论，添加到提示词中
+        if user_note:
+            content += f"\n\n用户在触发Review时的附加评论/要求：\n{user_note}"
+            
         messages = [
             self.prompts["system_message"],
             {
                 "role": "user",
-                "content": self.prompts["user_message"]["content"].format(
-                    diffs_text=diffs_text, commits_text=commits_text
-                ),
+                "content": content,
             },
         ]
         return self.call_llm(messages)
@@ -118,25 +126,33 @@ class LineReviewer(BaseReviewer):
     def __init__(self, app_name: Optional[str] = None, project_path: Optional[str] = None, config: Optional[Dict[str, str]] = None):
         super().__init__("line_review_prompt", app_name, project_path, config)
 
-    def review_code(self, diffs_text: str, commits_text: str = "") -> str:
+    def review_code(self, diffs_text: str, commits_text: str = "", user_note: str = "") -> str:
         """Review 代码并返回 JSON 格式结果"""
+        
+        content = self.prompts["user_message"]["content"].format(
+            diffs_text=diffs_text, commits_text=commits_text
+        )
+        
+        # 如果有用户评论，添加到提示词中
+        if user_note:
+            content += f"\n\n用户在触发Review时的附加评论/要求：\n{user_note}"
+            
         messages = [
             self.prompts["system_message"],
             {
                 "role": "user",
-                "content": self.prompts["user_message"]["content"].format(
-                    diffs_text=diffs_text, commits_text=commits_text
-                ),
+                "content": content,
             },
         ]
         return self.call_llm(messages)
 
-    def review_and_parse(self, changes_text: str, commits_text: str = "") -> Dict[str, Any]:
+    def review_and_parse(self, changes_text: str, commits_text: str = "", user_note: str = "") -> Dict[str, Any]:
         """
         执行行级审查并解析结果为结构化数据
         
         :param changes_text: 代码变更内容
         :param commits_text: 提交信息
+        :param user_note: 用户触发Review时的评论内容
         :return: 包含 summary, score, line_comments 的字典
         """
         # 从config中读取REVIEW_MAX_TOKENS（已包含默认值）
@@ -155,7 +171,7 @@ class LineReviewer(BaseReviewer):
         if tokens_count > review_max_tokens:
             changes_text = truncate_text_by_tokens(changes_text, review_max_tokens)
 
-        review_result = self.review_code(changes_text, commits_text).strip()
+        review_result = self.review_code(changes_text, commits_text, user_note).strip()
         
         # 解析 JSON 结果
         return self._parse_json_result(review_result)
