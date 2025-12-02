@@ -497,6 +497,19 @@ class NoteHandler:
             self.noteable_type = object_attributes.get('noteable_type', '')
             self.note_type = object_attributes.get('type', '')  # DiffNote or Note
             self.project_id = self.webhook_data.get('project', {}).get('id')
+            # 获取讨论ID，用于回复到原始评论
+            self.discussion_id = object_attributes.get('discussion_id', '')
+            
+            # 解析 DiffNote 的位置信息（行内评论）
+            self.diff_position = None
+            if self.note_type == 'DiffNote':
+                position = object_attributes.get('position', {})
+                self.diff_position = {
+                    'file_path': position.get('new_path') or position.get('old_path', ''),
+                    'new_line': position.get('new_line'),
+                    'old_line': position.get('old_line'),
+                }
+                logger.info(f"解析到行内评论位置: {self.diff_position}")
             
             # 如果是 MR 上的评论
             if self.noteable_type == 'MergeRequest':
@@ -507,6 +520,16 @@ class NoteHandler:
             elif self.noteable_type == 'Commit':
                 commit = self.webhook_data.get('commit', {})
                 self.commit_id = commit.get('id')
+
+    def get_diff_note_context(self) -> Optional[Dict]:
+        """
+        获取行内评论的位置上下文信息
+        
+        :return: 包含文件路径和行号的字典，如果不是行内评论则返回 None
+        """
+        if not self.is_diff_note() or not self.diff_position:
+            return None
+        return self.diff_position
 
     def is_diff_note(self) -> bool:
         """检查是否是代码行上的评论"""
@@ -683,6 +706,44 @@ class NoteHandler:
         else:
             logger.error(f"Failed to add review note: {response.status_code}, {response.text}")
 
+    def reply_to_discussion(self, body: str) -> bool:
+        """
+        回复到原始讨论线程
+        
+        :param body: 回复内容
+        :return: 是否成功
+        """
+        if not self.discussion_id:
+            logger.warn("没有 discussion_id，无法回复到原始讨论")
+            return False
+        
+        if self.is_merge_request_note():
+            url = urljoin(f"{self.gitlab_url}/",
+                          f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/discussions/{self.discussion_id}/notes")
+        elif self.is_commit_note():
+            url = urljoin(f"{self.gitlab_url}/",
+                          f"api/v4/projects/{self.project_id}/repository/commits/{self.commit_id}/discussions/{self.discussion_id}/notes")
+        else:
+            logger.warn("不支持的评论类型")
+            return False
+        
+        headers = {
+            'Private-Token': self.gitlab_token,
+            'Content-Type': 'application/json'
+        }
+        data = {
+            'body': body
+        }
+        
+        response = requests.post(url, headers=headers, json=data, verify=False)
+        
+        if response.status_code == 201:
+            logger.info("成功回复到原始讨论")
+            return True
+        else:
+            logger.error(f"回复讨论失败: {response.status_code}, {response.text}")
+            return False
+
     def add_merge_request_discussion(self, body: str, file_path: str, new_line: int,
                                       base_sha: str, head_sha: str, start_sha: str,
                                       old_line: Optional[int] = None) -> bool:
@@ -754,80 +815,96 @@ class NoteHandler:
             return False
 
     def add_line_level_commit_comments(self, line_comments: List[Dict]) -> int:
-        """批量添加 Commit 行级评论"""
-        success_count = 0
+        """
+        将 Commit 行级评论合并为一条评论并回复到原始讨论
+        
+        :param line_comments: 行级评论列表
+        :return: 成功返回1，失败返回0
+        """
+        if not line_comments:
+            logger.info("没有 Commit 行级评论需要添加")
+            return 0
+        
+        # 格式化所有评论为 Markdown
+        formatted_body = self.format_line_comments_as_markdown(line_comments)
+        
+        if not formatted_body:
+            return 0
+        
+        # 优先回复到原始讨论
+        if self.discussion_id:
+            if self.reply_to_discussion(formatted_body):
+                logger.info(f"成功将 {len(line_comments)} 条 Commit 行级评论合并回复到原始讨论")
+                return 1
+        
+        # 如果没有 discussion_id 或回复失败，则添加为普通 Commit 评论
+        logger.info("无法回复到原始讨论，将添加为普通 Commit 评论")
+        self.add_commit_notes(formatted_body)
+        return 1
+
+    def format_line_comments_as_markdown(self, line_comments: List[Dict]) -> str:
+        """
+        将行级评论格式化为 Markdown 格式的单条评论
+        
+        :param line_comments: 行级评论列表
+        :return: 格式化后的 Markdown 字符串
+        """
+        if not line_comments:
+            return ""
+        
+        severity_icons = {
+            'critical': '🚨',
+            'warning': '⚠️',
+            'suggestion': '💡',
+            'info': 'ℹ️'
+        }
+        
+        # 按文件分组
+        file_comments = {}
         for comment in line_comments:
             file_path = comment.get('file_path', '')
-            line_number = comment.get('line_number', 0)
-            comment_body = comment.get('comment', '')
-            severity = comment.get('severity', 'info')
-            
-            if not all([file_path, line_number, comment_body]):
-                continue
-            
-            severity_prefix = {
-                'critical': '🚨 **严重问题**',
-                'warning': '⚠️ **警告**',
-                'suggestion': '💡 **建议**',
-                'info': 'ℹ️ **提示**'
-            }.get(severity, 'ℹ️ **提示**')
-            
-            formatted_body = f"{severity_prefix}\n\n{comment_body}"
-            
-            if self.add_commit_discussion(
-                body=formatted_body,
-                file_path=file_path,
-                line=line_number
-            ):
-                success_count += 1
+            if file_path not in file_comments:
+                file_comments[file_path] = []
+            file_comments[file_path].append(comment)
         
-        logger.info(f"成功添加 {success_count}/{len(line_comments)} 条 Commit 行级评论")
-        return success_count
+        lines = []
+        for file_path, comments in file_comments.items():
+            lines.append(f"### 📄 `{file_path}`")
+            for comment in comments:
+                line_number = comment.get('line_number', 0)
+                comment_body = comment.get('comment', '')
+                severity = comment.get('severity', 'info')
+                icon = severity_icons.get(severity, 'ℹ️')
+                
+                lines.append(f"- {icon} **L{line_number}**: {comment_body}")
+            lines.append("")  # 空行分隔
+        
+        return "\n".join(lines)
 
     def add_line_level_comments(self, line_comments: List[Dict]) -> int:
-        """批量添加行级评论"""
-        versions = self.get_merge_request_versions()
-        if not versions:
-            logger.error("无法获取 MR 版本信息，无法添加行级评论")
+        """
+        将行级评论合并为一条评论并回复到原始讨论
+        
+        :param line_comments: 行级评论列表
+        :return: 成功返回1，失败返回0
+        """
+        if not line_comments:
+            logger.info("没有行级评论需要添加")
             return 0
         
-        latest_version = versions[0]
-        base_sha = latest_version.get('base_commit_sha')
-        head_sha = latest_version.get('head_commit_sha')
-        start_sha = latest_version.get('start_commit_sha')
+        # 格式化所有评论为 Markdown
+        formatted_body = self.format_line_comments_as_markdown(line_comments)
         
-        if not all([base_sha, head_sha, start_sha]):
-            logger.error(f"版本信息不完整: base={base_sha}, head={head_sha}, start={start_sha}")
+        if not formatted_body:
             return 0
         
-        success_count = 0
-        for comment in line_comments:
-            file_path = comment.get('file_path', '')
-            line_number = comment.get('line_number', 0)
-            comment_body = comment.get('comment', '')
-            severity = comment.get('severity', 'info')
-            
-            if not all([file_path, line_number, comment_body]):
-                continue
-            
-            severity_prefix = {
-                'critical': '🚨 **严重问题**',
-                'warning': '⚠️ **警告**',
-                'suggestion': '💡 **建议**',
-                'info': 'ℹ️ **提示**'
-            }.get(severity, 'ℹ️ **提示**')
-            
-            formatted_body = f"{severity_prefix}\n\n{comment_body}"
-            
-            if self.add_merge_request_discussion(
-                body=formatted_body,
-                file_path=file_path,
-                new_line=line_number,
-                base_sha=base_sha,
-                head_sha=head_sha,
-                start_sha=start_sha
-            ):
-                success_count += 1
+        # 优先回复到原始讨论
+        if self.discussion_id:
+            if self.reply_to_discussion(formatted_body):
+                logger.info(f"成功将 {len(line_comments)} 条行级评论合并回复到原始讨论")
+                return 1
         
-        logger.info(f"成功添加 {success_count}/{len(line_comments)} 条行级评论")
-        return success_count
+        # 如果没有 discussion_id 或回复失败，则添加为普通 MR 评论
+        logger.info("无法回复到原始讨论，将添加为普通 MR 评论")
+        self.add_merge_request_notes(formatted_body)
+        return 1

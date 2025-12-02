@@ -264,6 +264,27 @@ def _handle_mr_note_review(handler: NoteHandler, webhook_data: dict, project_pat
         logger.info("未检测到代码变更")
         return
     
+    # 检查是否是行内评论，如果是则只过滤出该文件的变更
+    diff_context = handler.get_diff_note_context()
+    user_note = handler.note_content
+    
+    if diff_context:
+        target_file = diff_context.get('file_path', '')
+        target_line = diff_context.get('new_line') or diff_context.get('old_line')
+        
+        if target_file:
+            # 只保留用户评论所在文件的变更
+            filtered_changes = [c for c in changes if c.get('new_path') == target_file]
+            if filtered_changes:
+                changes = filtered_changes
+                logger.info(f"行内评论模式：只分析文件 {target_file} 的变更")
+            
+            # 在用户注释中添加行号上下文，帮助 AI 聚焦
+            if target_line:
+                line_context = f"\n[用户在文件 {target_file} 的第 {target_line} 行发起评论，请重点分析该行及其上下文]"
+                user_note = f"{user_note}{line_context}" if user_note else line_context
+                logger.info(f"添加行号上下文: 文件={target_file}, 行={target_line}")
+    
     # 统计代码变更量
     additions = sum(item.get('additions', 0) for item in changes)
     deletions = sum(item.get('deletions', 0) for item in changes)
@@ -288,7 +309,7 @@ def _handle_mr_note_review(handler: NoteHandler, webhook_data: dict, project_pat
         # 使用行级审查器
         logger.info("使用行级代码审查模式（MR @触发）")
         line_reviewer = LineReviewer(project_path=project_path, config=project_config)
-        line_review_result = line_reviewer.review_and_parse(str(changes), commits_text, user_note=handler.note_content)
+        line_review_result = line_reviewer.review_and_parse(str(changes), commits_text, user_note=user_note)
         
         # 获取行级评论
         line_comments = line_review_result.get('line_comments', [])
@@ -305,15 +326,18 @@ def _handle_mr_note_review(handler: NoteHandler, webhook_data: dict, project_pat
         # 使用传统总结式审查
         logger.info("使用总结式代码审查模式（MR @触发）")
         reviewer = CodeReviewer(project_path=project_path, config=project_config)
-        review_result = reviewer.review_and_strip_code(str(changes), commits_text, user_note=handler.note_content)
+        review_result = reviewer.review_and_strip_code(str(changes), commits_text, user_note=user_note)
         score = CodeReviewer.parse_review_score(review_text=review_result)
     
     # 添加触发信息到评审结果
     trigger_info = f"\n\n---\n*🤖 此评审由 @{webhook_data.get('user', {}).get('username', 'unknown')} 通过评论触发*"
     review_result_with_info = f"Auto Review Result:\n{review_result}{trigger_info}"
     
-    # 发布评审结果
-    handler.add_merge_request_notes(review_result_with_info)
+    # 发布评审结果 - 优先回复到原始讨论
+    if handler.discussion_id:
+        handler.reply_to_discussion(review_result_with_info)
+    else:
+        handler.add_merge_request_notes(review_result_with_info)
     
     logger.info(f"MR @触发代码审查完成，评分: {score}")
     
@@ -346,6 +370,27 @@ def _handle_commit_note_review(handler: NoteHandler, webhook_data: dict, project
         logger.info("未检测到代码变更")
         return
     
+    # 检查是否是行内评论，如果是则只过滤出该文件的变更
+    diff_context = handler.get_diff_note_context()
+    user_note = handler.note_content
+    
+    if diff_context:
+        target_file = diff_context.get('file_path', '')
+        target_line = diff_context.get('new_line') or diff_context.get('old_line')
+        
+        if target_file:
+            # 只保留用户评论所在文件的变更
+            filtered_changes = [c for c in changes if c.get('new_path') == target_file or c.get('old_path') == target_file]
+            if filtered_changes:
+                changes = filtered_changes
+                logger.info(f"行内评论模式：只分析文件 {target_file} 的变更")
+            
+            # 在用户注释中添加行号上下文，帮助 AI 聚焦
+            if target_line:
+                line_context = f"\n[用户在文件 {target_file} 的第 {target_line} 行发起评论，请重点分析该行及其上下文]"
+                user_note = f"{user_note}{line_context}" if user_note else line_context
+                logger.info(f"添加行号上下文: 文件={target_file}, 行={target_line}")
+    
     # 统计代码变更量
     additions = sum(item.get('additions', 0) for item in changes)
     deletions = sum(item.get('deletions', 0) for item in changes)
@@ -370,7 +415,7 @@ def _handle_commit_note_review(handler: NoteHandler, webhook_data: dict, project
         # 使用行级审查器
         logger.info("使用行级代码审查模式（Commit @触发）")
         line_reviewer = LineReviewer(project_path=project_path, config=project_config)
-        line_review_result = line_reviewer.review_and_parse(str(changes), commits_text, user_note=handler.note_content)
+        line_review_result = line_reviewer.review_and_parse(str(changes), commits_text, user_note=user_note)
         
         # 获取行级评论
         line_comments = line_review_result.get('line_comments', [])
@@ -387,15 +432,18 @@ def _handle_commit_note_review(handler: NoteHandler, webhook_data: dict, project
         # 使用总结式审查（Commit 不支持行级评论）
         logger.info("使用总结式代码审查模式（Commit @触发）")
         reviewer = CodeReviewer(project_path=project_path, config=project_config)
-        review_result = reviewer.review_and_strip_code(str(changes), commits_text, user_note=handler.note_content)
+        review_result = reviewer.review_and_strip_code(str(changes), commits_text, user_note=user_note)
         score = CodeReviewer.parse_review_score(review_text=review_result)
     
     # 添加触发信息到评审结果
     trigger_info = f"\n\n---\n*🤖 此评审由 @{webhook_data.get('user', {}).get('username', 'unknown')} 通过评论触发*"
     review_result_with_info = f"Auto Review Result:\n{review_result}{trigger_info}"
     
-    # 发布评审结果
-    handler.add_commit_notes(review_result_with_info)
+    # 发布评审结果 - 优先回复到原始讨论
+    if handler.discussion_id:
+        handler.reply_to_discussion(review_result_with_info)
+    else:
+        handler.add_commit_notes(review_result_with_info)
     
     logger.info(f"Commit @触发代码审查完成，评分: {score}")
     
