@@ -7,7 +7,7 @@
 ## 功能
 
 - 🚀 多模型支持
-  - 兼容 DeepSeek、ZhipuAI、OpenAI、通义千问 和 Ollama，想用哪个就用哪个。
+  - 兼容 DeepSeek、ZhipuAI、OpenAI、通义千问、Ollama 和 Dify，想用哪个就用哪个。
 - 📢 消息即时推送
   - 审查结果一键直达 钉钉、企业微信 或 飞书，代码问题无处可藏！
 - 📅 自动化日报生成
@@ -56,7 +56,7 @@ cp conf/.env.dist conf/.env
 - 编辑 conf/.env 文件，配置以下关键参数：
 
 ```bash
-#大模型供应商配置,支持 zhipuai , openai , deepseek 和 ollama
+#大模型供应商配置,支持 zhipuai , openai , deepseek , ollama 和 dify
 LLM_PROVIDER=deepseek
 
 #DeepSeek
