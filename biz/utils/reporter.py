@@ -1,9 +1,15 @@
+from typing import Dict, Optional
+
 from biz.llm.factory import Factory
 
 
 class Reporter:
-    def __init__(self):
-        self.client = Factory().getClient()
+    def __init__(self, config: Optional[Dict[str, str]] = None):
+        """
+        初始化报告生成器
+        :param config: 项目专属配置字典
+        """
+        self.client = Factory().getClient(config=config)
 
     def generate_report(self, data: str) -> str:
         # 根据data生成报告

@@ -480,7 +480,7 @@ def main_page():
 
             data = get_data(service_func, updated_at_gte=int(start_datetime.timestamp()),
                             updated_at_lte=int(end_datetime.timestamp()), columns=columns)
-            df = pd.DataFrame(data)
+            df = data
 
             unique_authors = sorted(df["author"].dropna().unique().tolist()) if not df.empty else []
             unique_projects = sorted(df["project_name"].dropna().unique().tolist()) if not df.empty else []
@@ -492,7 +492,7 @@ def main_page():
             data = get_data(service_func, authors=authors, project_names=project_names,
                             updated_at_gte=int(start_datetime.timestamp()),
                             updated_at_lte=int(end_datetime.timestamp()), columns=columns)
-            df = pd.DataFrame(data)
+            df = data
 
             st.data_editor(
                 df,

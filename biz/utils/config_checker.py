@@ -15,7 +15,7 @@ REQUIRED_ENV_VARS = [
 ]
 
 # 允许的 LLM 供应商
-LLM_PROVIDERS = {"zhipuai", "openai", "deepseek", "ollama", "qwen"}
+LLM_PROVIDERS = {"zhipuai", "openai", "deepseek", "ollama", "qwen", "kimi"}
 
 # 每种供应商必须配置的键
 LLM_REQUIRED_KEYS = {
@@ -24,6 +24,7 @@ LLM_REQUIRED_KEYS = {
     "deepseek": ["DEEPSEEK_API_KEY", "DEEPSEEK_API_MODEL"],
     "ollama": ["OLLAMA_API_BASE_URL", "OLLAMA_API_MODEL"],
     "qwen": ["QWEN_API_KEY", "QWEN_API_MODEL"],
+    "kimi": ["KIMI_API_KEY", "KIMI_API_MODEL"],
 }
 
 
@@ -57,8 +58,13 @@ def check_llm_provider():
         logger.info(f"LLM 供应商 {llm_provider} 的配置项已设置。")
 
 def check_llm_connectivity():
-    client = Factory().getClient()
-    logger.info(f"正在检查 LLM 供应商的连接...")
+    llm_provider = os.getenv("LLM_PROVIDER")
+    if not llm_provider:
+        logger.error("LLM_PROVIDER 未设置，跳过连接检查。")
+        return
+    
+    client = Factory().getClient(provider=llm_provider)
+    logger.info(f"正在检查 LLM 供应商 {llm_provider} 的连接...")
     if client.ping():
         logger.info("LLM 可以连接成功。")
     else:

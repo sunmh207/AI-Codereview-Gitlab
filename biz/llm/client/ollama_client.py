@@ -10,9 +10,10 @@ from biz.llm.types import NotGiven, NOT_GIVEN
 
 
 class OllamaClient(BaseClient):
-    def __init__(self, api_key: str = None):
-        self.default_model = self.default_model = os.getenv("OLLAMA_API_MODEL", "deepseek-r1-8k:14b")
-        self.base_url = os.getenv("OLLAMA_API_BASE_URL", "http://127.0.0.1:11434")
+    def __init__(self, api_key: Optional[str] = None, config: Optional[Dict[str, str]] = None):
+        super().__init__(config)
+        self.default_model = self.get_config("OLLAMA_API_MODEL", "deepseek-r1-8k:14b")
+        self.base_url = self.get_config("OLLAMA_API_BASE_URL", "http://127.0.0.1:11434")
         self.client = Client(
             host=self.base_url,
         )
@@ -40,6 +41,7 @@ class OllamaClient(BaseClient):
                     messages: List[Dict[str, str]],
                     model: Optional[str] | NotGiven = NOT_GIVEN,
                     ) -> str:
-        response: ChatResponse = self.client.chat(model or self.default_model, messages)
+        model = model or self.default_model or "deepseek-r1-8k:14b"
+        response: ChatResponse = self.client.chat(model, messages)  # type: ignore
         content = response['message']['content']
         return self._extract_content(content)

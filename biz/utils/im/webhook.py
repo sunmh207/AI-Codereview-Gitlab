@@ -4,13 +4,16 @@ import requests
 
 
 class ExtraWebhookNotifier:
-    def __init__(self, webhook_url=None):
+    def __init__(self, webhook_url=None, project_config=None):
         """
         初始化ExtraWebhook通知器
         :param webhook_url: 自定义webhook地址
+        :param project_config: 项目专属配置字典
         """
-        self.default_webhook_url = webhook_url or os.environ.get('EXTRA_WEBHOOK_URL', '')
-        self.enabled = os.environ.get('EXTRA_WEBHOOK_ENABLED', '0') == '1'
+        self.project_config = project_config or {}
+        # 优先从 project_config 获取，如果没有则降级到 os.environ
+        self.default_webhook_url = webhook_url or self.project_config.get('EXTRA_WEBHOOK_URL', '') or os.environ.get('EXTRA_WEBHOOK_URL', '')
+        self.enabled = (self.project_config.get('EXTRA_WEBHOOK_ENABLED', '0') or os.environ.get('EXTRA_WEBHOOK_ENABLED', '0')) == '1'
 
     def send_message(self, system_data: dict, webhook_data: dict):
         """

@@ -1,6 +1,8 @@
+import json
 import os
 import re
 import time
+from typing import Optional, Dict, List
 from urllib.parse import urljoin
 import fnmatch
 import requests
@@ -8,12 +10,15 @@ import requests
 from biz.utils.log import logger
 
 
-def filter_changes(changes: list):
+def filter_changes(changes: list, project_config: Optional[Dict[str, str]] = None):
     '''
     过滤数据，只保留支持的文件类型以及必要的字段信息
+    :param changes: 变更列表
+    :param project_config: 项目专属配置字典
     '''
-    # 从环境变量中获取支持的文件扩展名
-    supported_extensions = os.getenv('SUPPORTED_EXTENSIONS', '.java,.py,.php').split(',')
+    # 从项目配置中获取支持的文件扩展名
+    project_config = project_config or {}
+    supported_extensions = project_config.get('SUPPORTED_EXTENSIONS', '.java,.py,.php').split(',')
 
     filter_deleted_files_changes = [change for change in changes if not change.get("deleted_file")]
 
@@ -72,6 +77,21 @@ class MergeRequestHandler:
         self.merge_request_iid = merge_request.get('iid')
         self.project_id = merge_request.get('target_project_id')
         self.action = merge_request.get('action')
+
+    def is_author_excluded(self, excluded_users: Optional[list] = None) -> bool:
+        """
+        检查MR的作者是否在排除列表中
+        :param excluded_users: 排除的用户名列表，如 ['howbuyscm', 'admin']
+        :return: True表示作者在排除列表中，False表示不在
+        """
+        if not excluded_users:
+            excluded_users = ['howbuyscm']  # 默认排除用户
+        
+        author_username = self.webhook_data.get('user', {}).get('username', '')
+        if author_username in excluded_users:
+            logger.info(f"MR author '{author_username}' is in excluded users list. Skipping review.")
+            return True
+        return False
 
     def get_merge_request_changes(self) -> list:
         # 检查是否为 Merge Request Hook 事件
@@ -147,6 +167,139 @@ class MergeRequestHandler:
             logger.error(f"Failed to add note: {response.status_code}")
             logger.error(response.text)
 
+    def get_merge_request_versions(self) -> List[Dict]:
+        """
+        获取 MR 的版本信息，用于行级评论定位
+        返回包含 base_commit_sha, head_commit_sha, start_commit_sha 的版本列表
+        """
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/versions")
+        headers = {
+            'Private-Token': self.gitlab_token
+        }
+        response = requests.get(url, headers=headers, verify=False)
+        logger.debug(f"Get MR versions response: {response.status_code}, {response.text}")
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.warn(f"Failed to get MR versions: {response.status_code}, {response.text}")
+            return []
+
+    def add_merge_request_discussion(self, body: str, file_path: str, new_line: int, 
+                                      base_sha: str, head_sha: str, start_sha: str,
+                                      old_line: Optional[int] = None) -> bool:
+        """
+        在 MR 的指定代码行上创建讨论（行级评论）
+        
+        :param body: 评论内容
+        :param file_path: 文件路径
+        :param new_line: 新版本中的行号
+        :param base_sha: 基础提交 SHA
+        :param head_sha: 头部提交 SHA  
+        :param start_sha: 起始提交 SHA
+        :param old_line: 旧版本中的行号（可选，用于评论被删除的行）
+        :return: 是否成功
+        """
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/discussions")
+        headers = {
+            'Private-Token': self.gitlab_token,
+            'Content-Type': 'application/json'
+        }
+        
+        position = {
+            'base_sha': base_sha,
+            'head_sha': head_sha,
+            'start_sha': start_sha,
+            'position_type': 'text',
+            'new_path': file_path,
+            'old_path': file_path,
+        }
+        
+        # 如果是新增的行，只设置 new_line
+        # 如果是删除的行，只设置 old_line
+        # 如果是修改的行，两者都设置
+        if new_line:
+            position['new_line'] = new_line
+        if old_line:
+            position['old_line'] = old_line
+            
+        data = {
+            'body': body,
+            'position': position
+        }
+        
+        response = requests.post(url, headers=headers, json=data, verify=False)
+        logger.debug(f"Add discussion to gitlab {url}: {response.status_code}, {response.text}")
+        
+        if response.status_code == 201:
+            logger.info(f"Discussion successfully added to {file_path}:{new_line or old_line}")
+            return True
+        else:
+            logger.error(f"Failed to add discussion: {response.status_code}, {response.text}")
+            return False
+
+    def add_line_level_comments(self, line_comments: List[Dict]) -> int:
+        """
+        批量添加行级评论
+        
+        :param line_comments: 行级评论列表，每个元素包含:
+            - file_path: 文件路径
+            - line_number: 行号
+            - comment: 评论内容
+            - severity: 严重程度 (可选: critical, warning, suggestion, info)
+        :return: 成功添加的评论数量
+        """
+        # 获取 MR 版本信息
+        versions = self.get_merge_request_versions()
+        if not versions:
+            logger.error("无法获取 MR 版本信息，无法添加行级评论")
+            return 0
+        
+        # 使用最新版本
+        latest_version = versions[0]
+        base_sha = latest_version.get('base_commit_sha')
+        head_sha = latest_version.get('head_commit_sha')
+        start_sha = latest_version.get('start_commit_sha')
+        
+        if not all([base_sha, head_sha, start_sha]):
+            logger.error(f"版本信息不完整: base={base_sha}, head={head_sha}, start={start_sha}")
+            return 0
+        
+        success_count = 0
+        for comment in line_comments:
+            file_path = comment.get('file_path', '')
+            line_number = comment.get('line_number', 0)
+            comment_body = comment.get('comment', '')
+            severity = comment.get('severity', 'info')
+            
+            if not all([file_path, line_number, comment_body]):
+                logger.warn(f"跳过无效评论: {comment}")
+                continue
+            
+            # 根据严重程度添加前缀标记
+            severity_prefix = {
+                'critical': '🚨 **严重问题**',
+                'warning': '⚠️ **警告**',
+                'suggestion': '💡 **建议**',
+                'info': 'ℹ️ **提示**'
+            }.get(severity, 'ℹ️ **提示**')
+            
+            formatted_body = f"{severity_prefix}\n\n{comment_body}"
+            
+            if self.add_merge_request_discussion(
+                body=formatted_body,
+                file_path=file_path,
+                new_line=line_number,
+                base_sha=base_sha,
+                head_sha=head_sha,
+                start_sha=start_sha
+            ):
+                success_count += 1
+        
+        logger.info(f"成功添加 {success_count}/{len(line_comments)} 条行级评论")
+        return success_count
+
     def target_branch_protected(self) -> bool:
         url = urljoin(f"{self.gitlab_url}/",
                       f"api/v4/projects/{self.project_id}/protected_branches")
@@ -215,13 +368,13 @@ class PushHandler:
         # 添加评论到 GitLab Push 请求的提交中（此处假设是在最后一次提交上添加注释）
         if not self.commit_list:
             logger.warn("No commits found to add notes to.")
-            return
+            return ''
 
         # 获取最后一个提交的ID
         last_commit_id = self.commit_list[-1].get('id')
         if not last_commit_id:
             logger.error("Last commit ID not found.")
-            return
+            return ''
 
         url = urljoin(f"{self.gitlab_url}/",
                       f"api/v4/projects/{self.project_id}/repository/commits/{last_commit_id}/comments")
@@ -236,9 +389,13 @@ class PushHandler:
         logger.debug(f"Add comment to commit {last_commit_id}: {response.status_code}, {response.text}")
         if response.status_code == 201:
             logger.info("Comment successfully added to push commit.")
+            # 返回commit的URL，用户可以在这里查看评论
+            commit_url = self.commit_list[-1].get('url', '')
+            return commit_url
         else:
             logger.error(f"Failed to add comment: {response.status_code}")
             logger.error(response.text)
+            return ''
 
     def __repository_commits(self, ref_name: str = "", since: str = "", until: str = "", pre_page: int = 100,
                              page: int = 1):
@@ -311,3 +468,443 @@ class PushHandler:
             return self.repository_compare(before, after)
         else:
             return []
+
+
+class NoteHandler:
+    """
+    处理 GitLab Note Hook 事件（评论事件）
+    支持通过 @机器人 触发代码审查
+    支持 MR 评论和 Commit 评论
+    """
+    def __init__(self, webhook_data: dict, gitlab_token: str, gitlab_url: str):
+        self.webhook_data = webhook_data
+        self.gitlab_token = gitlab_token
+        self.gitlab_url = gitlab_url
+        self.event_type = None
+        self.project_id = None
+        self.merge_request_iid = None
+        self.commit_id = None
+        self.note_content = None
+        self.noteable_type = None
+        self.parse_event()
+
+    def parse_event(self):
+        """解析 Note Hook 事件"""
+        self.event_type = self.webhook_data.get('object_kind', None)
+        if self.event_type == 'note':
+            object_attributes = self.webhook_data.get('object_attributes', {})
+            self.note_content = object_attributes.get('note', '')
+            self.noteable_type = object_attributes.get('noteable_type', '')
+            self.note_type = object_attributes.get('type', '')  # DiffNote or Note
+            self.project_id = self.webhook_data.get('project', {}).get('id')
+            # 获取讨论ID，用于回复到原始评论
+            self.discussion_id = object_attributes.get('discussion_id', '')
+            
+            # 解析 DiffNote 的位置信息（行内评论）
+            self.diff_position = None
+            if self.note_type == 'DiffNote':
+                position = object_attributes.get('position', {})
+                self.diff_position = {
+                    'file_path': position.get('new_path') or position.get('old_path', ''),
+                    'new_line': position.get('new_line'),
+                    'old_line': position.get('old_line'),
+                }
+                logger.info(f"解析到行内评论位置: {self.diff_position}")
+            
+            # 如果是 MR 上的评论
+            if self.noteable_type == 'MergeRequest':
+                merge_request = self.webhook_data.get('merge_request', {})
+                self.merge_request_iid = merge_request.get('iid')
+            
+            # 如果是 Commit 上的评论
+            elif self.noteable_type == 'Commit':
+                commit = self.webhook_data.get('commit', {})
+                self.commit_id = commit.get('id')
+
+    def get_diff_note_context(self) -> Optional[Dict]:
+        """
+        获取行内评论的位置上下文信息
+        
+        :return: 包含文件路径和行号的字典，如果不是行内评论则返回 None
+        """
+        if not self.is_diff_note() or not self.diff_position:
+            return None
+        return self.diff_position
+
+    def is_diff_note(self) -> bool:
+        """检查是否是代码行上的评论"""
+        return self.note_type == 'DiffNote'
+
+    def is_triggered_by_mention(self, bot_usernames: List[str] = None) -> bool:
+        """
+        检查评论是否通过 @机器人用户名 触发
+        
+        :param bot_usernames: 机器人用户名列表（不含@符号），如 ['code-review-bot', 'ai-reviewer']
+        :return: True 表示评论中 @了机器人
+        """
+        if not self.note_content:
+            return False
+        
+        if not bot_usernames:
+            # 默认机器人用户名
+            bot_usernames = ['code-review-bot', 'ai-reviewer', 'codereview']
+        
+        # 检查评论中是否 @了机器人
+        for username in bot_usernames:
+            # 支持 @username 格式
+            if f'@{username}' in self.note_content.lower():
+                logger.info(f"检测到 @{username} 触发代码审查")
+                return True
+        
+        return False
+
+    def is_merge_request_note(self) -> bool:
+        """检查是否是 MR 上的评论"""
+        return self.noteable_type == 'MergeRequest' and self.merge_request_iid is not None
+
+    def is_commit_note(self) -> bool:
+        """检查是否是 Commit 上的评论"""
+        return self.noteable_type == 'Commit' and self.commit_id is not None
+
+    def get_commit_diff(self) -> list:
+        """获取 Commit 的代码变更"""
+        if not self.is_commit_note():
+            logger.warn("Not a commit note, cannot get diff")
+            return []
+        
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/repository/commits/{self.commit_id}/diff")
+        headers = {
+            'Private-Token': self.gitlab_token
+        }
+        response = requests.get(url, headers=headers, verify=False)
+        logger.debug(f"Get commit diff response: {response.status_code}")
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.warn(f"Failed to get commit diff: {response.status_code}, {response.text}")
+            return []
+
+    def get_commit_info(self) -> dict:
+        """获取 Commit 的详细信息"""
+        if not self.is_commit_note():
+            return {}
+        
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/repository/commits/{self.commit_id}")
+        headers = {
+            'Private-Token': self.gitlab_token
+        }
+        response = requests.get(url, headers=headers, verify=False)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.warn(f"Failed to get commit info: {response.status_code}, {response.text}")
+            return {}
+
+    def add_commit_notes(self, note: str) -> str:
+        """添加 Commit 评论，返回评论 URL"""
+        if not self.is_commit_note():
+            return ''
+        
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/repository/commits/{self.commit_id}/comments")
+        headers = {
+            'Private-Token': self.gitlab_token,
+            'Content-Type': 'application/json'
+        }
+        data = {
+            'note': note
+        }
+        response = requests.post(url, headers=headers, json=data, verify=False)
+        
+        if response.status_code == 201:
+            logger.info("Review result successfully added to commit.")
+            # 返回 commit URL
+            project_path = self.webhook_data.get('project', {}).get('path_with_namespace', '')
+            return f"{self.gitlab_url}{project_path}/-/commit/{self.commit_id}"
+        else:
+            logger.error(f"Failed to add commit note: {response.status_code}, {response.text}")
+            return ''
+
+    def get_merge_request_changes(self) -> list:
+        """获取 MR 的代码变更"""
+        if not self.is_merge_request_note():
+            logger.warn("Not a merge request note, cannot get changes")
+            return []
+        
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/changes?access_raw_diffs=true")
+        headers = {
+            'Private-Token': self.gitlab_token
+        }
+        response = requests.get(url, headers=headers, verify=False)
+        logger.debug(f"Get MR changes response: {response.status_code}")
+        
+        if response.status_code == 200:
+            return response.json().get('changes', [])
+        else:
+            logger.warn(f"Failed to get MR changes: {response.status_code}, {response.text}")
+            return []
+
+    def get_merge_request_commits(self) -> list:
+        """获取 MR 的提交记录"""
+        if not self.is_merge_request_note():
+            return []
+        
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/commits")
+        headers = {
+            'Private-Token': self.gitlab_token
+        }
+        response = requests.get(url, headers=headers, verify=False)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.warn(f"Failed to get MR commits: {response.status_code}, {response.text}")
+            return []
+
+    def get_merge_request_versions(self) -> List[Dict]:
+        """获取 MR 的版本信息，用于行级评论定位"""
+        if not self.is_merge_request_note():
+            return []
+        
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/versions")
+        headers = {
+            'Private-Token': self.gitlab_token
+        }
+        response = requests.get(url, headers=headers, verify=False)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.warn(f"Failed to get MR versions: {response.status_code}, {response.text}")
+            return []
+
+    def add_merge_request_notes(self, review_result: str):
+        """添加 MR 评论"""
+        if not self.is_merge_request_note():
+            return
+        
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/notes")
+        headers = {
+            'Private-Token': self.gitlab_token,
+            'Content-Type': 'application/json'
+        }
+        data = {
+            'body': review_result
+        }
+        response = requests.post(url, headers=headers, json=data, verify=False)
+        
+        if response.status_code == 201:
+            logger.info("Review result successfully added to merge request.")
+        else:
+            logger.error(f"Failed to add review note: {response.status_code}, {response.text}")
+
+    def reply_to_discussion(self, body: str) -> bool:
+        """
+        回复到原始讨论线程
+        
+        :param body: 回复内容
+        :return: 是否成功
+        """
+        if not self.discussion_id:
+            logger.warn("没有 discussion_id，无法回复到原始讨论")
+            return False
+        
+        if self.is_merge_request_note():
+            url = urljoin(f"{self.gitlab_url}/",
+                          f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/discussions/{self.discussion_id}/notes")
+        elif self.is_commit_note():
+            url = urljoin(f"{self.gitlab_url}/",
+                          f"api/v4/projects/{self.project_id}/repository/commits/{self.commit_id}/discussions/{self.discussion_id}/notes")
+        else:
+            logger.warn("不支持的评论类型")
+            return False
+        
+        headers = {
+            'Private-Token': self.gitlab_token,
+            'Content-Type': 'application/json'
+        }
+        data = {
+            'body': body
+        }
+        
+        response = requests.post(url, headers=headers, json=data, verify=False)
+        
+        if response.status_code == 201:
+            logger.info("成功回复到原始讨论")
+            return True
+        else:
+            logger.error(f"回复讨论失败: {response.status_code}, {response.text}")
+            return False
+
+    def add_merge_request_discussion(self, body: str, file_path: str, new_line: int,
+                                      base_sha: str, head_sha: str, start_sha: str,
+                                      old_line: Optional[int] = None) -> bool:
+        """在 MR 的指定代码行上创建讨论（行级评论）"""
+        if not self.is_merge_request_note():
+            return False
+        
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/discussions")
+        headers = {
+            'Private-Token': self.gitlab_token,
+            'Content-Type': 'application/json'
+        }
+        
+        position = {
+            'base_sha': base_sha,
+            'head_sha': head_sha,
+            'start_sha': start_sha,
+            'position_type': 'text',
+            'new_path': file_path,
+            'old_path': file_path,
+        }
+        
+        if new_line:
+            position['new_line'] = new_line
+        if old_line:
+            position['old_line'] = old_line
+            
+        data = {
+            'body': body,
+            'position': position
+        }
+        
+        response = requests.post(url, headers=headers, json=data, verify=False)
+        
+        if response.status_code == 201:
+            logger.info(f"Discussion successfully added to {file_path}:{new_line or old_line}")
+            return True
+        else:
+            logger.error(f"Failed to add discussion: {response.status_code}, {response.text}")
+            return False
+
+    def add_commit_discussion(self, body: str, file_path: str, line: int) -> bool:
+        """在 Commit 的指定代码行上创建讨论（行级评论）"""
+        if not self.is_commit_note():
+            return False
+            
+        url = urljoin(f"{self.gitlab_url}/",
+                      f"api/v4/projects/{self.project_id}/repository/commits/{self.commit_id}/discussions")
+        headers = {
+            'Private-Token': self.gitlab_token,
+            'Content-Type': 'application/json'
+        }
+        
+        data = {
+            'body': body,
+            'path': file_path,
+            'line': line,
+            'line_type': 'new'
+        }
+        
+        response = requests.post(url, headers=headers, json=data, verify=False)
+        
+        if response.status_code == 201:
+            logger.info(f"Commit discussion successfully added to {file_path}:{line}")
+            return True
+        else:
+            logger.error(f"Failed to add commit discussion: {response.status_code}, {response.text}")
+            return False
+
+    def add_line_level_commit_comments(self, line_comments: List[Dict]) -> int:
+        """
+        将 Commit 行级评论合并为一条评论并回复到原始讨论
+        
+        :param line_comments: 行级评论列表
+        :return: 成功返回1，失败返回0
+        """
+        if not line_comments:
+            logger.info("没有 Commit 行级评论需要添加")
+            return 0
+        
+        # 格式化所有评论为 Markdown
+        formatted_body = self.format_line_comments_as_markdown(line_comments)
+        
+        if not formatted_body:
+            return 0
+        
+        # 优先回复到原始讨论
+        if self.discussion_id:
+            if self.reply_to_discussion(formatted_body):
+                logger.info(f"成功将 {len(line_comments)} 条 Commit 行级评论合并回复到原始讨论")
+                return 1
+        
+        # 如果没有 discussion_id 或回复失败，则添加为普通 Commit 评论
+        logger.info("无法回复到原始讨论，将添加为普通 Commit 评论")
+        self.add_commit_notes(formatted_body)
+        return 1
+
+    def format_line_comments_as_markdown(self, line_comments: List[Dict]) -> str:
+        """
+        将行级评论格式化为 Markdown 格式的单条评论
+        
+        :param line_comments: 行级评论列表
+        :return: 格式化后的 Markdown 字符串
+        """
+        if not line_comments:
+            return ""
+        
+        severity_icons = {
+            'critical': '🚨',
+            'warning': '⚠️',
+            'suggestion': '💡',
+            'info': 'ℹ️'
+        }
+        
+        # 按文件分组
+        file_comments = {}
+        for comment in line_comments:
+            file_path = comment.get('file_path', '')
+            if file_path not in file_comments:
+                file_comments[file_path] = []
+            file_comments[file_path].append(comment)
+        
+        lines = []
+        for file_path, comments in file_comments.items():
+            lines.append(f"### 📄 `{file_path}`")
+            for comment in comments:
+                line_number = comment.get('line_number', 0)
+                comment_body = comment.get('comment', '')
+                severity = comment.get('severity', 'info')
+                icon = severity_icons.get(severity, 'ℹ️')
+                
+                lines.append(f"- {icon} **L{line_number}**: {comment_body}")
+            lines.append("")  # 空行分隔
+        
+        return "\n".join(lines)
+
+    def add_line_level_comments(self, line_comments: List[Dict]) -> int:
+        """
+        将行级评论合并为一条评论并回复到原始讨论
+        
+        :param line_comments: 行级评论列表
+        :return: 成功返回1，失败返回0
+        """
+        if not line_comments:
+            logger.info("没有行级评论需要添加")
+            return 0
+        
+        # 格式化所有评论为 Markdown
+        formatted_body = self.format_line_comments_as_markdown(line_comments)
+        
+        if not formatted_body:
+            return 0
+        
+        # 优先回复到原始讨论
+        if self.discussion_id:
+            if self.reply_to_discussion(formatted_body):
+                logger.info(f"成功将 {len(line_comments)} 条行级评论合并回复到原始讨论")
+                return 1
+        
+        # 如果没有 discussion_id 或回复失败，则添加为普通 MR 评论
+        logger.info("无法回复到原始讨论，将添加为普通 MR 评论")
+        self.add_merge_request_notes(formatted_body)
+        return 1

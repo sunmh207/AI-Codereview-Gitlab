@@ -11,6 +11,9 @@ services:
     volumes:
       - ./data:/app/data
       - ./log:/app/log
+      - ./biz:/app/biz
+      - ./conf:/app/conf
+      - ./api.py:/app/api.py
     env_file:
       - ./conf/.env
     restart: unless-stopped

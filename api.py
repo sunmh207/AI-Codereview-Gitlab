@@ -15,7 +15,7 @@ from flask import Flask, request, jsonify
 
 from biz.gitlab.webhook_handler import slugify_url
 from biz.queue.worker import handle_merge_request_event, handle_push_event, handle_github_pull_request_event, \
-    handle_github_push_event, handle_gitea_pull_request_event, handle_gitea_push_event
+    handle_github_push_event, handle_gitea_pull_request_event, handle_gitea_push_event, handle_note_event
 from biz.service.review_service import ReviewService
 from biz.utils.im import notifier
 from biz.utils.log import logger
@@ -38,37 +38,92 @@ def home():
               """
 
 
-@api_app.route('/review/daily_report', methods=['GET'])
-def daily_report():
+def generate_daily_report_core():
+    """
+    日报生成核心逻辑，供Flask路由和定时任务共同调用
+    :return: (report_text, error_message)
+    """
+    logger.info("开始生成日报...")
+    
     # 获取当前日期0点和23点59分59秒的时间戳
-    start_time = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
-    end_time = datetime.now().replace(hour=23, minute=59, second=59, microsecond=0).timestamp()
+    start_time = int(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+    end_time = int(datetime.now().replace(hour=23, minute=59, second=59, microsecond=0).timestamp())
+    
+    logger.info(f"查询时间范围: {start_time} - {end_time}")
 
     try:
         if push_review_enabled:
+            logger.info("PUSH_REVIEW_ENABLED=true, 获取push review日志")
             df = ReviewService().get_push_review_logs(updated_at_gte=start_time, updated_at_lte=end_time)
         else:
+            logger.info("PUSH_REVIEW_ENABLED=false, 获取merge request review日志")
             df = ReviewService().get_mr_review_logs(updated_at_gte=start_time, updated_at_lte=end_time)
 
         if df.empty:
-            logger.info("No data to process.")
-            return jsonify({'message': 'No data to process.'}), 200
+            logger.info("没有找到相关数据.")
+            return None, "No data to process."
+        
+        logger.info(f"获取到 {len(df)} 条原始记录")
+        
         # 去重：基于 (author, message) 组合
         df_unique = df.drop_duplicates(subset=["author", "commit_messages"])
+        logger.info(f"去重后剩余 {len(df_unique)} 条记录")
+        
         # 按照 author 排序
         df_sorted = df_unique.sort_values(by="author")
+        logger.info("数据已按作者排序")
+        
         # 转换为适合生成日报的格式
         commits = df_sorted.to_dict(orient="records")
-        # 生成日报内容
+        logger.info(f"转换为 {len(commits)} 条提交记录用于日报生成")
+        
+        # 生成日报内容(Reporter会从环境变量读取LLM配置)
+        logger.info("开始调用LLM生成日报内容...")
         report_txt = Reporter().generate_report(json.dumps(commits))
-        # 发送钉钉通知
-        notifier.send_notification(content=report_txt, msg_type="markdown", title="代码提交日报")
+        logger.info("LLM日报内容生成完成")
+        
+        # 发送IM通知，使用 msg_category='daily_report' 来使用独立的日报webhook
+        logger.info("开始发送IM通知...")
+        notifier.send_notification(
+            content=report_txt, 
+            msg_type="markdown", 
+            title="代码提交日报",
+            msg_category="daily_report",
+            project_config=None  # 日报是全局任务,使用默认配置
+        )
+        logger.info("IM通知发送完成")
 
-        # 返回生成的日报内容
-        return json.dumps(report_txt, ensure_ascii=False, indent=4)
+        return report_txt, None
     except Exception as e:
-        logger.error(f"Failed to generate daily report: {e}")
-        return jsonify({'message': f"Failed to generate daily report: {e}"}), 500
+        logger.error(f"❌ Failed to generate daily report: {e}", exc_info=True)
+        return None, str(e)
+
+
+@api_app.route('/review/daily_report', methods=['GET'])
+def daily_report():
+    """
+    日报生成Flask路由接口
+    """
+    report_txt, error = generate_daily_report_core()
+    
+    if error:
+        return jsonify({'message': error}), 500 if report_txt is None else 200
+    
+    # 返回生成的日报内容
+    return json.dumps(report_txt, ensure_ascii=False, indent=4)
+
+
+def daily_report_scheduled():
+    """
+    定时任务专用的日报生成函数（不依赖Flask应用上下文）
+    """
+    logger.info("⏰ Scheduled daily report task started...")
+    report_txt, error = generate_daily_report_core()
+    
+    if error and report_txt is None:
+        logger.error(f"❌ Scheduled daily report failed: {error}")
+    else:
+        logger.info("✅ Scheduled daily report generated successfully")
 
 
 def setup_scheduler():
@@ -81,21 +136,33 @@ def setup_scheduler():
         cron_parts = crontab_expression.split()
         cron_minute, cron_hour, cron_day, cron_month, cron_day_of_week = cron_parts
 
+        logger.info(f"Configuring scheduler with cron expression: {crontab_expression}")
+        logger.info(f"Parsed cron: minute={cron_minute}, hour={cron_hour}, day={cron_day}, month={cron_month}, day_of_week={cron_day_of_week}")
+
         # Schedule the task based on the crontab expression
-        scheduler.add_job(
-            daily_report,
+        # 使用 daily_report_scheduled 而不是 daily_report，避免在定时任务中调用Flask路由
+        job = scheduler.add_job(
+            daily_report_scheduled,
             trigger=CronTrigger(
                 minute=cron_minute,
                 hour=cron_hour,
                 day=cron_day,
                 month=cron_month,
                 day_of_week=cron_day_of_week
-            )
+            ),
+            id='daily_report_job'
         )
 
         # Start the scheduler
         scheduler.start()
         logger.info("Scheduler started successfully.")
+        
+        # Log next run time
+        next_run = job.next_run_time
+        if next_run:
+            logger.info(f"Next scheduled run time: {next_run}")
+        else:
+            logger.warning("Could not determine next run time for the scheduled job")
 
         # Shut down the scheduler when exiting the app
         atexit.register(lambda: scheduler.shutdown())
@@ -201,8 +268,13 @@ def handle_gitlab_webhook(data):
         # 立马返回响应
         return jsonify(
             {'message': f'Request received(object_kind={object_kind}), will process asynchronously.'}), 200
+    elif object_kind == "note":
+        # 处理 Note Hook 事件（@机器人触发审查）
+        handle_queue(handle_note_event, data, gitlab_token, gitlab_url, gitlab_url_slug)
+        return jsonify(
+            {'message': f'Request received(object_kind={object_kind}), will process asynchronously.'}), 200
     else:
-        error_message = f'Only merge_request and push events are supported (both Webhook and System Hook), but received: {object_kind}.'
+        error_message = f'Only merge_request, push and note events are supported (both Webhook and System Hook), but received: {object_kind}.'
         logger.error(error_message)
         return jsonify(error_message), 400
 
@@ -239,4 +311,5 @@ if __name__ == '__main__':
 
     # 启动Flask API服务
     port = int(os.environ.get('SERVER_PORT', 5001))
-    api_app.run(host='0.0.0.0', port=port)
+    # 使用 use_reloader=False 避免在开发模式下调度器被初始化两次
+    api_app.run(host='0.0.0.0', port=port, use_reloader=False)
