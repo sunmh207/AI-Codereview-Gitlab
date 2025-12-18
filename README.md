@@ -1,4 +1,4 @@
-![Push图片](./doc/img/ai-codereview-cartoon.png)
+![Push图片](doc/img/open/ai-codereview-cartoon.png)
 
 ## 项目简介
 
@@ -7,11 +7,11 @@
 ## 功能
 
 - 🚀 多模型支持
-  - 兼容 DeepSeek、ZhipuAI、OpenAI、通义千问 和 Ollama，想用哪个就用哪个。
+  - 兼容 DeepSeek、ZhipuAI、OpenAI、Anthropic、通义千问 和 Ollama，想用哪个就用哪个。
 - 📢 消息即时推送
   - 审查结果一键直达 钉钉、企业微信 或 飞书，代码问题无处可藏！
 - 📅 自动化日报生成
-  - 基于 GitLab & GitHub Commit 记录，自动整理每日开发进展，谁在摸鱼、谁在卷，一目了然 😼。
+  - 基于 GitLab & GitHub & Gitea Commit 记录，自动整理每日开发进展，谁在摸鱼、谁在卷，一目了然 😼。
 - 📊 可视化 Dashboard
   - 集中展示所有 Code Review 记录，项目统计、开发者统计，数据说话，甩锅无门！
 - 🎭 Review Style 任你选
@@ -22,11 +22,11 @@
 
 **效果图:**
 
-![MR图片](./doc/img/mr.png)
+![MR图片](doc/img/open/mr.png)
 
-![Note图片](./doc/img/note.jpg)
+![Note图片](doc/img/open/note.jpg)
 
-![Dashboard图片](./doc/img/dashboard.jpg)
+![Dashboard图片](doc/img/open/dashboard.jpg)
 
 ## 原理
 
@@ -34,7 +34,7 @@
 事件，调用本系统的接口。系统随后通过第三方大模型对代码进行审查，并将审查结果直接反馈到对应的 Merge Request 或 Commit 的
 Note 中，便于团队查看和处理。
 
-![流程图](./doc/img/process.png)
+![流程图](doc/img/open/process.png)
 
 ## 部署
 
@@ -148,6 +148,18 @@ streamlit run ui.py --server.port=5002 --server.address=0.0.0.0
   - 请确保 GitLab 能够访问本系统。
   - 若内网环境受限，建议将系统部署在外网服务器上。
 
+### 配置 Gitea Webhook
+
+#### 1. 创建 Access Token
+- 在 Gitea 个人设置中创建 Access Token，并确保具备 `repo` 权限。
+
+#### 2. 配置 Webhook
+- 打开仓库 `Settings -> Webhooks -> Add Webhook`
+- URL：`http://your-server-ip:5001/review/webhook`
+- Header：`X-Gitea-Token` 设置为 `.env` 中的 `GITEA_ACCESS_TOKEN`（可选）
+- 触发事件：勾选 `Push events` 与 `Pull Request events`
+- Content Type：`application/json`
+
 ### 配置消息推送
 
 #### 1.配置钉钉推送
@@ -185,8 +197,8 @@ python -m biz.cmd.review
 也欢迎加微信/微信群，一起交流学习。
 
 <p float="left">
-  <img src="doc/img/wechat.jpg" width="400" />
-  <img src="doc/img/wechat_group.jpg" width="400" /> 
+  <img src="doc/img/open/wechat.jpg" width="400" />
+  <img src="doc/img/open/wechat_group.jpg" width="400" /> 
 </p>
 
 ## Star History

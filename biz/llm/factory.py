@@ -1,6 +1,7 @@
 import os
 
 from biz.llm.client.base import BaseClient
+from biz.llm.client.anthropic import AnthropicClient
 from biz.llm.client.deepseek import DeepSeekClient
 from biz.llm.client.ollama_client import OllamaClient
 from biz.llm.client.openai import OpenAIClient
@@ -12,13 +13,14 @@ from biz.utils.log import logger
 class Factory:
     @staticmethod
     def getClient(provider: str = None) -> BaseClient:
-        provider = provider or os.getenv("LLM_PROVIDER", "openai")
+        provider = provider or os.getenv("LLM_PROVIDER", "anthropic")
         chat_model_providers = {
+            'anthropic': lambda: AnthropicClient(),
             'zhipuai': lambda: ZhipuAIClient(),
             'openai': lambda: OpenAIClient(),
             'deepseek': lambda: DeepSeekClient(),
             'qwen': lambda: QwenClient(),
-            'ollama': lambda : OllamaClient()
+            'ollama': lambda: OllamaClient()
         }
 
         provider_func = chat_model_providers.get(provider)

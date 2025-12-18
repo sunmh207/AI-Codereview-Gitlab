@@ -85,7 +85,7 @@ class MergeRequestHandler:
         for attempt in range(max_retries):
             # 调用 GitLab API 获取 Merge Request 的 changes
             url = urljoin(f"{self.gitlab_url}/",
-                          f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/changes")
+                          f"api/v4/projects/{self.project_id}/merge_requests/{self.merge_request_iid}/changes?access_raw_diffs=true")
             headers = {
                 'Private-Token': self.gitlab_token
             }
@@ -185,7 +185,9 @@ class PushHandler:
 
     def parse_push_event(self):
         # 提取 Push 事件的相关参数
-        self.project_id = self.webhook_data.get('project', {}).get('id')
+        self.project_id = self.webhook_data.get('project_id', None)
+        if self.project_id is None:
+            self.project_id = self.webhook_data.get('project', {}).get('id')
         self.branch_name = self.webhook_data.get('ref', '').replace('refs/heads/', '')
         self.commit_list = self.webhook_data.get('commits', [])
 
