@@ -1,7 +1,7 @@
 import abc
 import os
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 import yaml
 from jinja2 import Template
@@ -16,11 +16,20 @@ class BaseReviewer(abc.ABC):
 
     def __init__(self, prompt_key: str):
         self.client = Factory().getClient()
-        self.prompts = self._load_prompts(prompt_key, os.getenv("REVIEW_STYLE", "professional"))
+        self.prompts = self._load_prompts(prompt_key)
 
-    def _load_prompts(self, prompt_key: str, style="professional") -> Dict[str, Any]:
+    def _load_prompts(
+        self, prompt_key: str, style: Optional[str] = None, prompt_templates_file: Optional[str] = None
+    ) -> Dict[str, Any]:
         """加载提示词配置"""
-        prompt_templates_file = "conf/prompt_templates.yml"
+        if not style:
+            # 如果未提供, 从环境变量中获取审查风格，默认为 "professional"
+            style = os.getenv("REVIEW_STYLE", "professional")
+
+        if not prompt_templates_file:
+            # 如果未提供, 使用默认的提示词配置文件路径
+            prompt_templates_file = "conf/prompt_templates.yml"
+
         try:
             # 在打开 YAML 文件时显式指定编码为 UTF-8，避免使用系统默认的 GBK 编码。
             with open(prompt_templates_file, "r", encoding="utf-8") as file:
@@ -60,12 +69,13 @@ class CodeReviewer(BaseReviewer):
     def __init__(self):
         super().__init__("code_review_prompt")
 
-    def review_and_strip_code(self, changes_text: str, commits_text: str = "") -> str:
+    def review_and_strip_code(self, changes_text: str, commits_text: str = "", project_name: str = "") -> str:
         """
         Review判断changes_text超出取前REVIEW_MAX_TOKENS个token，超出则截断changes_text，
         调用review_code方法，返回review_result，如果review_result是markdown格式，则去掉头尾的```
-        :param changes_text:
-        :param commits_text:
+        :param changes_text: 代码变更内容
+        :param commits_text: 提交信息
+        :param project_name: 项目名称
         :return:
         """
         # 如果超长，取前REVIEW_MAX_TOKENS个token
@@ -80,20 +90,27 @@ class CodeReviewer(BaseReviewer):
         if tokens_count > review_max_tokens:
             changes_text = truncate_text_by_tokens(changes_text, review_max_tokens)
 
-        review_result = self.review_code(changes_text, commits_text).strip()
+        review_result = self.review_code(changes_text, commits_text, project_name).strip()
         if review_result.startswith("```markdown") and review_result.endswith("```"):
             return review_result[11:-3].strip()
         return review_result
 
-    def review_code(self, diffs_text: str, commits_text: str = "") -> str:
+    def review_code(self, diffs_text: str, commits_text: str = "", project_name: str = "") -> str:
         """Review 代码并返回结果"""
+        normalized_project_name = project_name.replace("-", "_") if project_name else project_name
+        project_prompts_path = os.getenv(f"{normalized_project_name.upper()}_PROMPT", None)
+
+        # 按需重新加载 prompts 配置， 同时也可以支持项目级别提示词的热加载
+        prompts = (
+            self._load_prompts(prompt_key="code_review_prompt", prompt_templates_file=project_prompts_path)
+            if project_prompts_path
+            else self.prompts
+        )
         messages = [
-            self.prompts["system_message"],
+            prompts["system_message"],
             {
                 "role": "user",
-                "content": self.prompts["user_message"]["content"].format(
-                    diffs_text=diffs_text, commits_text=commits_text
-                ),
+                "content": prompts["user_message"]["content"].format(diffs_text=diffs_text, commits_text=commits_text),
             },
         ]
         return self.call_llm(messages)
