@@ -40,19 +40,25 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             if len(changes) > 0:
                 # 获取文件内容（用于上下文参考）
                 file_contents = {}
-                branch_name = handler.branch_name
-                if branch_name:
-                    for change in changes:
-                        file_path = change.get("new_path")
-                        if file_path:
-                            content = handler.get_file_content(file_path, branch_name)
-                            if content:
-                                file_contents[file_path] = content
-                                logger.debug(
-                                    f"获取文件内容成功: {file_path}, 长度: {len(content)}"
+                context_file_enabled = (
+                    os.environ.get("CONTEXT_FILE_ENABLED", "0") == "1"
+                )
+                if context_file_enabled:
+                    branch_name = handler.branch_name
+                    if branch_name:
+                        for change in changes:
+                            file_path = change.get("new_path")
+                            if file_path:
+                                content = handler.get_file_content(
+                                    file_path, branch_name
                                 )
-                            else:
-                                logger.debug(f"获取文件内容失败或为空: {file_path}")
+                                if content:
+                                    file_contents[file_path] = content
+                                    logger.debug(
+                                        f"获取文件内容成功: {file_path}, 长度: {len(content)}"
+                                    )
+                                else:
+                                    logger.debug(f"获取文件内容失败或为空: {file_path}")
 
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
                 review_result = CodeReviewer().review_and_strip_code(
@@ -152,19 +158,21 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
 
         # 获取文件内容（用于上下文参考）
         file_contents = {}
-        source_branch = handler.get_source_branch()
-        if source_branch:
-            for change in changes:
-                file_path = change.get("new_path")
-                if file_path:
-                    content = handler.get_file_content(file_path, source_branch)
-                    if content:
-                        file_contents[file_path] = content
-                        logger.debug(
-                            f"获取文件内容成功: {file_path}, 长度: {len(content)}"
-                        )
-                    else:
-                        logger.debug(f"获取文件内容失败或为空: {file_path}")
+        context_file_enabled = os.environ.get("CONTEXT_FILE_ENABLED", "0") == "1"
+        if context_file_enabled:
+            source_branch = handler.get_source_branch()
+            if source_branch:
+                for change in changes:
+                    file_path = change.get("new_path")
+                    if file_path:
+                        content = handler.get_file_content(file_path, source_branch)
+                        if content:
+                            file_contents[file_path] = content
+                            logger.debug(
+                                f"获取文件内容成功: {file_path}, 长度: {len(content)}"
+                            )
+                        else:
+                            logger.debug(f"获取文件内容失败或为空: {file_path}")
 
         # review 代码
         commits_text = ';'.join(commit['title'] for commit in commits)
