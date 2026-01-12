@@ -84,18 +84,16 @@ class CodeReviewer(BaseReviewer):
 
         # 计算diff的tokens数量
         diff_tokens = count_tokens(changes_text)
-
+        processed_file_contents = {}
         # 如果diff超过限制，先截断diff，然后不添加文件内容
         if diff_tokens > review_max_tokens:
             changes_text = truncate_text_by_tokens(changes_text, review_max_tokens)
             diff_tokens = review_max_tokens
-            processed_file_contents = {}
             logger.info(
                 f"Diff tokens exceed REVIEW_MAX_TOKENS ({review_max_tokens}), truncated diff and skipping file contents"
             )
         else:
             # diff未超过限制，尝试添加文件内容
-            processed_file_contents = {}
             if file_contents:
                 # 计算剩余可用tokens（为diff保留空间）
                 available_tokens = review_max_tokens - diff_tokens
