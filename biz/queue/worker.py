@@ -14,7 +14,6 @@ from biz.utils.im import notifier
 from biz.utils.log import logger
 
 
-
 def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_url_slug: str):
     push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
     try:
@@ -39,8 +38,32 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             review_result = "关注的文件没有修改"
 
             if len(changes) > 0:
+                # 获取文件内容（用于上下文参考）
+                file_contents = {}
+                context_file_enabled = (
+                    os.environ.get("CONTEXT_FILE_ENABLED", "0") == "1"
+                )
+                if context_file_enabled:
+                    branch_name = handler.branch_name
+                    if branch_name:
+                        for change in changes:
+                            file_path = change.get("new_path")
+                            if file_path:
+                                content = handler.get_file_content(
+                                    file_path, branch_name
+                                )
+                                if content:
+                                    file_contents[file_path] = content
+                                    logger.debug(
+                                        f"获取文件内容成功: {file_path}, 长度: {len(content)}"
+                                    )
+                                else:
+                                    logger.debug(f"获取文件内容失败或为空: {file_path}")
+
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+                review_result = CodeReviewer().review_and_strip_code(
+                    str(changes), commits_text, file_contents
+                )
                 score = CodeReviewer.parse_review_score(review_text=review_result)
                 for item in changes:
                     additions += item['additions']
@@ -107,7 +130,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
             project_name = webhook_data['project']['name']
             source_branch = object_attributes.get('source_branch', '')
             target_branch = object_attributes.get('target_branch', '')
-            
+
             if ReviewService.check_mr_last_commit_id_exists(project_name, source_branch, target_branch, last_commit_id):
                 logger.info(f"Merge Request with last_commit_id {last_commit_id} already exists, skipping review for {project_name}.")
                 return
@@ -133,9 +156,29 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
             logger.error('Failed to get commits')
             return
 
+        # 获取文件内容（用于上下文参考）
+        file_contents = {}
+        context_file_enabled = os.environ.get("CONTEXT_FILE_ENABLED", "0") == "1"
+        if context_file_enabled:
+            source_branch = handler.get_source_branch()
+            if source_branch:
+                for change in changes:
+                    file_path = change.get("new_path")
+                    if file_path:
+                        content = handler.get_file_content(file_path, source_branch)
+                        if content:
+                            file_contents[file_path] = content
+                            logger.debug(
+                                f"获取文件内容成功: {file_path}, 长度: {len(content)}"
+                            )
+                        else:
+                            logger.debug(f"获取文件内容失败或为空: {file_path}")
+
         # review 代码
         commits_text = ';'.join(commit['title'] for commit in commits)
-        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        review_result = CodeReviewer().review_and_strip_code(
+            str(changes), commits_text, file_contents
+        )
 
         # 将review结果提交到Gitlab的 notes
         handler.add_merge_request_notes(f'Auto Review Result: \n{review_result}')
