@@ -212,6 +212,17 @@ class ReviewService:
         except sqlite3.DatabaseError as e:
             print(f"Error retrieving push review logs: {e}")
             return pd.DataFrame()
+            
+    @staticmethod
+    def delete_mr_review_log_by_url(url: str):
+        """根据URL删除合并请求审核日志"""
+        try:
+            with sqlite3.connect(ReviewService.DB_FILE) as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM mr_review_log WHERE url = ?', (url,))
+                conn.commit()
+        except sqlite3.DatabaseError as e:
+            print(f"Error deleting review log: {e}")
 
 
 # Initialize database
