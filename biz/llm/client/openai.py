@@ -11,8 +11,17 @@ class OpenAIClient(BaseClient):
     def __init__(self, api_key: str = None):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.base_url = os.getenv("OPENAI_API_BASE_URL", "https://api.openai.com")
-        if not self.api_key:
+
+        # 对于本地API（非OpenAI官方域名），API key是可选的
+        is_local_api = self.base_url and not self.base_url.startswith(
+            "https://api.openai.com"
+        )
+        if not self.api_key and not is_local_api:
             raise ValueError("API key is required. Please provide it or set it in the environment variables.")
+
+        # 如果本地API没有提供key，使用dummy key（某些API服务器可能仍然需要）
+        if not self.api_key:
+            self.api_key = "dummy-key"
 
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
         self.default_model = os.getenv("OPENAI_API_MODEL", "gpt-4o-mini")

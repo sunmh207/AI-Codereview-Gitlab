@@ -1,7 +1,7 @@
 import os
 import re
 import time
-from urllib.parse import urljoin
+from urllib.parse import urljoin, quote
 import fnmatch
 import requests
 
@@ -165,6 +165,54 @@ class MergeRequestHandler:
             logger.warn(f"Failed to get protected branches: {response.status_code}, {response.text}")
             return False
 
+    def get_file_content(self, file_path: str, ref: str) -> str:
+        """
+        获取指定文件在指定分支/提交的内容
+
+        Args:
+            file_path: 文件路径
+            ref: 分支名或提交SHA
+
+        Returns:
+            文件内容，如果获取失败返回空字符串
+        """
+        if not file_path or not ref:
+            return ""
+
+        # GitLab API需要URL编码的文件路径
+        encoded_file_path = quote(file_path, safe="")
+        url = urljoin(
+            f"{self.gitlab_url}/",
+            f"api/v4/projects/{self.project_id}/repository/files/{encoded_file_path}/raw",
+        )
+        headers = {"Private-Token": self.gitlab_token}
+        params = {"ref": ref}
+        try:
+            response = requests.get(url, headers=headers, params=params, verify=False)
+            logger.debug(
+                f"Get file content response from GitLab: {response.status_code}, URL: {url}, ref: {ref}"
+            )
+            if response.status_code == 200:
+                return response.text
+            else:
+                logger.warn(
+                    f"Failed to get file content for {file_path} at {ref}: {response.status_code}, {response.text}"
+                )
+                return ""
+        except Exception as e:
+            logger.error(
+                f"Error getting file content for {file_path} at {ref}: {str(e)}"
+            )
+            return ""
+
+    def get_source_branch(self) -> str:
+        """获取源分支名称"""
+        if self.event_type == "merge_request":
+            return self.webhook_data.get("object_attributes", {}).get(
+                "source_branch", ""
+            )
+        return ""
+
 
 class PushHandler:
     def __init__(self, webhook_data: dict, gitlab_token: str, gitlab_url: str):
@@ -311,3 +359,43 @@ class PushHandler:
             return self.repository_compare(before, after)
         else:
             return []
+
+    def get_file_content(self, file_path: str, ref: str) -> str:
+        """
+        获取指定文件在指定分支/提交的内容
+
+        Args:
+            file_path: 文件路径
+            ref: 分支名或提交SHA
+
+        Returns:
+            文件内容，如果获取失败返回空字符串
+        """
+        if not file_path or not ref:
+            return ""
+
+        # GitLab API需要URL编码的文件路径
+        encoded_file_path = quote(file_path, safe="")
+        url = urljoin(
+            f"{self.gitlab_url}/",
+            f"api/v4/projects/{self.project_id}/repository/files/{encoded_file_path}/raw",
+        )
+        headers = {"Private-Token": self.gitlab_token}
+        params = {"ref": ref}
+        try:
+            response = requests.get(url, headers=headers, params=params, verify=False)
+            logger.debug(
+                f"Get file content response from GitLab: {response.status_code}, URL: {url}, ref: {ref}"
+            )
+            if response.status_code == 200:
+                return response.text
+            else:
+                logger.warn(
+                    f"Failed to get file content for {file_path} at {ref}: {response.status_code}, {response.text}"
+                )
+                return ""
+        except Exception as e:
+            logger.error(
+                f"Error getting file content for {file_path} at {ref}: {str(e)}"
+            )
+            return ""
