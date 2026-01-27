@@ -82,8 +82,8 @@ class CodeReviewer(BaseReviewer):
 
         review_result = self.review_code(changes_text, commits_text).strip()
         if review_result.startswith("```markdown") and review_result.endswith("```"):
-            return review_result[11:-3].strip()
-        return review_result
+            return self.add_collapse_tag(review_result[11:-3].strip())
+        return self.add_collapse_tag(review_result)
 
     def review_code(self, diffs_text: str, commits_text: str = "") -> str:
         """Review 代码并返回结果"""
@@ -106,3 +106,9 @@ class CodeReviewer(BaseReviewer):
         match = re.search(r"总分[:：]\s*(\d+)分?", review_text)
         return int(match.group(1)) if match else 0
 
+    @staticmethod
+    def add_collapse_tag(review_text: str) -> str:
+        """为review_text添加折叠标记"""
+        if os.getenv("ADD_COLLAPSE_TAG", "false") == "true":
+            return f"<details><summary>Click to expand</summary>{review_text}</details>"
+        return review_text
