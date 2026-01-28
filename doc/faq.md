@@ -136,3 +136,34 @@ OLLAMA_API_BASE_URL=http://{宿主机/外网IP地址}:11434  # 正确
   GITHUB_ACCESS_TOKEN=your-access-token  #替换为你的Access Token
   ```
 
+### 同一个实例中是否支持给多个项目配置Review的提示词模板？     
+
+
+同一个实例中，可以配置多个项目Review的提示词模板。具体操作如下：
+#### 1. 创建项目提示词文件
+
+首先，为特定项目创建自定义提示词文件，例如 `conf/myproject_prompt.yml`。
+
+提示词文件格式可参考 [prompt_templates.yml](./conf/prompt_templates.yml)
+
+#### 2. 配置环境变量
+
+在 `.env` 文件中添加以下内容：
+
+```shell
+# 配置规则：项目名全大写 + _PROMPT = 提示词文件路径
+PROJECT_NAME_PROMPT=conf/project_prompt.yml
+```
+
+例如，如果您的项目名为 `payment_service`，则应在 .env 文件中添加：
+
+```shell
+PAYMENT_SERVICE_PROMPT=conf/payment_service_prompt.yml
+```
+
+#### 3. 注意事项
+
+- 如果未配置项目专属提示词，系统将使用默认提示词模板
+- 项目提示词支持热加载，修改提示词文件后无需重启服务
+- 环境变量配置后需要重启服务才能生效
+- 项目名称中包含 `-` 时，请使用 `_` 替换
