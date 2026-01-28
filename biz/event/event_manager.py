@@ -35,8 +35,7 @@ def on_merge_request_reviewed(mr_review_entity: MergeRequestReviewEntity):
                                project_name=mr_review_entity.project_name, url_slug=mr_review_entity.url_slug,
                                webhook_data=mr_review_entity.webhook_data)
 
-    # 记录到数据库
-    ReviewService().insert_mr_review_log(mr_review_entity)
+    # 注意：数据库记录现在在worker中处理，这里只负责发送通知
 
 
 def on_push_reviewed(entity: PushReviewEntity):
