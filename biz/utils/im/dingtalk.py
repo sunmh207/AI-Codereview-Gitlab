@@ -15,6 +15,18 @@ class DingTalkNotifier:
     def __init__(self, webhook_url=None):
         self.enabled = os.environ.get('DINGTALK_ENABLED', '0') == '1'
         self.default_webhook_url = webhook_url or os.environ.get('DINGTALK_WEBHOOK_URL')
+        self.secret = os.environ.get('DINGTALK_WEBHOOK_SECRET')
+
+    def _get_sign(self):
+        if not self.secret:
+            return None, None
+        timestamp = str(round(time.time() * 1000))
+        secret_enc = self.secret.encode('utf-8')
+        string_to_sign = '{}\n{}'.format(timestamp, self.secret)
+        string_to_sign_enc = string_to_sign.encode('utf-8')
+        hmac_code = hmac.new(secret_enc, string_to_sign_enc, digestmod=hashlib.sha256).digest()
+        sign = urllib.parse.quote_plus(base64.b64encode(hmac_code))
+        return timestamp, sign
 
     def _get_webhook_url(self, project_name=None, url_slug=None):
         """
@@ -32,8 +44,8 @@ class DingTalkNotifier:
                 raise ValueError("未提供项目名称，且未设置默认的钉钉 Webhook URL。")
 
         # 构造目标键
-        target_key_project = f"DINGTALK_WEBHOOK_URL_{project_name.upper()}"
-        target_key_url_slug = f"DINGTALK_WEBHOOK_URL_{url_slug.upper()}"
+        target_key_project = f"DINGTALK_WEBHOOK_URL_{project_name.upper()}" if project_name else None
+        target_key_url_slug = f"DINGTALK_WEBHOOK_URL_{url_slug.upper()}" if url_slug else None
 
         # 遍历环境变量
         for env_key, env_value in os.environ.items():
@@ -57,6 +69,10 @@ class DingTalkNotifier:
 
         try:
             post_url = self._get_webhook_url(project_name=project_name, url_slug=url_slug)
+            if self.secret:
+                timestamp, sign = self._get_sign()
+                separator = '&' if '?' in post_url else '?'
+                post_url = f"{post_url}{separator}timestamp={timestamp}&sign={sign}"
             headers = {
                 "Content-Type": "application/json",
                 "Charset": "UTF-8"
@@ -65,7 +81,7 @@ class DingTalkNotifier:
                 message = {
                     "msgtype": "markdown",
                     "markdown": {
-                        "title": title,  # Customize as needed
+                        "title": title,
                         "text": content
                     },
                     "at": {
