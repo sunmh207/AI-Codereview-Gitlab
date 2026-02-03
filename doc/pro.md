@@ -30,21 +30,29 @@ mkdir -p {data,logs}
 ```yaml
 services:
   mysql:
-    image: mysql:8.0
+    image: mysql:8.0.44
     container_name: codereview-mysql
     environment:
       MYSQL_ROOT_PASSWORD: u9QdPyXM
       MYSQL_DATABASE: codereview
       TZ: Asia/Shanghai
     command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_general_ci
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_general_ci
+      --explicit_defaults_for_timestamp=1
+      --lower_case_table_names=1
     volumes:
       - ./data/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pu9QdPyXM"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
     restart: unless-stopped
 
   app:
-    image: registry.cn-hangzhou.aliyuncs.com/stanley-public/ai-codereview-pro:1.1.14
+    image: registry.cn-hangzhou.aliyuncs.com/stanley-public/ai-codereview-pro:1.2.0
     container_name: codereview-app
     ports:
       - "81:80"
@@ -56,11 +64,13 @@ services:
       DB_NAME: codereview
       DB_USERNAME: root
       DB_PASSWORD: u9QdPyXM
+      TZ: Asia/Shanghai
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     restart: unless-stopped
 ```
 
