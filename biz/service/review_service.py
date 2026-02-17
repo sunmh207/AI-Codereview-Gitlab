@@ -79,24 +79,26 @@ class ReviewService:
             print(f"Database initialization failed: {e}")
 
     @staticmethod
-    def insert_mr_review_log(entity: MergeRequestReviewEntity):
-        """插入合并请求审核日志"""
+    def insert_mr_review_log(entity: MergeRequestReviewEntity) -> int:
+        """插入合并请求审核日志，返回插入记录的id"""
         try:
             with sqlite3.connect(ReviewService.DB_FILE) as conn:
                 cursor = conn.cursor()
-                cursor.execute('''
-                                INSERT INTO mr_review_log (project_name,author, source_branch, target_branch, 
-                                updated_at, commit_messages, score, url,review_result, additions, deletions, 
-                                last_commit_id)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            ''',
-                               (entity.project_name, entity.author, entity.source_branch,
-                                entity.target_branch, entity.updated_at, entity.commit_messages, entity.score,
-                                entity.url, entity.review_result, entity.additions, entity.deletions,
-                                entity.last_commit_id))
+                cursor.execute('''INSERT INTO mr_review_log (project_name, author, source_branch, 
+                target_branch, updated_at, commit_messages, score, url, review_result, additions, deletions, last_commit_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''',
+                               (entity.project_name, entity.author,
+                                entity.source_branch, entity.target_branch,
+                                entity.updated_at, entity.commit_messages, entity.score,
+                                entity.url, entity.review_result, entity.additions, entity.deletions, entity.last_commit_id))
+                record_id = cursor.lastrowid
                 conn.commit()
+                print(f"Successfully inserted mr_review_log record with id: {record_id}")
+                return record_id
         except sqlite3.DatabaseError as e:
             print(f"Error inserting review log: {e}")
+            return 0
 
     @staticmethod
     def get_mr_review_logs(authors: list = None, project_names: list = None, updated_at_gte: int = None,
@@ -149,6 +151,29 @@ class ReviewService:
                 return count > 0
         except sqlite3.DatabaseError as e:
             print(f"Error checking last_commit_id: {e}")
+            return False
+
+    @staticmethod
+    def update_mr_review_log_by_id(record_id: int, score: float, review_result: str) -> bool:
+        """通过id更新合并请求审核日志的review_result和score"""
+        try:
+            with sqlite3.connect(ReviewService.DB_FILE) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    UPDATE mr_review_log 
+                    SET score = ?, review_result = ?
+                    WHERE id = ?
+                ''', (score, review_result, record_id))
+                conn.commit()
+                updated_rows = cursor.rowcount
+                if updated_rows > 0:
+                    print(f"Successfully updated mr_review_log record with id: {record_id}")
+                    return True
+                else:
+                    print(f"No mr_review_log record found with id: {record_id}")
+                    return False
+        except sqlite3.DatabaseError as e:
+            print(f"Error updating mr_review_log by id: {e}")
             return False
 
     @staticmethod

@@ -133,37 +133,60 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
             logger.error('Failed to get commits')
             return
 
-        # review 代码
+        # 先插入初始记录到数据库（标记为处理中状态）
         commits_text = ';'.join(commit['title'] for commit in commits)
+        initial_entity = MergeRequestReviewEntity(
+            project_name=webhook_data['project']['name'],
+            author=webhook_data['user']['username'],
+            source_branch=webhook_data['object_attributes']['source_branch'],
+            target_branch=webhook_data['object_attributes']['target_branch'],
+            updated_at=int(datetime.now().timestamp()),
+            commits=commits,
+            score=0,  # 初始分数为0
+            url=webhook_data['object_attributes']['url'],
+            review_result="AI审查中...",  # 标记为处理中
+            url_slug=gitlab_url_slug,
+            webhook_data=webhook_data,
+            additions=additions,
+            deletions=deletions,
+            last_commit_id=last_commit_id,
+        )
+        record_id = ReviewService.insert_mr_review_log(initial_entity)
+        if record_id > 0:
+            logger.info(f"Inserted initial MR record with id {record_id} for {webhook_data['project']['name']}, last_commit_id: {last_commit_id}")
+        else:
+            logger.error(f"Failed to insert initial MR record for {webhook_data['project']['name']}")
+            return
+        
+        # review 代码
         review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        score = CodeReviewer.parse_review_score(review_text=review_result)
+        
+        # 更新数据库记录
+        update_success = ReviewService.update_mr_review_log_by_id(
+            record_id=record_id,
+            score=score,
+            review_result=review_result
+        )
+        if update_success:
+            logger.info(f"Updated MR record with review result for {webhook_data['project']['name']}")
+        else:
+            logger.error(f"Failed to update MR record with review result for {webhook_data['project']['name']}")
 
         # 将review结果提交到Gitlab的 notes
         handler.add_merge_request_notes(f'Auto Review Result: \n{review_result}')
 
+        # 更新记录的review_result和score
+        initial_entity.review_result = review_result
+        initial_entity.score = score
         # dispatch merge_request_reviewed event
-        event_manager['merge_request_reviewed'].send(
-            MergeRequestReviewEntity(
-                project_name=webhook_data['project']['name'],
-                author=webhook_data['user']['username'],
-                source_branch=webhook_data['object_attributes']['source_branch'],
-                target_branch=webhook_data['object_attributes']['target_branch'],
-                updated_at=int(datetime.now().timestamp()),
-                commits=commits,
-                score=CodeReviewer.parse_review_score(review_text=review_result),
-                url=webhook_data['object_attributes']['url'],
-                review_result=review_result,
-                url_slug=gitlab_url_slug,
-                webhook_data=webhook_data,
-                additions=additions,
-                deletions=deletions,
-                last_commit_id=last_commit_id,
-            )
-        )
+        event_manager['merge_request_reviewed'].send(initial_entity)
 
     except Exception as e:
         error_message = f'AI Code Review 服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
         notifier.send_notification(content=error_message)
         logger.error('出现未知错误: %s', error_message)
+
 
 def handle_github_push_event(webhook_data: dict, github_token: str, github_url: str, github_url_slug: str):
     push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
@@ -272,32 +295,54 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
         if not commits:
             logger.error('Failed to get commits')
             return
-
-        # review 代码
+        # 先插入初始记录到数据库（标记为处理中状态）
         commits_text = ';'.join(commit['title'] for commit in commits)
+        initial_entity = MergeRequestReviewEntity(
+            project_name=webhook_data['repository']['name'],
+            author=webhook_data['pull_request']['user']['login'],
+            source_branch=webhook_data['pull_request']['head']['ref'],
+            target_branch=webhook_data['pull_request']['base']['ref'],
+            updated_at=int(datetime.now().timestamp()),
+            commits=commits,
+            score=0,  # 初始分数为0
+            url=webhook_data['pull_request']['html_url'],
+            review_result="AI审查中...",  # 标记为处理中
+            url_slug=github_url_slug,
+            webhook_data=webhook_data,
+            additions=additions,
+            deletions=deletions,
+            last_commit_id=github_last_commit_id,
+        )
+        record_id = ReviewService.insert_mr_review_log(initial_entity)
+        if record_id > 0:
+            logger.info(f"Inserted initial PR record with id {record_id} for {webhook_data['repository']['name']}, last_commit_id: {github_last_commit_id}")
+        else:
+            logger.error(f"Failed to insert initial PR record for {webhook_data['repository']['name']}")
+            return
+        
+        # review 代码
         review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        score = CodeReviewer.parse_review_score(review_text=review_result)
+        
+        # 更新数据库记录
+        update_success = ReviewService.update_mr_review_log_by_id(
+            record_id=record_id,
+            score=score,
+            review_result=review_result
+        )
+        if update_success:
+            logger.info(f"Updated PR record with review result for {webhook_data['repository']['name']}")
+        else:
+            logger.error(f"Failed to update PR record with review result for {webhook_data['repository']['name']}")
 
         # 将review结果提交到GitHub的 notes
         handler.add_pull_request_notes(f'Auto Review Result: \n{review_result}')
 
+        # 更新记录的review_result和score
+        initial_entity.review_result = review_result
+        initial_entity.score = score
         # dispatch pull_request_reviewed event
-        event_manager['merge_request_reviewed'].send(
-            MergeRequestReviewEntity(
-                project_name=webhook_data['repository']['name'],
-                author=webhook_data['pull_request']['user']['login'],
-                source_branch=webhook_data['pull_request']['head']['ref'],
-                target_branch=webhook_data['pull_request']['base']['ref'],
-                updated_at=int(datetime.now().timestamp()),
-                commits=commits,
-                score=CodeReviewer.parse_review_score(review_text=review_result),
-                url=webhook_data['pull_request']['html_url'],
-                review_result=review_result,
-                url_slug=github_url_slug,
-                webhook_data=webhook_data,
-                additions=additions,
-                deletions=deletions,
-                last_commit_id=github_last_commit_id,
-            ))
+        event_manager['merge_request_reviewed'].send(initial_entity)
 
     except Exception as e:
         error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
