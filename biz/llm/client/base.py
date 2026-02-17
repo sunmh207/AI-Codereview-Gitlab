@@ -13,8 +13,9 @@ class BaseClient:
         try:
             result = self.completions(messages=[{"role": "user", "content": '请仅返回 "ok"。'}])
             return result and result.strip() == "ok"
-        except Exception:
-            logger.error("尝试连接LLM失败， {e}")
+
+        except Exception as e:
+            logger.error(f'尝试连接LLM失败， {e}')
             return False
 
     @abstractmethod

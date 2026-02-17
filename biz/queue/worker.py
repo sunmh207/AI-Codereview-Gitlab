@@ -29,6 +29,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
         score = 0
         additions = 0
         deletions = 0
+        project_name = webhook_data['project']['name']
         if push_review_enabled:
             # 获取PUSH的changes
             changes = handler.get_push_changes()
@@ -40,7 +41,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
 
             if len(changes) > 0:
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text, project_name)
                 score = CodeReviewer.parse_review_score(review_text=review_result)
                 for item in changes:
                     additions += item['additions']
@@ -48,19 +49,21 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
             # 将review结果提交到Gitlab的 notes
             handler.add_push_notes(f'Auto Review Result: \n{review_result}')
 
-        event_manager['push_reviewed'].send(PushReviewEntity(
-            project_name=webhook_data['project']['name'],
-            author=webhook_data['user_username'],
-            branch=webhook_data.get('ref', '').replace('refs/heads/', ''),
-            updated_at=int(datetime.now().timestamp()),  # 当前时间
-            commits=commits,
-            score=score,
-            review_result=review_result,
-            url_slug=gitlab_url_slug,
-            webhook_data=webhook_data,
-            additions=additions,
-            deletions=deletions,
-        ))
+        event_manager['push_reviewed'].send(
+            PushReviewEntity(
+                project_name=project_name,
+                author=webhook_data['user_username'],
+                branch=webhook_data.get('ref', '').replace('refs/heads/', ''),
+                updated_at=int(datetime.now().timestamp()),  # 当前时间
+                commits=commits,
+                score=score,
+                review_result=review_result,
+                url_slug=gitlab_url_slug,
+                webhook_data=webhook_data,
+                additions=additions,
+                deletions=deletions,
+            )
+        )
 
     except Exception as e:
         error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
@@ -135,7 +138,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
 
         # review 代码
         commits_text = ';'.join(commit['title'] for commit in commits)
-        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text, project_name)
 
         # 将review结果提交到Gitlab的 notes
         handler.add_merge_request_notes(f'Auto Review Result: \n{review_result}')
@@ -179,6 +182,10 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
         score = 0
         additions = 0
         deletions = 0
+
+        # 获取项目名称
+        project_name = webhook_data['repository']['name']
+
         if push_review_enabled:
             # 获取PUSH的changes
             changes = handler.get_push_changes()
@@ -190,7 +197,7 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
 
             if len(changes) > 0:
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text, project_name)
                 score = CodeReviewer.parse_review_score(review_text=review_result)
                 for item in changes:
                     additions += item.get('additions', 0)
@@ -198,19 +205,21 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
             # 将review结果提交到GitHub的 notes
             handler.add_push_notes(f'Auto Review Result: \n{review_result}')
 
-        event_manager['push_reviewed'].send(PushReviewEntity(
-            project_name=webhook_data['repository']['name'],
-            author=webhook_data['sender']['login'],
-            branch=webhook_data['ref'].replace('refs/heads/', ''),
-            updated_at=int(datetime.now().timestamp()),  # 当前时间
-            commits=commits,
-            score=score,
-            review_result=review_result,
-            url_slug=github_url_slug,
-            webhook_data=webhook_data,
-            additions=additions,
-            deletions=deletions,
-        ))
+        event_manager['push_reviewed'].send(
+            PushReviewEntity(
+                project_name=project_name,
+                author=webhook_data['sender']['login'],
+                branch=webhook_data['ref'].replace('refs/heads/', ''),
+                updated_at=int(datetime.now().timestamp()),  # 当前时间
+                commits=commits,
+                score=score,
+                review_result=review_result,
+                url_slug=github_url_slug,
+                webhook_data=webhook_data,
+                additions=additions,
+                deletions=deletions,
+            )
+        )
 
     except Exception as e:
         error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
@@ -275,7 +284,7 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
 
         # review 代码
         commits_text = ';'.join(commit['title'] for commit in commits)
-        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text, project_name)
 
         # 将review结果提交到GitHub的 notes
         handler.add_pull_request_notes(f'Auto Review Result: \n{review_result}')
