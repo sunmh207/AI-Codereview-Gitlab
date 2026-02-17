@@ -5,10 +5,63 @@ OpenCode Serve API 客户端
 
 import os
 import time
+from urllib.parse import urlparse
 
 import requests
 
 from biz.utils.log import logger
+
+
+def _extract_title_from_url(mr_url: str) -> str:
+    """
+    从 MR/PR URL 中提取标题
+    
+    例如: https://github.com/linux/-/merge_requests/126
+    返回: linux/-/merge_requests/126
+    
+    :param mr_url: Merge Request 或 Pull Request 的 URL
+    :return: 提取的标题
+    """
+    try:
+        parsed = urlparse(mr_url)
+        path = parsed.path.strip('/')
+        
+        # 查找 /-/merge_requests/ 或 /-/pull/ 的位置
+        mr_pattern = '/-/merge_requests/'
+        pr_pattern = '/-/pull/'
+        
+        if mr_pattern in path:
+            # GitLab MR URL
+            parts = path.split(mr_pattern)
+            if len(parts) == 2:
+                project_path = parts[0]
+                mr_number = parts[1]
+                # 获取项目名（最后一个路径段）
+                project_name = project_path.split('/')[-1]
+                return f"{project_name}/-/merge_requests/{mr_number}"
+        elif pr_pattern in path:
+            # GitLab PR URL (如果存在)
+            parts = path.split(pr_pattern)
+            if len(parts) == 2:
+                project_path = parts[0]
+                pr_number = parts[1]
+                project_name = project_path.split('/')[-1]
+                return f"{project_name}/-/pull/{pr_number}"
+        elif '/pull/' in path:
+            # GitHub PR URL
+            parts = path.split('/pull/')
+            if len(parts) == 2:
+                project_path = parts[0]
+                pr_number = parts[1]
+                project_name = project_path.split('/')[-1]
+                return f"{project_name}/pull/{pr_number}"
+        
+        # 如果无法解析，返回默认标题
+        logger.warning(f"[OpenCode] 无法从 URL 中提取标题: {mr_url}")
+        return "Webhook Code Review"
+    except Exception as e:
+        logger.warning(f"[OpenCode] 解析 URL 标题时出错: {e}, URL: {mr_url}")
+        return "Webhook Code Review"
 
 
 def is_opencode_enabled() -> bool:
@@ -74,10 +127,11 @@ def send_opencode_review(mr_url: str):
     try:
         # Step 1: 创建 session
         session_url = f"{api_url.rstrip('/')}/session"
+        session_title = _extract_title_from_url(mr_url)
         logger.info(f"[OpenCode] 创建 session: POST {session_url}")
         create_resp = requests.post(
             session_url,
-            json={"title": "Webhook Code Review"},
+            json={"title": session_title},
             headers={"Content-Type": "application/json"},
             auth=auth,
             timeout=30,
