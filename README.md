@@ -19,6 +19,11 @@
   - 讽刺型 😈：毒舌吐槽，专治不服（"这代码是用脚写的吗？"） 
   - 绅士型 🌸：温柔建议，如沐春风（"或许这里可以再优化一下呢~"） 
   - 幽默型 🤪：搞笑点评，快乐改码（"这段 if-else 比我的相亲经历还曲折！"）
+- 🤖 OpenCode Agent Review 集成
+  - 支持集成 OpenCode Serve API，通过 Agent 进行代码审查
+  - 当收到 PR/MR webhook 事件时，自动触发 OpenCode Agent Review
+  - 支持自定义 Agent 名称和 API 地址配置
+  - 可与内置 LLM Review 功能并行使用或独立使用
 
 **效果图:**
 
@@ -71,6 +76,18 @@ DINGTALK_WEBHOOK_URL={YOUR_WDINGTALK_WEBHOOK_URL}
 
 #Gitlab配置
 GITLAB_ACCESS_TOKEN={YOUR_GITLAB_ACCESS_TOKEN}
+
+#OpenCode Agent Review配置（可选）
+#开启后webhook收到PR/MR事件时会发送请求到opencode serve的API进行review
+OPENCODE_ENABLED=0  # 0关闭，1开启
+OPENCODE_API_URL=http://localhost:4096  # OpenCode Serve API地址
+OPENCODE_AGENT_NAME=code-reviewer  # Agent名称
+# 如果 OpenCode 服务器启用了认证，需要配置以下两项
+# OPENCODE_SERVER_USERNAME=opencode
+# OPENCODE_SERVER_PASSWORD=your-password
+
+#LLM Review开关（设置为0则不通过内置LLM进行Code Review）
+LLM_REVIEW_ENABLED=1  # 0关闭，1开启
 ```
 
 **2. 启动服务**
@@ -161,6 +178,31 @@ streamlit run ui.py --server.port=5002 --server.address=0.0.0.0
   ```
 
 企业微信和飞书推送配置类似，具体参见 [常见问题](doc/faq.md)
+
+### 配置 OpenCode Agent Review
+
+OpenCode Agent Review 是一个可选的代码审查功能，可以与内置的 LLM Review 功能并行使用或独立使用。
+
+#### 1. 启用 OpenCode Agent Review
+
+- 确保已部署 OpenCode Serve 服务（参考 OpenCode 官方文档），通常：`opencode web --hostname 0.0.0.0 --port 4096`
+- 更新 .env 中的配置：
+  ```bash
+  # OpenCode Agent Review配置
+  OPENCODE_ENABLED=1  # 0关闭，1开启
+  OPENCODE_API_URL=http://127.0.0.1:4096  # 替换为你的OpenCode Serve API地址
+  OPENCODE_AGENT_NAME=code-reviewer  # 替换为你的Agent名称
+  
+  # 如果 OpenCode 服务器启用了认证，需要配置以下两项
+  OPENCODE_SERVER_USERNAME=opencode
+  OPENCODE_SERVER_PASSWORD=your-password
+  ```
+
+#### 2. 功能说明
+
+- 当 webhook 收到 GitHub/GitLab/Gitea 的 PR/MR 事件时，如果 `OPENCODE_ENABLED=1`，系统会自动调用 OpenCode API 创建 session 并发送 review 请求
+- OpenCode Review 和内置 LLM Review 可以同时启用，两者互不影响
+- 如果只需要使用 OpenCode Review，可以设置 `LLM_REVIEW_ENABLED=0` 来关闭内置 LLM Review
 
 ## 常见问题
 
