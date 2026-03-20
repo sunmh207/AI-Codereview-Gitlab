@@ -134,7 +134,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
             return
 
         # review 代码
-        commits_text = ';'.join(commit['title'] for commit in commits)
+        commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
         review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
 
         # 将review结果提交到Gitlab的 notes
@@ -274,7 +274,7 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
             return
 
         # review 代码
-        commits_text = ';'.join(commit['title'] for commit in commits)
+        commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
         review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
 
         # 将review结果提交到GitHub的 notes
@@ -406,7 +406,7 @@ def handle_gitea_pull_request_event(webhook_data: dict, gitea_token: str, gitea_
             logger.error('Failed to get commits for Gitea pull request')
             return
 
-        commits_text = ';'.join(commit.get('title', '') for commit in commits)
+        commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
         review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
 
         handler.add_pull_request_notes(f'Auto Review Result: \n{review_result}')
