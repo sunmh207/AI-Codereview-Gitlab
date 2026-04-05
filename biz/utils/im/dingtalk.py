@@ -24,9 +24,9 @@ class DingTalkNotifier:
                 hmac_code = hmac.new(secret_enc, string_to_sign_enc, digestmod=hashlib.sha256).digest()
                 sign = urllib.parse.quote_plus(base64.b64encode(hmac_code))
                 self.default_webhook_url = "{}&timestamp={}&sign={}".format(os.environ.get('DINGTALK_WEBHOOK_URL'),timestamp,sign)
-                logger.info(f"加签后钉钉URL", self.default_webhook_url)
+                logger.info("加签后钉钉URL: %s", self.default_webhook_url)
             except Exception as e:
-                logger.error(f"钉钉机器人加签失败", e)
+                logger.error("钉钉机器人加签失败: %s", e)
         else:
             self.default_webhook_url = webhook_url or os.environ.get('DINGTALK_WEBHOOK_URL')
 
