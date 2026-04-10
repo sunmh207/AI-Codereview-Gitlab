@@ -208,7 +208,7 @@ python -m biz.cmd.review
 
 ## 相关项目
 
-如果你正在使用 AI Agent 开发工具 (如: Cursor、Cloude Code ...)，并希望对人机交互过程进行全面的记录与回溯分析，推荐使用 [Entire Dashboard](https://github.com/sunmh207/entire-dashboard)。该项目提供了完整的人机交互记录与可视化分析功能，可帮助你深入理解 AI Agent 的使用模式，优化交互体验，提升开发效率。
+如果你正在使用 AI Agent 开发工具 (如: Cursor、Claude Code ...)，并希望对人机交互过程进行全面的记录与回溯分析，推荐使用 [Entire Dashboard](https://github.com/sunmh207/entire-dashboard)。该项目提供了完整的人机交互记录与可视化分析功能，可帮助你深入理解 AI Agent 的使用模式，优化交互体验，提升开发效率。
 
 ## 交流
 
