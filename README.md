@@ -181,34 +181,37 @@ python -m biz.cmd.review
 
 参见 [常见问题](doc/faq.md)
 
-## 🏆 Code Review Pro 版
+## 相关项目
 
-功能更丰富的 AI Code Review 版本
+### Code Review Pro 版
+
+功能更丰富的 AI Code Review 版本。
 
 体验站: [https://demo.mzfuture.com](https://demo.mzfuture.com)
 
-项目介绍与使用说明 [Code Review Pro 版](doc/pro.md)
+项目介绍与使用说明：[Code Review Pro 版](doc/pro.md)
 
-快速启动命令
-```
- curl -fsSL https://raw.githubusercontent.com/sunmh207/AI-Codereview-Gitlab/refs/heads/main/scripts/pro/install.sh | bash
+快速安装命令：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sunmh207/AI-Codereview-Gitlab/refs/heads/main/scripts/pro/install.sh | bash
 ```
 
 **多种统计图**
+
 ![多种统计图](doc/img/pro/dashboard.png)
 
-**成员提交分析** 
+**成员提交分析**
+
 ![成员提交分析](doc/img/pro/member-analysis.png)
 
-**Deep Review** 
+**Deep Review**
+
 ![Deep Review](doc/img/pro/deepreview.png)
 
-**项目哨兵** 
+**项目哨兵**
+
 ![项目哨兵](doc/img/pro/project-analysis-plan.png)
-
-## 相关项目
-
-如果你正在使用 AI Agent 开发工具 (如: Cursor、Cloude Code ...)，并希望对人机交互过程进行全面的记录与回溯分析，推荐使用 [Entire Dashboard](https://github.com/sunmh207/entire-dashboard)。该项目提供了完整的人机交互记录与可视化分析功能，可帮助你深入理解 AI Agent 的使用模式，优化交互体验，提升开发效率。
 
 ## 交流
 
