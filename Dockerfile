@@ -18,6 +18,7 @@ COPY biz ./biz
 COPY fonts ./fonts
 COPY api.py ./api.py
 COPY ui.py ./ui.py
+COPY .streamlit ./.streamlit
 COPY conf/prompt_templates.yml ./conf/prompt_templates.yml
 COPY conf/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 

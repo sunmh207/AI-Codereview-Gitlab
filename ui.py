@@ -193,9 +193,16 @@ def get_data(service_func, authors=None, project_names=None, updated_at_gte=None
 st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
-        header {visibility: hidden;}
+        header {display: none !important;}
+        [data-testid="stHeader"] {display: none !important;}
         footer {visibility: hidden;}
-        div.block-container {padding-top: 0rem;}
+        div.block-container {
+            padding-top: 0.65rem !important;
+            padding-left: 4rem !important;
+            padding-right: 4rem !important;
+            padding-bottom: 2rem !important;
+            max-width: 1680px !important;
+        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -203,41 +210,190 @@ st.markdown("""
 st.markdown(
     """
     <style>
+    :root {
+        color-scheme: light;
+        --page-bg: #f6f8fb;
+        --panel-bg: #ffffff;
+        --line: #e2e8f0;
+        --muted: #64748b;
+        --text: #172033;
+        --accent: #2563eb;
+        --success: #2f8f4e;
+    }
     .main {
-        background-color: #f0f2f6;
+        background-color: var(--page-bg);
         padding-top: 0rem;
     }
+    [data-testid="stAppViewContainer"] {
+        background: var(--page-bg);
+        color-scheme: light;
+        color: var(--text);
+    }
+    .stApp,
+    [data-testid="stMarkdownContainer"],
+    [data-testid="stWidgetLabel"],
+    [data-testid="stWidgetLabel"] p,
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] h1,
+    [data-testid="stMarkdownContainer"] h2,
+    [data-testid="stMarkdownContainer"] h3,
+    [data-testid="stMarkdownContainer"] h4,
+    label {
+        color: var(--text) !important;
+    }
+    [data-testid="stVerticalBlock"] {
+        gap: 0.65rem;
+    }
+    .dashboard-header {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        padding: 0.15rem 0 0.25rem;
+    }
+    .dashboard-eyebrow {
+        color: var(--muted);
+        font-size: 0.78rem !important;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+    .dashboard-title {
+        color: var(--text) !important;
+        font-size: 1.65rem !important;
+        line-height: 1.2 !important;
+        font-weight: 800 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .dashboard-subtitle {
+        color: var(--muted) !important;
+        font-size: 0.92rem !important;
+        margin: 0 !important;
+    }
+    .section-title {
+        display: flex;
+        align-items: baseline;
+        gap: 0.55rem;
+        margin: 0.35rem 0 0.15rem;
+    }
+    .section-title strong {
+        color: var(--text);
+        font-size: 1rem;
+    }
+    .section-title span {
+        color: var(--muted);
+        font-size: 0.82rem;
+    }
+    .chart-title {
+        color: #1f2937;
+        font-size: 0.94rem;
+        font-weight: 700;
+        text-align: left;
+        margin: 0.2rem 0 0.35rem;
+    }
+    .summary-card {
+        background: var(--panel-bg);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 0.72rem 0.85rem;
+        min-height: 4.65rem;
+    }
+    .summary-label {
+        color: var(--muted);
+        font-size: 0.78rem;
+        line-height: 1.2;
+        margin-bottom: 0.35rem;
+    }
+    .summary-value {
+        color: var(--text);
+        font-size: 1.32rem;
+        font-weight: 800;
+        line-height: 1.15;
+    }
+    .summary-note {
+        color: var(--muted);
+        font-size: 0.72rem;
+        margin-top: 0.28rem;
+    }
     .stButton>button {
-        background-color: #4CAF50;
+        background-color: var(--success);
         color: white;
-        border-radius: 20px;
-        padding: 0.5rem 2rem;
+        border-radius: 8px;
+        padding: 0.35rem 0.9rem;
         border: none;
-        transition: all 0.3s ease;
+        min-height: 2.1rem;
+        font-size: 0.9rem;
+        font-weight: 700;
+        transition: all 0.18s ease;
     }
     .stButton>button:hover {
-        background-color: #45a049;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        color: #ffffff;  /* 设置悬停时的文字颜色为白色 */
+        background-color: #24763d;
+        box-shadow: 0 4px 10px rgba(47, 143, 78, 0.18);
+        color: #ffffff;
     }
-
+    [data-testid="stDateInput"] label,
+    [data-testid="stMultiSelect"] label {
+        color: #475569;
+        font-size: 0.84rem;
+        font-weight: 700;
+    }
+    [data-baseweb="input"] {
+        background: #ffffff !important;
+        border-radius: 8px;
+    }
+    [data-baseweb="input"] input,
+    [data-testid="stDateInput"] input,
+    [data-testid="stTextInput"] input {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        border-color: #cbd5e1 !important;
+    }
+    [data-baseweb="select"] > div {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        border-color: #cbd5e1 !important;
+        border-radius: 8px;
+        min-height: 2.55rem;
+    }
+    [data-testid="stAlert"] {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        color: #1e3a8a;
+    }
+    [data-testid="stAlert"] * {
+        color: #1e3a8a !important;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 1rem;
+        border-bottom: 1px solid var(--line);
+        margin-top: 0.35rem;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 2.35rem;
+        padding: 0 0.1rem;
+        color: #475569;
+        font-weight: 700;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #dc2626;
+    }
     .stTextInput>div>div>input {
         border: 1px solid #ccc;
-        border-radius: 4px;
-        padding: 0.5rem;
+        border-radius: 8px;
+        padding: 0.45rem;
     }
     .stCheckbox>div>div>input {
         accent-color: #4CAF50;
     }
     .stDataFrame {
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
     }
-    .stMarkdown {font-size: 18px;}
+    .stMarkdown {font-size: 16px;}
     .login-title {
         text-align: center;
-        color: #2E4053;
+        color: #2E4053 !important;
         margin: 0.5rem 0;
         font-size: 2.2rem;
         font-weight: bold;
@@ -252,35 +408,36 @@ st.markdown(
         font-size: 3.5rem;
         margin-bottom: 0.5rem;
         text-align: center;
+        color: var(--text);
     }
     /* Pro 版链接 - 与退出登录按钮同高同风格 */
     a.pro-link {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 0.5rem 2rem;
-        background: linear-gradient(135deg, #5b6bc0 0%, #7c4dff 100%);
-        color: #fff !important;
+        padding: 0.35rem 0.9rem;
+        background: #eef2ff;
+        border: 1px solid #c7d2fe;
+        color: #3730a3 !important;
         text-decoration: none;
-        border-radius: 20px;
-        font-size: 1rem;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        border: none;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 800;
+        transition: all 0.18s ease;
         box-sizing: border-box;
-        min-height: 2.25rem;
-        line-height: 1.5;
+        min-height: 2.1rem;
+        line-height: 1.35;
         white-space: nowrap;
     }
     a.pro-link:hover {
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        color: #fff !important;
+        background: #e0e7ff;
+        box-shadow: 0 4px 10px rgba(79, 70, 229, 0.12);
+        color: #312e81 !important;
     }
     .pro-link-wrap {
         display: flex;
         align-items: center;
-        justify-content: flex-start;
-        margin-left: 0.5rem;
+        justify-content: flex-end;
         min-width: 0;
         overflow: hidden;
     }
@@ -484,25 +641,53 @@ def logout():
 PRO_VERSION_URL = "https://github.com/sunmh207/AI-Codereview-Gitlab/blob/main/doc/pro.md"
 
 
+def render_section_title(title, note=""):
+    note_html = f"<span>{note}</span>" if note else ""
+    st.markdown(
+        f'<div class="section-title"><strong>{title}</strong>{note_html}</div>',
+        unsafe_allow_html=True
+    )
+
+
+def render_summary_card(label, value, note=""):
+    note_html = f'<div class="summary-note">{note}</div>' if note else ""
+    st.markdown(
+        f"""
+        <div class="summary-card">
+            <div class="summary-label">{label}</div>
+            <div class="summary-value">{value}</div>
+            {note_html}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
 # 主要内容
 def main_page():
-    # 顶部导航：标题、留白、退出登录与 Pro 版（两按钮不重叠，留出间距）
-    col_title, col_space, col_actions = st.columns([5, 1.5, 3.5])
+    # 顶部导航：保留必要操作，降低按钮视觉重量，给数据内容让出空间。
+    col_title, col_space, col_logout, col_pro = st.columns([5.5, 2.5, 1.05, 1.35], vertical_alignment="center")
     with col_title:
-        st.markdown("#### 📊 代码审查统计")
-    with col_actions:
-        # 两列分别放退出登录、Pro 版，比例略偏右列以容纳较长文案
-        sub_col_logout, sub_col_pro = st.columns([1, 1.15])
-        with sub_col_logout:
-            if st.button("退出登录", key="logout_button", use_container_width=True):
-                logout()
-        with sub_col_pro:
-            st.markdown(
-                '<div class="pro-link-wrap">'
-                '<a href="' + PRO_VERSION_URL + '" target="_blank" rel="noopener noreferrer" class="pro-link">开源版 VS Pro 版</a>'
-                '</div>',
-                unsafe_allow_html=True
-            )
+        st.markdown(
+            """
+            <div class="dashboard-header">
+                <div class="dashboard-eyebrow">Code Review Analytics</div>
+                <h1 class="dashboard-title">代码审查统计</h1>
+                <p class="dashboard-subtitle">按时间、开发者和项目筛选审查记录，快速查看质量趋势与明细。</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    with col_logout:
+        if st.button("退出", key="logout_button", use_container_width=True):
+            logout()
+    with col_pro:
+        st.markdown(
+            '<div class="pro-link-wrap">'
+            '<a href="' + PRO_VERSION_URL + '" target="_blank" rel="noopener noreferrer" class="pro-link">开源 / Pro</a>'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
     current_date = datetime.date.today()
     start_date_default = current_date - datetime.timedelta(days=7)
@@ -515,13 +700,14 @@ def main_page():
     else:
         mr_tab = st.container()
 
-    def display_data(tab, service_func, columns, column_config):
+    def display_data(tab, tab_key, service_func, columns, column_config):
         with tab:
+            render_section_title("筛选条件", "公共筛选项会同时影响下方统计图和明细列表")
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                start_date = st.date_input("开始日期", start_date_default, key=f"{tab}_start_date")
+                start_date = st.date_input("开始日期", start_date_default, key=f"{tab_key}_start_date")
             with col2:
-                end_date = st.date_input("结束日期", current_date, key=f"{tab}_end_date")
+                end_date = st.date_input("结束日期", current_date, key=f"{tab_key}_end_date")
 
             start_datetime = datetime.datetime.combine(start_date, datetime.time.min)
             end_datetime = datetime.datetime.combine(end_date, datetime.time.max)
@@ -533,52 +719,64 @@ def main_page():
             unique_authors = sorted(df["author"].dropna().unique().tolist()) if not df.empty else []
             unique_projects = sorted(df["project_name"].dropna().unique().tolist()) if not df.empty else []
             with col3:
-                authors = st.multiselect("开发者", unique_authors, default=[], key=f"{tab}_authors")
+                authors = st.multiselect("开发者", unique_authors, default=[], key=f"{tab_key}_authors")
             with col4:
-                project_names = st.multiselect("项目名称", unique_projects, default=[], key=f"{tab}_projects")
+                project_names = st.multiselect("项目名称", unique_projects, default=[], key=f"{tab_key}_projects")
 
             data = get_data(service_func, authors=authors, project_names=project_names,
                             updated_at_gte=int(start_datetime.timestamp()),
                             updated_at_lte=int(end_datetime.timestamp()), columns=columns)
             df = pd.DataFrame(data)
 
-            st.data_editor(
-                df,
-                use_container_width=True,
-                column_config=column_config
-            )
-
             total_records = len(df)
             average_score = df["score"].mean() if not df.empty else 0
-            st.markdown(f"**总记录数:** {total_records}，**平均得分:** {average_score:.2f}")
+            project_count = df["project_name"].nunique() if not df.empty and "project_name" in df.columns else 0
+            author_count = df["author"].nunique() if not df.empty and "author" in df.columns else 0
+            total_additions = int(df["additions"].fillna(0).sum()) if "additions" in df.columns else 0
+            total_deletions = int(df["deletions"].fillna(0).sum()) if "deletions" in df.columns else 0
 
-            # 创建2x2网格布局展示四个图表
+            render_section_title("统计概览", "先看整体，再看图表分布")
+            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+            with kpi1:
+                render_summary_card("总记录数", total_records, "当前筛选范围")
+            with kpi2:
+                render_summary_card("平均得分", f"{average_score:.2f}", "满分 100")
+            with kpi3:
+                render_summary_card("项目 / 开发者", f"{project_count} / {author_count}", "去重统计")
+            with kpi4:
+                render_summary_card("代码变更", f"+{total_additions} / -{total_deletions}", "新增 / 删除")
+
+            # 筛选条件下的统计图表优先展示，明细表格放在页面底部。
+            render_section_title("统计图表", "图表根据上方筛选条件实时刷新")
             row1, row2, row3, row4 = st.columns(4)
             with row1:
-                st.markdown("<div style='text-align: center; font-size: 20px;'><b>项目提交统计</b></div>",
-                            unsafe_allow_html=True)
+                st.markdown('<div class="chart-title">项目提交统计</div>', unsafe_allow_html=True)
                 generate_project_count_chart(df)
             with row2:
-                st.markdown("<div style='text-align: center; font-size: 20px;'><b>项目平均得分</b></div>",
-                            unsafe_allow_html=True)
+                st.markdown('<div class="chart-title">项目平均得分</div>', unsafe_allow_html=True)
                 generate_project_score_chart(df)
             with row3:
-                st.markdown("<div style='text-align: center; font-size: 20px;'><b>开发者提交统计</b></div>",
-                            unsafe_allow_html=True)
+                st.markdown('<div class="chart-title">开发者提交统计</div>', unsafe_allow_html=True)
                 generate_author_count_chart(df)
             with row4:
-                st.markdown("<div style='text-align: center; font-size: 20px;'><b>开发者平均得分</b></div>",
-                            unsafe_allow_html=True)
+                st.markdown('<div class="chart-title">开发者平均得分</div>', unsafe_allow_html=True)
                 generate_author_score_chart(df)
 
             row5, row6, row7, row8 = st.columns(4)
             with row5:
-                st.markdown("<div style='text-align: center;'><b>人员代码变更行数</b></div>", unsafe_allow_html=True)
+                st.markdown('<div class="chart-title">人员代码变更行数</div>', unsafe_allow_html=True)
                 # 只有当 additions 和 deletions 列都存在时才显示代码行数图表
                 if 'additions' in df.columns and 'deletions' in df.columns:
                     generate_author_code_line_chart(df)
                 else:
                     st.info("无法显示代码行数图表：缺少必要的数据列")
+
+            render_section_title("明细列表", "合并请求、代码推送等记录保留在页面底部")
+            st.data_editor(
+                df,
+                use_container_width=True,
+                column_config=column_config
+            )
 
     # Merge Request 数据展示
     mr_columns = ["project_name", "author", "source_branch", "target_branch", "updated_at", "commit_messages", "delta",
@@ -607,7 +805,7 @@ def main_page():
         "deletions": None,
     }
 
-    display_data(mr_tab, ReviewService().get_mr_review_logs, mr_columns, mr_column_config)
+    display_data(mr_tab, "mr", ReviewService().get_mr_review_logs, mr_columns, mr_column_config)
 
     # Push 数据展示
     if show_push_tab:
@@ -630,7 +828,7 @@ def main_page():
             "deletions": None,
         }
 
-        display_data(push_tab, ReviewService().get_push_review_logs, push_columns, push_column_config)
+        display_data(push_tab, "push", ReviewService().get_push_review_logs, push_columns, push_column_config)
 
 
 # 应用入口
