@@ -14,3 +14,5 @@ conf/.env
 __pycache__/
 .cursorignore
 .cursor
+.claude/
+openspec/
