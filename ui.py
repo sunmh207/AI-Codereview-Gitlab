@@ -530,7 +530,7 @@ PRO_VERSION_URL = "https://github.com/sunmh207/AI-Codereview-Gitlab/blob/main/do
 # 主要内容
 def main_page():
     # 顶部导航：一行内标题 + 退出 / Pro（减少垂直留白）
-    head_left, head_right = st.columns([6, 2.8])
+    head_left, head_right = st.columns([7.2, 2.8])
     with head_left:
         st.markdown(
             '<style>.dash-heading-bar{margin:0 0 0.15rem 0;padding:0;line-height:1.2;} '
@@ -539,8 +539,8 @@ def main_page():
             unsafe_allow_html=True,
         )
     with head_right:
-        # 两列分别放退出登录、Pro 版，比例略偏右列以容纳较长文案
-        sub_col_logout, sub_col_pro = st.columns([1, 1.15])
+        # 两列分别放退出登录、Pro 版，靠右对齐
+        sub_col_logout, sub_col_pro = st.columns([1.3, 1.5])
         with sub_col_logout:
             if st.button("退出登录", key="logout_button", use_container_width=True):
                 logout()
