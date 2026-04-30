@@ -85,7 +85,7 @@ services:
     restart: unless-stopped
 
   app:
-    image: registry.cn-hangzhou.aliyuncs.com/stanley-public/ai-codereview-pro:1.5.6
+    image: registry.cn-hangzhou.aliyuncs.com/stanley-public/ai-codereview-pro:1.5.8
     container_name: codereview-app
     ports:
       - "81:80"
