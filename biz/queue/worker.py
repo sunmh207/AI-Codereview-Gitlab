@@ -1,5 +1,4 @@
 import os
-import traceback
 from datetime import datetime
 
 from biz.entity.review_entity import MergeRequestReviewEntity, PushReviewEntity
@@ -63,9 +62,14 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
         ))
 
     except Exception as e:
-        error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
-        notifier.send_notification(content=error_message)
-        logger.error('出现未知错误: %s', error_message)
+        from biz.utils.error_handler import ErrorHandler
+        ErrorHandler.handle_error(
+            exception=e,
+            function_name='handle_push_event',
+            webhook_data=webhook_data,
+            logger_instance=logger,
+            notifier_instance=notifier.send_notification
+        )
 
 
 def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_url_slug: str):
@@ -161,9 +165,14 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
         )
 
     except Exception as e:
-        error_message = f'AI Code Review 服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
-        notifier.send_notification(content=error_message)
-        logger.error('出现未知错误: %s', error_message)
+        from biz.utils.error_handler import ErrorHandler
+        ErrorHandler.handle_error(
+            exception=e,
+            function_name='handle_merge_request_event',
+            webhook_data=webhook_data,
+            logger_instance=logger,
+            notifier_instance=notifier.send_notification
+        )
 
 def handle_github_push_event(webhook_data: dict, github_token: str, github_url: str, github_url_slug: str):
     push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
@@ -213,9 +222,14 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
         ))
 
     except Exception as e:
-        error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
-        notifier.send_notification(content=error_message)
-        logger.error('出现未知错误: %s', error_message)
+        from biz.utils.error_handler import ErrorHandler
+        ErrorHandler.handle_error(
+            exception=e,
+            function_name='handle_github_push_event',
+            webhook_data=webhook_data,
+            logger_instance=logger,
+            notifier_instance=notifier.send_notification
+        )
 
 
 def handle_github_pull_request_event(webhook_data: dict, github_token: str, github_url: str, github_url_slug: str):
@@ -300,9 +314,14 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
             ))
 
     except Exception as e:
-        error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
-        notifier.send_notification(content=error_message)
-        logger.error('出现未知错误: %s', error_message)
+        from biz.utils.error_handler import ErrorHandler
+        ErrorHandler.handle_error(
+            exception=e,
+            function_name='handle_github_pull_request_event',
+            webhook_data=webhook_data,
+            logger_instance=logger,
+            notifier_instance=notifier.send_notification
+        )
 
 
 def handle_gitea_push_event(webhook_data: dict, gitea_token: str, gitea_url: str, gitea_url_slug: str):
@@ -354,9 +373,14 @@ def handle_gitea_push_event(webhook_data: dict, gitea_token: str, gitea_url: str
         ))
 
     except Exception as e:
-        error_message = f'服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
-        notifier.send_notification(content=error_message)
-        logger.error('出现未知错误: %s', error_message)
+        from biz.utils.error_handler import ErrorHandler
+        ErrorHandler.handle_error(
+            exception=e,
+            function_name='handle_gitea_push_event',
+            webhook_data=webhook_data,
+            logger_instance=logger,
+            notifier_instance=notifier.send_notification
+        )
 
 
 def handle_gitea_pull_request_event(webhook_data: dict, gitea_token: str, gitea_url: str, gitea_url_slug: str):
@@ -433,6 +457,11 @@ def handle_gitea_pull_request_event(webhook_data: dict, gitea_token: str, gitea_
             ))
 
     except Exception as e:
-        error_message = f'AI Code Review 服务出现未知错误: {str(e)}\n{traceback.format_exc()}'
-        notifier.send_notification(content=error_message)
-        logger.error('出现未知错误: %s', error_message)
+        from biz.utils.error_handler import ErrorHandler
+        ErrorHandler.handle_error(
+            exception=e,
+            function_name='handle_gitea_pull_request_event',
+            webhook_data=webhook_data,
+            logger_instance=logger,
+            notifier_instance=notifier.send_notification
+        )
