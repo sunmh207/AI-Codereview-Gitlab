@@ -96,6 +96,13 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
         if merge_review_only_protected_branches and not handler.target_branch_protected():
             logger.info("Merge Request target branch not match protected branches, ignored.")
             return
+            
+        if handler.action == 'close':
+            url = webhook_data.get('object_attributes', {}).get('url')
+            if url:
+                ReviewService.delete_mr_review_log_by_url(url)
+                logger.info(f"Merge Request closed, deleted review log for {url}")
+            return
 
         if handler.action not in ['open', 'update']:
             logger.info(f"Merge Request Hook event, action={handler.action}, ignored.")
