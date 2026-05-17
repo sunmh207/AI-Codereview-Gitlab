@@ -1,3 +1,4 @@
+import re
 from abc import abstractmethod
 from typing import List, Dict, Optional
 
@@ -12,7 +13,8 @@ class BaseClient:
         """Ping the model to check connectivity."""
         try:
             result = self.completions(messages=[{"role": "user", "content": '请仅返回 "ok"。'}])
-            return result and result.strip() == "ok"
+            cleaned = re.sub(r'<think>.*?</think>', '', result, flags=re.DOTALL)
+            return cleaned.strip() == "ok"
         except Exception:
             logger.error("尝试连接LLM失败， {e}")
             return False
