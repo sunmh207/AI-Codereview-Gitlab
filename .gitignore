@@ -12,6 +12,7 @@ data/*
 conf/.env
 .pyc
 __pycache__/
+.agents/
 .cursorignore
 .cursor
 .claude/
