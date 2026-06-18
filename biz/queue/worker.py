@@ -10,8 +10,31 @@ from biz.platforms.gitea.webhook_handler import filter_changes as filter_gitea_c
     PushHandler as GiteaPushHandler
 from biz.service.review_service import ReviewService
 from biz.utils.code_reviewer import CodeReviewer
+from biz.utils.git_util import clone_branches_for_review, cleanup_repo
 from biz.utils.im import notifier
 from biz.utils.log import logger
+from biz.utils.skill_reviewer import SkillReviewer
+
+
+def review_gitlab_mr_with_skill(webhook_data: dict, gitlab_token: str,
+                                source_branch: str, target_branch: str) -> str:
+    """
+    通过 Claude Code skill 审查 GitLab MR：克隆源/目标分支到临时目录，
+    对 target...source 的增量运行 skill，返回 Markdown 结果。
+    """
+    git_http_url = webhook_data.get('project', {}).get('git_http_url', '')
+    if not git_http_url:
+        raise RuntimeError("webhook_data 缺少 project.git_http_url，无法克隆仓库进行 skill 审查。")
+
+    repo_dir = None
+    try:
+        repo_dir, diff_range = clone_branches_for_review(
+            git_http_url, gitlab_token, source_branch, target_branch
+        )
+        return SkillReviewer().review(repo_dir, diff_range)
+    finally:
+        if repo_dir:
+            cleanup_repo(repo_dir)
 
 
 
@@ -135,7 +158,31 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
 
         # review 代码
         commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        review_engine = os.environ.get('REVIEW_ENGINE', 'llm')
+        if review_engine == 'skill':
+            try:
+                source_branch = object_attributes.get('source_branch', '')
+                target_branch = object_attributes.get('target_branch', '')
+                review_result = review_gitlab_mr_with_skill(
+                    webhook_data, gitlab_token, source_branch, target_branch
+                )
+            except Exception as skill_err:
+                # skill 审查失败(未登录/克隆失败等)时回退到 LLM diff 审查，保证 MR 仍有反馈
+                logger.error(f'Skill 审查失败，回退到 LLM diff 审查: {skill_err}')
+                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        else:
+            review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+
+        # 计算评分(自动识别: 含"总分"的LLM报告按正则; skill 的 P0-P3 报告按权重扣分)
+        score = CodeReviewer.compute_score(review_result)
+        # skill 报告本身没有评分行, 在末尾附上评分摘要, 使 MR note 中可见
+        if review_engine == 'skill' and '总分' not in review_result:
+            c = CodeReviewer.count_skill_findings(review_result)
+            review_result = (
+                f"{review_result}\n\n---\n"
+                f"**本次评分**: {score} 分　"
+                f"(P0×{c['P0']} P1×{c['P1']} P2×{c['P2']} P3×{c['P3']})"
+            )
 
         # 将review结果提交到Gitlab的 notes
         handler.add_merge_request_notes(f'Auto Review Result: \n{review_result}')
@@ -149,7 +196,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
                 target_branch=webhook_data['object_attributes']['target_branch'],
                 updated_at=int(datetime.now().timestamp()),
                 commits=commits,
-                score=CodeReviewer.parse_review_score(review_text=review_result),
+                score=score,
                 url=webhook_data['object_attributes']['url'],
                 review_result=review_result,
                 url_slug=gitlab_url_slug,
