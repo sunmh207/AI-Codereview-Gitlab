@@ -187,8 +187,6 @@ python -m biz.cmd.review
 
 功能更丰富的 AI Code Review 版本。
 
-体验站: [https://demo.mzfuture.com](https://demo.mzfuture.com)
-
 项目介绍与使用说明：[Code Review Pro 版](doc/pro.md)
 
 快速安装命令：
@@ -196,22 +194,6 @@ python -m biz.cmd.review
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sunmh207/AI-Codereview-Gitlab/refs/heads/main/scripts/pro/install.sh | bash
 ```
-
-**多种统计图**
-
-![多种统计图](doc/img/pro/dashboard.png)
-
-**成员提交分析**
-
-![成员提交分析](doc/img/pro/member-analysis.png)
-
-**Deep Review**
-
-![Deep Review](doc/img/pro/deepreview.png)
-
-**项目哨兵**
-
-![项目哨兵](doc/img/pro/project-analysis-plan.png)
 
 ### 2. Entire Dashboard
 
