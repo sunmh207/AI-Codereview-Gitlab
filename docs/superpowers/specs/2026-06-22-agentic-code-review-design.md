@@ -56,7 +56,7 @@ Webhook (any platform)
    + 3 tools        (wraps existing Factory)
         │
         ▼
-   Local repo at biz/repo_cache/<provider>_<owner>_<repo>/
+   Local repo at data/repo_cache/<provider>_<owner>_<repo>/
 ```
 
 All new code lives under `biz/agent/`. The only changes to existing code:
@@ -105,7 +105,7 @@ class ToolResult:
     error: str | None = None
 ```
 
-Tool output text is bounded (default 5000 tokens, `AGENT_TOOL_OUTPUT_MAX_TOKENS`). Truncated output is prefixed with `[output truncated]`.
+Tool output text is bounded (default 10000 tokens, `AGENT_TOOL_OUTPUT_MAX_TOKENS`). Truncated output is prefixed with `[output truncated]`.
 
 ### 5.3 `ToolRegistry`
 
@@ -142,11 +142,11 @@ return last_assistant_content or "max iterations reached"
 
 ### 5.5 `LocalRepoSyncer`
 
-Lazy clone/update of the target repository to `biz/repo_cache/<provider>_<owner>_<repo>/`.
+Lazy clone/update of the target repository to `data/repo_cache/<provider>_<owner>_<repo>/`.
 
 - First sync for a project: `git clone <url>` (full clone, **not** `--depth=1`, so any historical SHA can be checked out).
 - Subsequent syncs: `git fetch --all --prune` then `git checkout <ref>` (or `git reset --hard <sha>` for push events). Working tree lives inside the clone itself; checkout switches the working tree in place.
-- Concurrency note: since each review runs in its own worker subprocess, two simultaneous reviews on the same project may race. Mitigation: the syncer takes a per-project file lock (`biz/repo_cache/<key>.lock`) with `fcntl.flock`; second waiter waits up to 60s then proceeds even if lock acquisition fails (logged as warning).
+- Concurrency note: since each review runs in its own worker subprocess, two simultaneous reviews on the same project may race. Mitigation: the syncer takes a per-project file lock (`data/repo_cache/<key>.lock`) with `fcntl.flock`; second waiter waits up to 60s then proceeds even if lock acquisition fails (logged as warning).
 - Sync runs synchronously inside the existing worker subprocess; the webhook has already returned 200.
 - Failure to sync → soft-degrade to `diff_only`.
 
@@ -221,13 +221,13 @@ Blocklist is checked first; if a command matches both, it is rejected. Both list
 
 ## 8. Configuration
 
-| Variable | Default | Description |
-|---|---|---|
-| `REVIEW_STRATEGY` | `diff_only` | `diff_only` or `agentic`. One per deployment. |
-| `AGENT_MAX_ITERATIONS` | `20` | Agent loop max rounds. |
-| `AGENT_TOOL_OUTPUT_MAX_TOKENS` | `5000` | Per-tool output cap. |
-| `REPO_CACHE_DIR` | `biz/repo_cache/` | Local cache root. |
-| `GIT_CLONE_TIMEOUT` | `120` | Seconds before clone/fetch fails. |
+| Variable | Default            | Description |
+|---|--------------------|---|
+| `REVIEW_STRATEGY` | `diff_only`        | `diff_only` or `agentic`. One per deployment. |
+| `AGENT_MAX_ITERATIONS` | `20`               | Agent loop max rounds. |
+| `AGENT_TOOL_OUTPUT_MAX_TOKENS` | `10000`            | Per-tool output cap. |
+| `REPO_CACHE_DIR` | `data/repo_cache/` | Local cache root. |
+| `GIT_CLONE_TIMEOUT` | `120`              | Seconds before clone/fetch fails. |
 | `AGENT_SHELL_ALLOWLIST` | (built-in default) | Override default allowlist. |
 | `AGENT_SHELL_BLOCKLIST` | (built-in default) | Override default blocklist. |
 
