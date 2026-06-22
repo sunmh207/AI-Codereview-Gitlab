@@ -2391,9 +2391,55 @@ class TestAgentRunner:
         with pytest.raises(TokenBudgetExceeded):
             runner.run([{"role": "user", "content": "?"}])
 
+    def test_three_empty_rounds_raises_streak(self):
+        # Three rounds with neither content nor tool_calls.
+        from biz.agent.runner import InvalidToolCallStreak
+        responses = [
+            {"content": None, "tool_calls": [], "raw": None},
+            {"content": "", "tool_calls": [], "raw": None},
+            {"content": "", "tool_calls": [], "raw": None},
+        ]
+        client = _adapter_returning(responses)
+        adapter = LLMAdapter(client, use_native=True)
+        runner = AgentRunner(adapter=adapter, registry=ToolRegistry(), max_iterations=10)
+        with pytest.raises(InvalidToolCallStreak):
+            runner.run([{"role": "user", "content": "?"}])
+
+    def test_tool_output_truncated_to_max_tokens(self):
+        # Big payload via a tool that returns a large string; runner should truncate.
+        class _BigTool(Tool):
+            name = "big"
+            description = ""
+            parameters = {"type": "object", "properties": {}}
+            def execute(self, **kwargs):
+                return ToolResult(True, "x" * 200_000)
+
+        responses = [
+            {"content": "calling", "tool_calls": [
+                {"id": "1", "name": "big", "arguments": {}},
+            ], "raw": None},
+            {"content": "done", "tool_calls": [], "raw": None},
+        ]
+        client = _adapter_returning(responses)
+        adapter = LLMAdapter(client, use_native=True)
+        reg = ToolRegistry()
+        reg.register(_BigTool())
+        runner = AgentRunner(
+            adapter=adapter, registry=reg, max_iterations=5,
+            tool_output_max_tokens=50,
+        )
+        result = runner.run([{"role": "user", "content": "?"}])
+        assert result == "done"
+        # Find the tool message in the call args and assert truncation marker.
+        second_call = client.chat_with_tools.call_args_list[1]
+        sent_messages = second_call.kwargs["messages"]
+        tool_msg = next(m for m in sent_messages if m.get("role") == "tool")
+        assert "[output truncated]" in tool_msg["content"]
+        assert len(tool_msg["content"]) < 1000
+
 
 # Imported here so pytest can collect the symbol from the module.
-from biz.agent.runner import TokenBudgetExceeded  # noqa: E402
+from biz.agent.runner import TokenBudgetExceeded, InvalidToolCallStreak  # noqa: E402,F401
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -2410,17 +2456,22 @@ Create `biz/agent/runner.py`:
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from biz.agent.llm_adapter import LLMAdapter
 from biz.agent.tool_registry import ToolRegistry
-from biz.utils.token_util import count_tokens
+from biz.utils.token_util import count_tokens, truncate_text_by_tokens
 
 logger = logging.getLogger(__name__)
 
 
 class TokenBudgetExceeded(Exception):
     """Raised when the cumulative token estimate for the conversation exceeds the cap."""
+
+
+class InvalidToolCallStreak(Exception):
+    """Raised when the agent emits 3 consecutive rounds with no usable tool calls or text."""
 
 
 class AgentRunner:
@@ -2431,15 +2482,24 @@ class AgentRunner:
         registry: ToolRegistry,
         max_iterations: int = 20,
         total_token_cap: int = 80_000,
+        tool_output_max_tokens: int | None = None,
     ) -> None:
         self.adapter = adapter
         self.registry = registry
         self.max_iterations = max_iterations
         self.total_token_cap = total_token_cap
+        self.tool_output_max_tokens = (
+            tool_output_max_tokens
+            if tool_output_max_tokens is not None
+            else int(os.getenv("AGENT_TOOL_OUTPUT_MAX_TOKENS", "10000"))
+        )
 
     def run(self, initial_messages: list[dict]) -> str:
         messages = list(initial_messages)
         last_assistant_content: str | None = None
+        # Tracks rounds where LLM emitted nothing actionable (no content AND no tool_calls).
+        # After 3 in a row, raise to trigger soft-degrade.
+        empty_streak = 0
         for i in range(self.max_iterations):
             resp = self.adapter.completions_with_tools(
                 messages=messages,
@@ -2450,10 +2510,29 @@ class AgentRunner:
             if resp.content:
                 last_assistant_content = resp.content
             if not resp.tool_calls:
+                if not (resp.content or "").strip():
+                    # Empty round (model emitted only invalid/empty tool calls or nothing at all).
+                    empty_streak += 1
+                    if empty_streak >= 3:
+                        raise InvalidToolCallStreak(
+                            f"3 consecutive empty rounds from LLM"
+                        )
+                    continue
                 return resp.content or last_assistant_content or ""
+            # Productive round: reset streak.
+            empty_streak = 0
             messages.append(self.adapter.build_assistant_message(resp))
             for call in resp.tool_calls:
                 result = self.registry.dispatch(call)
+                # Truncate tool output to bound message size.
+                if result.success and self.tool_output_max_tokens > 0:
+                    truncated = truncate_text_by_tokens(result.output, self.tool_output_max_tokens)
+                    if truncated != result.output:
+                        result = result.__class__(
+                            success=True,
+                            output=truncated + "\n[output truncated]",
+                            error=result.error,
+                        )
                 messages.append(self.adapter.build_tool_message(call, result))
                 # Token accounting.
                 usage = self._estimate_total_tokens(messages)
@@ -2627,6 +2706,14 @@ def _slugify_repo_key(provider: str, project: str) -> str:
     return f"{provider}_{project}".replace("/", "_").replace(" ", "_")
 
 
+def _parse_csv_env(name: str, default: list[str]) -> list[str]:
+    """Read a comma-separated env var, fall back to `default` if unset/empty."""
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return list(default)
+    return [item.strip() for item in raw.split(",") if item.strip()] or list(default)
+
+
 class AgenticReviewer:
     def __init__(
         self,
@@ -2653,6 +2740,26 @@ class AgenticReviewer:
         client = Factory().getClient()
         return LLMAdapter(client)
 
+    def _build_registry(self, repo_root: Path) -> ToolRegistry:
+        registry = ToolRegistry()
+        # ReadFileTool and ASTQueryTool have no env-driven config.
+        registry.register(__import__("biz.agent.tools.read_file", fromlist=["ReadFileTool"]).ReadFileTool(repo_root))
+        registry.register(__import__("biz.agent.tools.ast_query", fromlist=["ASTQueryTool"]).ASTQueryTool(repo_root))
+        # RunCommandTool honors AGENT_SHELL_ALLOWLIST / AGENT_SHELL_BLOCKLIST env vars.
+        from biz.agent.tools.run_command import (
+            RunCommandTool,
+            DEFAULT_ALLOWLIST,
+            DEFAULT_BLOCKLIST,
+        )
+        allow = _parse_csv_env("AGENT_SHELL_ALLOWLIST", DEFAULT_ALLOWLIST)
+        block = _parse_csv_env("AGENT_SHELL_BLOCKLIST", DEFAULT_BLOCKLIST)
+        registry.register(RunCommandTool(
+            repo_root,
+            allowlist=allow,
+            blocklist=block,
+        ))
+        return registry
+
     def review(self, diffs_text: str, commits_text: str) -> str:
         # 1. Sync repo locally.
         try:
@@ -2665,8 +2772,7 @@ class AgenticReviewer:
 
         # 2. Build adapter, registry, runner.
         adapter = self._build_adapter()
-        registry = ToolRegistry()
-        register_default_tools(registry, repo_root)
+        registry = self._build_registry(repo_root)
         runner = AgentRunner(
             adapter=adapter,
             registry=registry,
@@ -3281,6 +3387,58 @@ git tag -a v1.5.0-agentic -m "add agentic code review strategy"
 
 ---
 
+### Task 23: Structured per-review logging
+
+**Files:**
+- Modify: `biz/agent/agentic_reviewer.py`
+
+- [ ] **Step 1: Add a `ReviewLog` dataclass and emit at end of `review()`**
+
+Append after the existing class body (or as a nested dataclass):
+
+```python
+import json
+import time
+
+@dataclass
+class ReviewLog:
+    event: str
+    project: str
+    ref: str
+    strategy: str
+    iterations: int
+    total_tokens_est: int
+    duration_ms: int
+    review_result_length: int
+    score: int
+    degraded: bool
+    tool_calls: list[dict]
+```
+
+- [ ] **Step 2: Instrument `review()` to collect and emit the log**
+
+Modify `AgenticReviewer.review()` to:
+1. Record `start = time.monotonic()`.
+2. After AgentRunner.run() completes (success or failure), iterate `messages` to collect tool calls and estimate tokens.
+3. Parse score from the final review text using `CodeReviewer.parse_review_score()`.
+4. Emit a single `logger.info(json.dumps(asdict(log), ensure_ascii=False))` line.
+
+(Exact instrumentation shown in commit; the structure mirrors the JSON shape in spec section 11.)
+
+- [ ] **Step 3: Verify a log line appears when running tests**
+
+Run: `pytest tests/agent/test_agentic_reviewer.py -v -s`
+Expected: Existing tests still pass; one INFO log line containing `"event": "agentic_review"` appears per review call.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add biz/agent/agentic_reviewer.py
+git commit -m "feat(agent): emit structured per-review log line"
+```
+
+---
+
 ## Notes for the Implementer
 
 - **Run tests after every commit.** If a test fails, fix it before moving on.
@@ -3288,5 +3446,12 @@ git tag -a v1.5.0-agentic -m "add agentic code review strategy"
 - **Mock at the boundary.** Tests mock the LLM client and the git CLI. Don't mock internal agent code; test it directly.
 - **Existing tests/ vs new tests/**: The repo's existing `test/` directory contains exploratory scripts; ignore them. Use the new `tests/` directory exclusively.
 - **TDD discipline**: Red → Green → Refactor → Commit. Every task follows this cycle.
-- **Spec deviations are bugs** unless you note them in the commit message. The only deviation documented in this plan is adding `chat_with_tools()` instead of extending `completions()`.
+
+### Spec deviations (intentional)
+
+1. **`chat_with_tools()` instead of extending `completions()`.** The spec says "extend `completions()` to return structured output with `tool_calls`". Doing so would break all 6 existing client implementations and every caller. We instead add a NEW abstract method `chat_with_tools()` to `BaseClient`. Existing `completions()` is unchanged. `LLMAdapter` calls `chat_with_tools()` for agentic mode and falls back to JSON-protocol for providers that raise `NotImplementedError`.
+
+2. **`build_from_event` factory method shape.** The spec describes a `AgenticReviewer.build_from_event(webhook_data, ...)` classmethod that takes a webhook payload and returns an instance. In the plan, this is decomposed into a worker-level helper `_resolve_repo_for_event(webhook_data, ...)` plus a direct constructor call — easier to test and avoids passing the entire webhook into the reviewer. Functionally equivalent.
+
+3. **3 consecutive invalid tool_calls interpretation.** The spec says "Loop exits with error + soft-degrade to diff_only". The plan implements this as "3 consecutive rounds where the LLM emits neither tool_calls nor non-empty content", raising `InvalidToolCallStreak`. The `AgenticReviewer.review()` catch-all covers this case via the same soft-degrade path.
 
