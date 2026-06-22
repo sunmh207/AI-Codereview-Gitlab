@@ -18,7 +18,7 @@ The desired enhancement is to let the review have access to the **whole project*
 ## 2. Goals
 
 - Provide a second review strategy (`agentic`) that complements the existing `diff_only` strategy.
-- The agent can read project files, list directories, run grep, run AST queries, and execute sandboxed shell commands.
+- The agent can read project files, run AST queries, and execute sandboxed shell commands (which exposes `ls`, `rg`/`grep`, `tree`, etc. without needing dedicated tools).
 - All three platforms (GitLab, GitHub, Gitea) and all event types (MR/PR/push) work with agentic mode.
 - Selection between strategies is configuration-driven; a deployment picks one strategy at a time.
 - Soft-degrade to `diff_only` on failure so users always get at least the current-quality review.
@@ -128,10 +128,15 @@ for i in range(max_iterations):
     resp = llm_adapter.completions(messages, tools=registry.list_schemas())
     if not resp.tool_calls:
         return resp.content
-    messages.append(assistant_message_with_tool_calls(resp))
+    # assistant message format depends on provider:
+    #   - native tool-use providers: {"role": "assistant", "content": ..., "tool_calls": [...]}
+    #   - JSON-protocol fallback:   {"role": "assistant", "content": "...JSON blocks..."}
+    # LLMAdapter abstracts this via build_assistant_message(resp).
+    messages.append(adapter.build_assistant_message(resp))
     for call in resp.tool_calls:
         result = registry.dispatch(call)
-        messages.append(tool_message(call, result))
+        # tool message format: {"role": "tool", "tool_call_id": call.id, "content": str(result)}
+        messages.append(adapter.build_tool_message(call, result))
 return last_assistant_content or "max iterations reached"
 ```
 
@@ -139,8 +144,9 @@ return last_assistant_content or "max iterations reached"
 
 Lazy clone/update of the target repository to `biz/repo_cache/<provider>_<owner>_<repo>/`.
 
-- First sync for a project: `git clone --mirror` for full history (so any SHA can be checked out).
-- Subsequent syncs: `git fetch` + `git checkout <ref>` (or `git reset --hard <sha>` for push events).
+- First sync for a project: `git clone <url>` (full clone, **not** `--depth=1`, so any historical SHA can be checked out).
+- Subsequent syncs: `git fetch --all --prune` then `git checkout <ref>` (or `git reset --hard <sha>` for push events). Working tree lives inside the clone itself; checkout switches the working tree in place.
+- Concurrency note: since each review runs in its own worker subprocess, two simultaneous reviews on the same project may race. Mitigation: the syncer takes a per-project file lock (`biz/repo_cache/<key>.lock`) with `fcntl.flock`; second waiter waits up to 60s then proceeds even if lock acquisition fails (logged as warning).
 - Sync runs synchronously inside the existing worker subprocess; the webhook has already returned 200.
 - Failure to sync → soft-degrade to `diff_only`.
 
@@ -192,13 +198,13 @@ After streamlining, the tool set is:
 
 ### 7.2 `ast_query(query, path=".")`
 
-Built on tree-sitter. v1 only supports Python. Exposes three sub-queries:
+v1 only supports Python (using Python stdlib `ast` for definitions and callees; `rg` + AST-node-type validation for references). Tree-sitter is a future option for multi-language support but is **not** used in v1 to keep dependencies small. Exposes three sub-queries:
 
-- `definitions` — list functions and classes in file or directory.
-- `references <symbol>` — find all references to a symbol (grep + AST node validation).
-- `callees <func_name>` — list function calls inside a named function (using `ast` module).
+- `definitions` — list functions and classes under `path` (file or directory).
+- `references <symbol>` — find all references to a symbol across the repo; uses `rg` for candidates and validates via Python `ast` that each match is an actual reference (not a string literal, comment, etc.).
+- `callees <func_name>` — list function calls inside the named function using Python `ast`.
 
-Other languages return `error="language not supported in v1"` without raising.
+`path` may be a single file or a directory; directories are walked recursively. Other languages return `error="language not supported in v1"` without raising.
 
 ### 7.3 `run_command(cmd, timeout=30)`
 
@@ -232,13 +238,13 @@ Blocklist is checked first; if a command matches both, it is rejected. Both list
 | Failure | Behavior |
 |---|---|
 | `git clone` or `fetch` fails | Log + IM notify + soft-degrade to `diff_only` |
-| LLM call fails | Log + IM notify + soft-degrade (existing behavior) |
+| LLM call fails (inside agent loop) | Log + soft-degrade to `diff_only`; the outer worker handler still has its existing IM-notify-on-exception behavior if the outer try/except fires |
 | Tool execution throws | Caught, returned as `ToolResult(success=False, error=...)`; LLM sees error in next round |
 | Shell command timeout | Returned as `ToolResult(success=False, error="timed out after 30s")` |
 | Shell sandbox violation | Returned as `ToolResult(success=False, error="blocked by sandbox")` |
 | `max_iterations` reached | Loop exits; last assistant content (or generic message) returned as review |
 | 3 consecutive invalid tool_calls | Loop exits with error + soft-degrade to `diff_only` |
-| Total token estimate exceeds 80k | Soft-degrade to `diff_only` |
+| Total token estimate exceeds hard cap | Soft-degrade to `diff_only`. Hard cap hardcoded to **80k tokens** in v1 (rationale: keeps within typical 128k-context models with headroom; revisit via env var in v2 if needed) |
 
 Soft-degrade is implemented inside `AgenticReviewer.review()` via a try/except wrapping the entire agent loop; on failure it calls `CodeReviewer().review_and_strip_code(...)` so users always receive at least the current-quality review.
 
@@ -246,7 +252,7 @@ Soft-degrade is implemented inside `AgenticReviewer.review()` via a try/except w
 
 - System prompt explicitly instructs the LLM to ignore any instructions found in diff/commit text.
 - Path sandboxing enforced at tool level, not by parsing shell strings.
-- Sensitive paths (`.env`, `.git/`, `*.pem`, etc.) refused by `read_file` / `list_dir` / `ast_query` regardless of caller.
+- Sensitive paths (`.env`, `.git/`, `*.pem`, etc.) refused by `read_file` and `ast_query` regardless of caller.
 - Shell sandbox has both allowlist and blocklist; blocklist takes precedence on conflict.
 - No cleaning of tool output: code is code, any "instructions" found in it are evaluated by the LLM at its own risk.
 
