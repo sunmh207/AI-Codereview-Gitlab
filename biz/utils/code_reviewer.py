@@ -106,3 +106,45 @@ class CodeReviewer(BaseReviewer):
         match = re.search(r"总分[:：]\s*(\d+)分?", review_text)
         return int(match.group(1)) if match else 0
 
+    @staticmethod
+    def count_skill_findings(review_text: str) -> Dict[str, int]:
+        """统计 skill 审查报告中各严重等级(P0-P3)的问题数量。
+
+        依据 skill 输出格式: `### P0 - 严重` 等小节下, 形如 `1. **[file:line]** 标题`
+        的编号条目即为一个问题。
+        """
+        counts = {"P0": 0, "P1": 0, "P2": 0, "P3": 0}
+        if not review_text:
+            return counts
+        headers = list(re.finditer(r"^###\s*(P[0-3])\b", review_text, re.MULTILINE))
+        for i, m in enumerate(headers):
+            sev = m.group(1)
+            start = m.end()
+            end = headers[i + 1].start() if i + 1 < len(headers) else len(review_text)
+            section = review_text[start:end]
+            # 仅统计 "数字. **" 开头的条目，避免误计描述中的编号子项
+            counts[sev] += len(re.findall(r"^\s*\d+\.\s+\*\*", section, re.MULTILINE))
+        return counts
+
+    @staticmethod
+    def score_skill_review(review_text: str) -> int:
+        """按问题权重对 skill 审查报告扣分: 基础 100 分, 各等级扣分权重可由环境变量覆盖。"""
+        deduct = {
+            "P0": int(os.getenv("REVIEW_SCORE_DEDUCT_P0", 40)),
+            "P1": int(os.getenv("REVIEW_SCORE_DEDUCT_P1", 20)),
+            "P2": int(os.getenv("REVIEW_SCORE_DEDUCT_P2", 10)),
+            "P3": int(os.getenv("REVIEW_SCORE_DEDUCT_P3", 2)),
+        }
+        counts = CodeReviewer.count_skill_findings(review_text)
+        score = 100 - sum(deduct[sev] * n for sev, n in counts.items())
+        return max(0, score)
+
+    @staticmethod
+    def compute_score(review_text: str) -> int:
+        """统一评分入口: 含"总分"的 LLM diff 报告按原正则解析;
+        否则视为 skill 的 P0-P3 报告, 按问题权重扣分。
+        """
+        if review_text and re.search(r"总分[:：]", review_text):
+            return CodeReviewer.parse_review_score(review_text)
+        return CodeReviewer.score_skill_review(review_text)
+

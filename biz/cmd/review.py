@@ -4,6 +4,7 @@ from biz.cmd.func.branch import BranchReviewFunc
 from biz.cmd.func.complexity import ComplexityReviewFunc
 from biz.cmd.func.directory import DirectoryReviewFunc
 from biz.cmd.func.mysql import MySQLReviewFunc
+from biz.cmd.func.skill import SkillReviewFunc
 
 
 def welcome_message():
@@ -16,6 +17,7 @@ def get_func_choice():
         "2": ("Review 代码分支命名规范", BranchReviewFunc),
         "3": ("Review 代码复杂度", ComplexityReviewFunc),
         "4": ("Review MySQL 数据库表结构", MySQLReviewFunc),
+        "5": ("Skill 审查 (Claude Code + code-review-expert)", SkillReviewFunc),
     }
 
     print("📌 请选择功能:")
@@ -23,10 +25,10 @@ def get_func_choice():
         print(f"{key}. {desc}")
 
     while True:
-        choice = input("请输入数字 (1-4): ").strip()
+        choice = input(f"请输入数字 (1-{len(options)}): ").strip()
         if choice in options:
             return options[choice][1]  # 返回对应的类
-        print("❌ 无效的选择，请输入 1-4")
+        print(f"❌ 无效的选择，请输入 1-{len(options)}")
 
 
 if __name__ == "__main__":
