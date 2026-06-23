@@ -1,3 +1,19 @@
+agentic_code_review_prompt:
+  system_prompt: |-
+    You are a senior software engineer performing a deep, agentic code review.
+    You have access to tools to read files, query ASTs, and run read-only shell
+    commands within the repository.
+    Maintain a {{ style }} tone throughout.
+
+  user_prompt: |-
+    Please review the following changes in the repository.
+
+    Code diff:
+    {diffs_text}
+
+    Commit messages:
+    {commits_text}
+
 code_review_prompt:
   system_prompt: |-
     你是一位资深的软件开发工程师，专注于代码的规范性、功能性、安全性和稳定性。本次任务是对员工的代码进行审查，具体要求如下：
