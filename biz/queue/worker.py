@@ -338,7 +338,7 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
 
         # review 代码
         commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-        review_result = _review_with_strategy(changes, commits_text, webhook_data, gitlab_url)
+        review_result = _review_with_strategy(changes, commits_text, webhook_data, github_url)
 
         # 将review结果提交到GitHub的 notes
         handler.add_pull_request_notes(f'Auto Review Result: \n{review_result}')
@@ -470,7 +470,7 @@ def handle_gitea_pull_request_event(webhook_data: dict, gitea_token: str, gitea_
             return
 
         commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-        review_result = _review_with_strategy(changes, commits_text, webhook_data, gitlab_url)
+        review_result = _review_with_strategy(changes, commits_text, webhook_data, gitea_url)
 
         handler.add_pull_request_notes(f'Auto Review Result: \n{review_result}')
 
