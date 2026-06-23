@@ -35,6 +35,17 @@ class TestIsPathSafe:
         repo.mkdir()
         assert is_path_safe(repo, repo) is True
 
+    def test_unresolvable_candidate_returns_false(self, tmp_path: Path):
+        """A path containing an embedded NUL byte cannot be resolved on POSIX.
+
+        Path.resolve() raises ValueError on a NUL byte; the safety check
+        must treat that as 'not safe' (fail closed) rather than raising.
+        """
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        bad = "src/has\0nul.py"
+        assert is_path_safe(bad, repo) is False
+
 
 class TestIsSensitivePath:
     @pytest.mark.parametrize("path", [
