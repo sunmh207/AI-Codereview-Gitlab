@@ -20,3 +20,7 @@ openspec/
 
 # Agentic mode local repo cache
 data/repo_cache/
+
+# Test coverage artifact
+.coverage
+.pytest_cache/
