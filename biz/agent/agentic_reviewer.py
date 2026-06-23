@@ -58,7 +58,13 @@ class AgenticReviewer:
 
     def _build_registry(self, repo_root: Path) -> ToolRegistry:
         registry = ToolRegistry()
-        register_default_tools(registry, repo_root)
+        from biz.agent.tools.run_command import (
+            DEFAULT_ALLOWLIST,
+            DEFAULT_BLOCKLIST,
+        )
+        allow = _parse_csv_env("AGENT_SHELL_ALLOWLIST", DEFAULT_ALLOWLIST)
+        block = _parse_csv_env("AGENT_SHELL_BLOCKLIST", DEFAULT_BLOCKLIST)
+        register_default_tools(registry, repo_root, allowlist=allow, blocklist=block)
         return registry
 
     def review(self, diffs_text: str, commits_text: str) -> str:
