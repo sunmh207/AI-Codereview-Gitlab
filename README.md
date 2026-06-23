@@ -181,6 +181,36 @@ python -m biz.cmd.review
 
 参见 [常见问题](doc/faq.md)
 
+## Agentic Review Mode (可选)
+
+`REVIEW_STRATEGY` 环境变量切换两种 review 策略：
+
+- `diff_only`（默认）：仅对 diff 做 review，行为与原版完全一致。
+- `agentic`：LLM 拥有工具调用能力（read_file / ast_query / 沙箱 shell），
+  可在本地克隆的代码库内自主探索，产出更全面的 review 结果。
+
+启用 agentic 模式：
+
+```bash
+REVIEW_STRATEGY=agentic
+REPO_CACHE_DIR=/var/data/repo_cache   # 可选，默认 data/repo_cache/
+AGENT_MAX_ITERATIONS=20               # 可选，默认 20
+```
+
+agentic 模式会按需在 `REPO_CACHE_DIR` 下克隆/更新目标项目（约 10MB~2GB / 项目）。
+任意阶段失败（clone / fetch / LLM / 工具调用异常）都会自动降级回 `diff_only`，
+保证至少返回与原版一致的 review。
+
+agentic 模式的额外开销：
+
+- 磁盘：建议预留 ≥ 50GB
+- 内存：单次 session 峰值 ~500MB
+- Token：单次 review 平均 5k~50k tokens（diff_only 的 3~10 倍）
+- 时延：30s~5min / review
+
+⚠️ shell 工具有沙箱（命令白名单 + 黑名单 + 路径越界检查 + 30s 超时），
+默认只允许读类命令；如需放开请通过 `AGENT_SHELL_ALLOWLIST` / `AGENT_SHELL_BLOCKLIST` 调整。
+
 ## 相关项目
 
 ### 1. Code Review Pro 版
