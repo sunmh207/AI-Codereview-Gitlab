@@ -14,6 +14,69 @@ from biz.utils.im import notifier
 from biz.utils.log import logger
 
 
+def _resolve_repo_for_event(webhook_data: dict, gitlab_url: str = "") -> tuple[str | None, str | None, str | None]:
+    """Infer (repo_url, repo_key, ref) for agentic mode from a webhook payload.
+
+    Returns (None, None, None) if it can't be determined (caller should degrade).
+    """
+    # GitLab
+    if "object_kind" in webhook_data:
+        repo = webhook_data.get("project", {})
+        path = repo.get("path_with_namespace") or repo.get("name")
+        url = repo.get("git_http_url") or repo.get("url") or (gitlab_url.rstrip("/") + "/" + path if path and gitlab_url else None)
+        attrs = webhook_data.get("object_attributes", {})
+        ref = attrs.get("source_branch") or attrs.get("ref")
+        sha = (attrs.get("last_commit") or {}).get("id")
+        if path and url and (ref or sha):
+            return url, path, sha or ref
+        return None, None, None
+    # GitHub
+    if "repository" in webhook_data and "pull_request" in webhook_data:
+        repo = webhook_data["repository"]
+        url = repo.get("clone_url") or repo.get("html_url")
+        path = repo.get("full_name")
+        pr = webhook_data["pull_request"]
+        ref = pr.get("head", {}).get("sha") or pr.get("head", {}).get("ref")
+        if path and url and ref:
+            return url, path, ref
+        return None, None, None
+    if "repository" in webhook_data and "ref" in webhook_data:
+        repo = webhook_data["repository"]
+        url = repo.get("clone_url") or repo.get("html_url")
+        path = repo.get("full_name")
+        ref = webhook_data.get("after") or webhook_data.get("head_commit", {}).get("id")
+        if path and url and ref:
+            return url, path, ref
+        return None, None, None
+    # Gitea (similar shape to GitHub but `pusher` may be present).
+    return None, None, None
+
+
+def _review_with_strategy(changes: list, commits_text: str, webhook_data: dict, gitlab_url: str) -> str:
+    """Pick review strategy based on REVIEW_STRATEGY env var."""
+    strategy = os.getenv("REVIEW_STRATEGY", "diff_only")
+    if strategy != "agentic":
+        return CodeReviewer().review_and_strip_code(str(changes), commits_text)
+
+    # Agentic mode.
+    from biz.agent.agentic_reviewer import AgenticReviewer
+    repo_url, repo_key, ref = _resolve_repo_for_event(webhook_data, gitlab_url)
+    if not (repo_url and repo_key and ref):
+        logger.warning("could not resolve repo info for agentic mode, falling back to diff_only")
+        return CodeReviewer().review_and_strip_code(str(changes), commits_text)
+    cache_root = os.getenv("REPO_CACHE_DIR", "data/repo_cache")
+    try:
+        reviewer = AgenticReviewer(
+            repo_url=repo_url,
+            repo_key=repo_key,
+            ref=ref,
+            cache_root=cache_root,
+        )
+        return reviewer.review(diffs_text=str(changes), commits_text=commits_text)
+    except Exception as e:
+        logger.error("agentic reviewer raised unexpectedly, falling back: %s", e)
+        return CodeReviewer().review_and_strip_code(str(changes), commits_text)
+
 
 def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gitlab_url_slug: str):
     push_review_enabled = os.environ.get('PUSH_REVIEW_ENABLED', '0') == '1'
@@ -40,7 +103,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
 
             if len(changes) > 0:
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+                review_result = _review_with_strategy(changes, commits_text, webhook_data, gitlab_url)
                 score = CodeReviewer.parse_review_score(review_text=review_result)
                 for item in changes:
                     additions += item['additions']
@@ -135,7 +198,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
 
         # review 代码
         commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        review_result = _review_with_strategy(changes, commits_text, webhook_data, gitlab_url)
 
         # 将review结果提交到Gitlab的 notes
         handler.add_merge_request_notes(f'Auto Review Result: \n{review_result}')
@@ -190,7 +253,7 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
 
             if len(changes) > 0:
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+                review_result = _review_with_strategy(changes, commits_text, webhook_data, github_url)
                 score = CodeReviewer.parse_review_score(review_text=review_result)
                 for item in changes:
                     additions += item.get('additions', 0)
@@ -275,7 +338,7 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
 
         # review 代码
         commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        review_result = _review_with_strategy(changes, commits_text, webhook_data, gitlab_url)
 
         # 将review结果提交到GitHub的 notes
         handler.add_pull_request_notes(f'Auto Review Result: \n{review_result}')
@@ -329,7 +392,7 @@ def handle_gitea_push_event(webhook_data: dict, gitea_token: str, gitea_url: str
 
             if len(changes) > 0:
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+                review_result = _review_with_strategy(changes, commits_text, webhook_data, gitea_url)
                 score = CodeReviewer.parse_review_score(review_text=review_result)
                 for item in changes:
                     additions += item.get('additions', 0)
@@ -407,7 +470,7 @@ def handle_gitea_pull_request_event(webhook_data: dict, gitea_token: str, gitea_
             return
 
         commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        review_result = _review_with_strategy(changes, commits_text, webhook_data, gitlab_url)
 
         handler.add_pull_request_notes(f'Auto Review Result: \n{review_result}')
 
