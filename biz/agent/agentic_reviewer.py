@@ -1,9 +1,12 @@
 """Top-level entry point for agentic review, used by worker.py."""
 from __future__ import annotations
 
-import logging
+import json
 import os
+import time
+from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any
 
 from biz.agent.llm_adapter import LLMAdapter
 from biz.agent.prompts import load_prompt
@@ -28,6 +31,44 @@ def _parse_csv_env(name: str, default: list[str]) -> list[str]:
     if not raw:
         return list(default)
     return [item.strip() for item in raw.split(",") if item.strip()] or list(default)
+
+
+@dataclass
+class ReviewLog:
+    event: str
+    project: str
+    ref: str
+    strategy: str
+    iterations: int
+    total_tokens_est: int
+    duration_ms: int
+    review_result_length: int
+    score: int
+    degraded: bool
+    tool_calls: list[dict]
+
+
+def _estimate_tokens(messages: list[dict]) -> int:
+    """Rough token estimate: sum of len(content)//4 over assistant messages."""
+    total = 0
+    for m in messages:
+        if m.get("role") != "assistant":
+            continue
+        content = m.get("content") or ""
+        if isinstance(content, str):
+            total += len(content) // 4
+    return total
+
+
+def _collect_tool_calls(messages: list[dict]) -> list[dict]:
+    """Flatten tool_calls from assistant messages for structured logging."""
+    calls: list[dict] = []
+    for m in messages:
+        if m.get("role") != "assistant":
+            continue
+        for call in m.get("tool_calls") or []:
+            calls.append(call)
+    return calls
 
 
 class AgenticReviewer:
@@ -68,6 +109,7 @@ class AgenticReviewer:
         return registry
 
     def review(self, diffs_text: str, commits_text: str) -> str:
+        start = time.monotonic()
         # 1. Sync repo locally.
         try:
             syncer = LocalRepoSyncer(cache_root=self.cache_root)
@@ -96,10 +138,32 @@ class AgenticReviewer:
         )
         messages = [prompts["system_message"], {"role": "user", "content": user_content}]
 
-        # 4. Run the agent loop with soft-degrade.
+        # 4. Run the agent loop with soft-degrade; collect metadata for logging.
+        run_meta: dict[str, Any] = {}
+        result: str
+        degraded = False
         try:
-            return runner.run(messages)
+            result = runner.run(messages, out=run_meta)
         except Exception as e:
             logger.error("agentic run failed, degrading to diff_only: %s", e)
             notifier.send_notification(content=f"[agentic] run failed: {e}; falling back to diff_only")
-            return CodeReviewer().review_and_strip_code(diffs_text, commits_text)
+            degraded = True
+            result = CodeReviewer().review_and_strip_code(diffs_text, commits_text)
+
+        # 5. Emit structured per-review log line.
+        run_messages = run_meta.get("messages", messages)
+        log_entry = ReviewLog(
+            event="agentic_review",
+            project=self.repo_key,
+            ref=self.ref,
+            strategy="agentic",
+            iterations=run_meta.get("iterations", 0),
+            total_tokens_est=_estimate_tokens(run_messages),
+            duration_ms=int((time.monotonic() - start) * 1000),
+            review_result_length=len(result),
+            score=CodeReviewer.parse_review_score(review_text=result),
+            degraded=degraded,
+            tool_calls=_collect_tool_calls(run_messages),
+        )
+        logger.info(json.dumps(asdict(log_entry), ensure_ascii=False))
+        return result
