@@ -213,7 +213,7 @@ agentic 模式的额外开销：
 
 - 磁盘：建议预留 ≥ 50GB
 - 内存：单次 session 峰值 ~500MB
-- Token：单次 review 平均 5k~50k tokens（diff_only 的 3~10 倍）
+- Token：单次 review 平均 5k - 50k tokens（diff_only 的 3 - 10 倍）
 - 时延：30s~5min / review
 
 ⚠️ shell 工具有沙箱（命令白名单 + 黑名单 + 路径越界检查 + 30s 超时），
