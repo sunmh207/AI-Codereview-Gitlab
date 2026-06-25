@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Dict, List, Optional
 
@@ -62,3 +63,27 @@ class AnthropicClient(BaseClient):
 
         # Extract text from response
         return response.content[0].text
+
+    def chat_with_tools(self,
+                        messages: List[Dict],
+                        tools: Optional[List[Dict]] = None,
+                        model: Optional[str] | NotGiven = NOT_GIVEN,
+                        ) -> Dict:
+        model = model or self.default_model
+        kwargs = {"model": model, "messages": messages}
+        if tools:
+            kwargs["tools"] = tools
+        completion = self.client.chat.completions.create(**kwargs)
+        msg = completion.choices[0].message
+        tool_calls: List[Dict] = []
+        for tc in (msg.tool_calls or []):
+            try:
+                args = json.loads(tc.function.arguments or "{}")
+            except json.JSONDecodeError:
+                args = {}
+            tool_calls.append({"id": tc.id, "name": tc.function.name, "arguments": args})
+        return {
+            "content": msg.content,
+            "tool_calls": tool_calls,
+            "raw": completion,
+        }
