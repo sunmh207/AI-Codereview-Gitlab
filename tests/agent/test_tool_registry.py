@@ -1,7 +1,10 @@
+from pathlib import Path
+
 import pytest
 
 from biz.agent.tool import Tool, ToolResult
 from biz.agent.tool_registry import ToolRegistry
+from biz.agent.tools import register_default_tools
 
 
 class _A(Tool):
@@ -78,3 +81,17 @@ class TestRegistry:
         result = r.dispatch(call)
         assert result.success is False
         assert "kaboom" in (result.error or "")
+
+
+class TestDefaultToolSet:
+    def test_default_registry_excludes_ast_query(self, tmp_path):
+        """ast_query was a Python-only tool; for language-agnostic reviews
+        the agent uses read_file + run_command(rg/ls/...) instead. This test
+        guards against accidental re-registration of the Python-only tool.
+        """
+        r = ToolRegistry()
+        register_default_tools(r, tmp_path)
+        assert r.get("ast_query") is None
+        # The two language-agnostic tools must still be present.
+        assert r.get("read_file") is not None
+        assert r.get("run_command") is not None

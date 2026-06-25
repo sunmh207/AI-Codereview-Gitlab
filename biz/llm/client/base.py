@@ -15,8 +15,8 @@ class BaseClient:
             result = self.completions(messages=[{"role": "user", "content": '请仅返回 "ok"。'}])
             cleaned = re.sub(r'<think>.*?</think>', '', result, flags=re.DOTALL)
             return cleaned.strip() == "ok"
-        except Exception:
-            logger.error("尝试连接LLM失败， {e}")
+        except Exception as e:
+            logger.error("尝试连接LLM失败: %s", e, exc_info=True)
             return False
 
     @abstractmethod

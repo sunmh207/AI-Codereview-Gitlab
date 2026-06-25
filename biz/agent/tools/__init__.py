@@ -1,6 +1,5 @@
 """Agent tool implementations."""
 from biz.agent.tool_registry import ToolRegistry
-from biz.agent.tools.ast_query import ASTQueryTool
 from biz.agent.tools.read_file import ReadFileTool
 from biz.agent.tools.run_command import RunCommandTool
 
@@ -19,13 +18,11 @@ def register_default_tools(
     in place.
     """
     registry.register(ReadFileTool(repo_root))
-    registry.register(ASTQueryTool(repo_root))
     registry.register(RunCommandTool(repo_root, allowlist=allowlist, blocklist=blocklist))
 
 
 __all__ = [
     "ReadFileTool",
-    "ASTQueryTool",
     "RunCommandTool",
     "register_default_tools",
 ]

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -20,6 +21,11 @@ from biz.utils.log import logger
 from biz.utils.im import notifier
 
 
+# Same regex CodeReviewer.parse_review_score uses; reused as a sanity gate
+# so we don't post the agent's tool-selection reasoning as a "review".
+_REVIEW_SCORE_RE = re.compile(r"总分[:：]\s*(\d+)分?")
+
+
 def _slugify_repo_key(provider: str, project: str) -> str:
     """Build a stable cache key for a project."""
     return f"{provider}_{project}".replace("/", "_").replace(" ", "_")
@@ -31,6 +37,13 @@ def _parse_csv_env(name: str, default: list[str]) -> list[str]:
     if not raw:
         return list(default)
     return [item.strip() for item in raw.split(",") if item.strip()] or list(default)
+
+
+def _looks_like_review(text: str | None) -> bool:
+    """Heuristic: a well-formed agentic review must include the `总分:XX分` marker."""
+    if not text:
+        return False
+    return bool(_REVIEW_SCORE_RE.search(text))
 
 
 @dataclass
@@ -147,6 +160,22 @@ class AgenticReviewer:
         except Exception as e:
             logger.error("agentic run failed, degrading to diff_only: %s", e)
             notifier.send_notification(content=f"[agentic] run failed: {e}; falling back to diff_only")
+            degraded = True
+            result = CodeReviewer().review_and_strip_code(diffs_text, commits_text)
+
+        # 4b. Defense-in-depth: if the agent's text doesn't look like a review
+        # (missing the `总分:XX分` marker), treat the leak as a failure and
+        # fall back to diff_only. Otherwise the agent's tool-selection
+        # reasoning — e.g. "AST query doesn't find references, let me check
+        # the openspec folder" — would be posted to GitLab as a "review".
+        if not degraded and not _looks_like_review(result):
+            logger.warning(
+                "agent output missing 总分 marker (len=%d), degrading to diff_only",
+                len(result or ""),
+            )
+            notifier.send_notification(
+                content="[agentic] output missing 总分 marker; falling back to diff_only"
+            )
             degraded = True
             result = CodeReviewer().review_and_strip_code(diffs_text, commits_text)
 

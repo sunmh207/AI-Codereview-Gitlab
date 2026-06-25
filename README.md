@@ -186,7 +186,7 @@ python -m biz.cmd.review
 `REVIEW_STRATEGY` 环境变量切换两种 review 策略：
 
 - `diff_only`（默认）：仅对 diff 做 review，行为与原版完全一致。
-- `agentic`：LLM 拥有工具调用能力（read_file / ast_query / 沙箱 shell），
+- `agentic`：LLM 拥有工具调用能力（read_file / 沙箱 shell），
   可在本地克隆的代码库内自主探索，产出更全面的 review 结果。
 
 启用 agentic 模式：

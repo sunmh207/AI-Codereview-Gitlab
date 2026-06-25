@@ -19,8 +19,8 @@ def _resolve_repo_for_event(webhook_data: dict, gitlab_url: str = "") -> tuple[s
 
     Returns (None, None, None) if it can't be determined (caller should degrade).
     """
-    # GitLab
-    if "object_kind" in webhook_data:
+    # GitLab MR
+    if webhook_data.get("object_kind") == "merge_request":
         repo = webhook_data.get("project", {})
         path = repo.get("path_with_namespace") or repo.get("name")
         url = repo.get("git_http_url") or repo.get("url") or (gitlab_url.rstrip("/") + "/" + path if path and gitlab_url else None)
@@ -29,6 +29,15 @@ def _resolve_repo_for_event(webhook_data: dict, gitlab_url: str = "") -> tuple[s
         sha = (attrs.get("last_commit") or {}).get("id")
         if path and url and (ref or sha):
             return url, path, sha or ref
+        return None, None, None
+    # GitLab push
+    if webhook_data.get("object_kind") == "push":
+        repo = webhook_data.get("project", {})
+        path = repo.get("path_with_namespace") or repo.get("name")
+        url = repo.get("git_http_url") or repo.get("url") or (gitlab_url.rstrip("/") + "/" + path if path and gitlab_url else None)
+        ref = webhook_data.get("after") or webhook_data.get("ref")
+        if path and url and ref:
+            return url, path, ref
         return None, None, None
     # GitHub
     if "repository" in webhook_data and "pull_request" in webhook_data:
