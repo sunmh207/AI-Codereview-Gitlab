@@ -1,15 +1,13 @@
 """Multi-turn agent loop."""
 from __future__ import annotations
 
-import logging
 import os
 from typing import Any
 
 from biz.agent.llm_adapter import LLMAdapter
 from biz.agent.tool_registry import ToolRegistry
+from biz.utils.log import logger
 from biz.utils.token_util import count_tokens, truncate_text_by_tokens
-
-logger = logging.getLogger(__name__)
 
 
 class TokenBudgetExceeded(Exception):
@@ -60,6 +58,13 @@ class AgentRunner:
                 )
                 logger.info("agent round %d: tool_calls=%d content_len=%d",
                             i, len(resp.tool_calls), len(resp.content or ""))
+                # DEBUG: dump full per-round detail (assistant content + tool
+                # name/args) for post-mortem greppability. Stays silent at INFO.
+                logger.debug(
+                    "agent round %d detail: content=%r tool_calls=%s",
+                    i, resp.content,
+                    [{"name": tc.name, "args": tc.arguments} for tc in resp.tool_calls],
+                )
                 if resp.content:
                     last_assistant_content = resp.content
                 if not resp.tool_calls:

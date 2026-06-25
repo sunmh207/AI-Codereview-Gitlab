@@ -3,14 +3,13 @@ from __future__ import annotations
 
 import errno
 import fcntl
-import logging
 import re
 import subprocess
 import time
 from contextlib import contextmanager
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+from biz.utils.log import logger
 
 
 def _sanitize_key(key: str) -> str:
@@ -30,7 +29,7 @@ class LocalRepoSyncer:
         self,
         cache_root: Path | str,
         *,
-        clone_timeout: int = 120,
+        clone_timeout: int = 300,
         lock_wait_seconds: int = 60,
     ) -> None:
         self.cache_root = Path(cache_root)

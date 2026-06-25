@@ -1,9 +1,8 @@
-import logging
 from typing import Optional
 
 import tiktoken
 
-logger = logging.getLogger(__name__)
+from biz.utils.log import logger
 
 # 缓存编码器实例
 _encoding_cache: Optional[tiktoken.Encoding] = None

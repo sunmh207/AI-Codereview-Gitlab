@@ -1,12 +1,10 @@
 """Registry mapping tool names to Tool instances."""
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from biz.agent.tool import Tool, ToolResult
-
-logger = logging.getLogger(__name__)
+from biz.utils.log import logger
 
 
 class ToolRegistry:
@@ -30,13 +28,22 @@ class ToolRegistry:
         """
         tool = self._tools.get(call.name)
         if tool is None:
+            logger.debug("tool dispatch: name=%s args=%s -> unknown tool",
+                         call.name, call.arguments)
             return ToolResult(success=False, output="", error=f"unknown tool: {call.name}")
         try:
             result = tool.execute(**call.arguments)
             if not isinstance(result, ToolResult):
                 # Defensive: tools should return ToolResult.
-                return ToolResult(success=True, output=str(result))
-            return result
+                result = ToolResult(success=True, output=str(result))
         except Exception as e:
             logger.exception("tool %s raised", call.name)
-            return ToolResult(success=False, output="", error=f"{type(e).__name__}: {e}")
+            result = ToolResult(success=False, output="", error=f"{type(e).__name__}: {e}")
+        # DEBUG: per-dispatch trace so the full agent run is greppable.
+        # INFO users don't see this; only those who set LOG_LEVEL=DEBUG.
+        logger.debug(
+            "tool dispatch: name=%s args=%s success=%s result_len=%d error=%s",
+            call.name, call.arguments, result.success,
+            len(result.output or ""), result.error or "",
+        )
+        return result

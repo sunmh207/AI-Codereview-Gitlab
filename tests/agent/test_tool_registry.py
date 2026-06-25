@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import logging
 import pytest
 
 from biz.agent.tool import Tool, ToolResult
@@ -81,6 +82,34 @@ class TestRegistry:
         result = r.dispatch(call)
         assert result.success is False
         assert "kaboom" in (result.error or "")
+
+    def test_dispatch_logs_details_at_debug(self, caplog):
+        """At DEBUG level, dispatch should log the tool name, args, and result
+        length so the full agent trace is greppable from log files."""
+        r = ToolRegistry()
+        r.register(_A())
+        from biz.agent.llm_adapter import ToolCall
+        call = ToolCall(id="1", name="a", arguments={"k": "v"})
+        with caplog.at_level(logging.DEBUG):
+            result = r.dispatch(call)
+        assert result.success is True
+        debug_msgs = [r.getMessage() for r in caplog.records if r.levelno == logging.DEBUG]
+        joined = "\n".join(debug_msgs)
+        assert "a" in joined  # tool name appears
+        assert "v" in joined  # arg value appears
+        assert "dispatch" in joined.lower()
+
+    def test_dispatch_does_not_log_details_at_info(self, caplog):
+        """At INFO level, dispatch details must stay silent (no per-call noise)."""
+        r = ToolRegistry()
+        r.register(_A())
+        from biz.agent.llm_adapter import ToolCall
+        call = ToolCall(id="1", name="a", arguments={})
+        with caplog.at_level(logging.INFO):
+            result = r.dispatch(call)
+        assert result.success is True
+        debug_msgs = [r.getMessage() for r in caplog.records if r.levelno == logging.DEBUG]
+        assert not any("dispatch" in m.lower() for m in debug_msgs)
 
 
 class TestDefaultToolSet:

@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
 
+import logging
 import pytest
 
 from biz.agent.llm_adapter import LLMAdapter, LLMResponse, ToolCall
@@ -122,6 +123,55 @@ class TestAgentRunner:
         runner = AgentRunner(adapter=adapter, registry=ToolRegistry(), max_iterations=10)
         with pytest.raises(InvalidToolCallStreak):
             runner.run([{"role": "user", "content": "?"}])
+
+    def test_runner_logs_round_details_at_debug(self, caplog):
+        """At DEBUG level the runner should emit per-round detail (assistant
+        content + tool name/args) so operators can grep the full agent trace
+        when an agentic review misbehaves. INFO must stay quiet for these.
+        """
+        responses = [
+            {"content": "calling counter", "tool_calls": [
+                {"id": "1", "name": "counter", "arguments": {"n": 7}},
+            ], "raw": None},
+            {"content": "the answer is 7", "tool_calls": [], "raw": None},
+        ]
+        client = _adapter_returning(responses)
+        adapter = LLMAdapter(client, use_native=True)
+        reg = ToolRegistry()
+        reg.register(_CounterTool())
+        runner = AgentRunner(adapter=adapter, registry=reg, max_iterations=5)
+
+        with caplog.at_level(logging.DEBUG):
+            runner.run([{"role": "user", "content": "?"}])
+
+        debug_msgs = [r.getMessage() for r in caplog.records if r.levelno == logging.DEBUG]
+        # Per-round detail must include the tool name and the assistant content.
+        joined = "\n".join(debug_msgs)
+        assert "counter" in joined
+        assert "the answer is 7" in joined
+
+    def test_runner_does_not_log_round_details_at_info(self, caplog):
+        """At INFO level the per-round detail line must NOT fire — only the
+        existing one-line summary belongs to INFO. (Caplog level is INFO.)"""
+        responses = [
+            {"content": "calling counter", "tool_calls": [
+                {"id": "1", "name": "counter", "arguments": {"n": 7}},
+            ], "raw": None},
+            {"content": "the answer is 7", "tool_calls": [], "raw": None},
+        ]
+        client = _adapter_returning(responses)
+        adapter = LLMAdapter(client, use_native=True)
+        reg = ToolRegistry()
+        reg.register(_CounterTool())
+        runner = AgentRunner(adapter=adapter, registry=reg, max_iterations=5)
+
+        with caplog.at_level(logging.INFO):
+            runner.run([{"role": "user", "content": "?"}])
+
+        info_msgs = [r.getMessage() for r in caplog.records if r.levelno == logging.INFO]
+        assert any("agent round" in m for m in info_msgs), "expected existing INFO summary"
+        debug_msgs = [r.getMessage() for r in caplog.records if r.levelno == logging.DEBUG]
+        assert not debug_msgs, f"DEBUG messages leaked at INFO level: {debug_msgs}"
 
     def test_tool_output_truncated_to_max_tokens(self):
         # Big payload via a tool that returns a large string; runner should truncate.
