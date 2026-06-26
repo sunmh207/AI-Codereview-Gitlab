@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import errno
 import fcntl
+import os
 import re
 import subprocess
 import time
 from contextlib import contextmanager
 from pathlib import Path
+from urllib.parse import quote, urlparse, urlunparse
 
 from biz.utils.log import logger
 
@@ -15,6 +17,46 @@ from biz.utils.log import logger
 def _sanitize_key(key: str) -> str:
     """Turn a project key into a safe directory name."""
     return re.sub(r"[^A-Za-z0-9._-]", "_", key)
+
+
+def _pick_token_for_host(host: str | None) -> str | None:
+    """Return the configured PAT env var value for this host, or None.
+
+    Resolution:
+      - ``github.com`` / ``*.github.com`` -> ``GITHUB_ACCESS_TOKEN``
+      - host contains ``gitea`` -> ``GITEA_ACCESS_TOKEN``
+      - otherwise (incl. self-hosted GitLab) -> ``GITLAB_ACCESS_TOKEN``
+    """
+    if not host:
+        return None
+    h = host.lower()
+    if h == "github.com" or h.endswith(".github.com"):
+        return os.getenv("GITHUB_ACCESS_TOKEN")
+    if "gitea" in h:
+        return os.getenv("GITEA_ACCESS_TOKEN")
+    return os.getenv("GITLAB_ACCESS_TOKEN")
+
+
+def _auth_url(url: str) -> str:
+    """Return ``url`` with credentials injected based on its host.
+
+    No-op for non-HTTPS URLs, already-credentialed URLs, or when no
+    matching token env var is set. The token is URL-encoded so special
+    characters (``+``, ``/``, ``=``, ``@``) don't corrupt the URL.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return url
+    if "@" in (parsed.netloc or ""):
+        return url
+    host = parsed.hostname
+    if not host:
+        return url
+    token = _pick_token_for_host(host)
+    if not token:
+        return url
+    userinfo = f"oauth2:{quote(token, safe='')}"
+    return urlunparse(parsed._replace(netloc=f"{userinfo}@{parsed.netloc}"))
 
 
 class LocalRepoSyncer:
@@ -49,9 +91,52 @@ class LocalRepoSyncer:
 
         with self._lock(lock_path):
             if not (target / ".git").exists():
-                self._clone(url, target)
+                self._clone(_auth_url(url), target)
+            self._ensure_authenticated_remote(target)
             self._fetch_and_checkout(target, ref)
         return target
+
+    def _ensure_authenticated_remote(self, target: Path) -> None:
+        """Rewrite ``origin`` URL on a cached repo to include credentials.
+
+        Handles two cases:
+          1. Repo was cloned before this fix landed (no creds in URL).
+          2. The operator updates the token env var and the cache should
+             pick up the new value on the next sync.
+
+        Silently no-ops if ``origin`` doesn't exist. Raises on set-url
+        failure; the caller's soft-degrade will then kick in.
+        """
+        try:
+            r = subprocess.run(
+                ["git", "remote", "get-url", "origin"],
+                cwd=target,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            return
+        except FileNotFoundError:
+            # git binary missing; let the subsequent fetch raise.
+            return
+        existing = r.stdout.strip()
+        new_url = _auth_url(existing)
+        if new_url == existing:
+            return
+        try:
+            subprocess.run(
+                ["git", "remote", "set-url", "origin", new_url],
+                cwd=target,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            stderr = (e.stderr or "").strip() if hasattr(e, "stderr") else str(e)
+            raise RuntimeError(f"git remote set-url failed: {stderr}") from e
 
     @contextmanager
     def _lock(self, lock_path: Path):
@@ -80,7 +165,7 @@ class LocalRepoSyncer:
             f.close()
 
     def _clone(self, url: str, target: Path) -> None:
-        logger.info("cloning %s -> %s", url, target)
+        logger.debug("cloning %s -> %s", url, target)
         try:
             subprocess.run(
                 ["git", "clone", url, str(target)],
