@@ -146,7 +146,7 @@ streamlit run ui.py --server.port=5002 --server.address=0.0.0.0
 
 在 GitLab 项目设置中，配置 Webhook：
 
-- URL：http://your-server-ip:5001/review/webhook
+- URL：http://{your-server-ip}:5001/review/webhook
 - Trigger Events：勾选 Push Events 和 Merge Request Events (不要勾选其它Event)
 - Secret Token：上面配置的 Access Token(可选)
 
@@ -172,22 +172,6 @@ streamlit run ui.py --server.port=5002 --server.address=0.0.0.0
   ```
 
 企业微信和飞书推送配置类似，具体参见 [常见问题](doc/faq.md)
-
-## 常见问题
-
-**1.如何对整个代码库进行Review?**
-
-可以通过命令行工具对整个代码库进行审查。当前功能仍在不断完善中，欢迎试用并反馈宝贵意见！具体操作如下：
-
-```bash
-python -m biz.cmd.review
-```
-
-运行后，请按照命令行中的提示进行操作即可。
-
-**2.其它常见问题**
-
-参见 [常见问题](doc/faq.md)
 
 ## Agentic Review Mode (可选)
 
@@ -219,6 +203,10 @@ agentic 模式的额外开销：
 ⚠️ shell 工具有沙箱（命令白名单 + 黑名单 + 路径越界检查 + 30s 超时），
 默认只允许读类命令；如需放开请通过 `AGENT_SHELL_ALLOWLIST` / `AGENT_SHELL_BLOCKLIST` 调整。
 
+## 常见问题
+
+参见 [常见问题](doc/faq.md)
+
 ## 相关项目
 
 ### 1. Code Review Pro 版
@@ -247,7 +235,3 @@ curl -fsSL https://raw.githubusercontent.com/sunmh207/AI-Codereview-Gitlab/refs/
   <img src="doc/img/open/wechat.jpg" width="400" />
   <img src="doc/img/open/wechat_group.jpg" width="400" /> 
 </p>
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=sunmh207/AI-Codereview-Gitlab&type=Timeline)](https://www.star-history.com/#sunmh207/AI-Codereview-Gitlab&Timeline)
