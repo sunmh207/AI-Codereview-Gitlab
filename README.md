@@ -225,6 +225,14 @@ curl -fsSL https://raw.githubusercontent.com/sunmh207/AI-Codereview-Gitlab/refs/
 
 如果你正在使用 AI Agent 开发工具 (如: Cursor、Claude Code、Codex ...)，并希望对人机交互过程进行全面的记录与回溯分析，推荐使用 [Entire Dashboard](https://github.com/sunmh207/entire-dashboard)。该项目提供了完整的人机交互记录与可视化分析功能，可帮助你深入理解 AI Agent 的使用模式，优化交互体验，提升开发效率。
 
+### 3. Site Guard
+
+站点健康巡检与告警平台 —— "不让故障，悄悄发生"。对站点的可用性、SSL 证书有效期、关键路径进行持续探活巡检，异常或恢复时自动推送钉钉 / 飞书 / 企业微信告警；同时提供公开大屏（只读视图，无需登录即可查看整体健康度），适合内嵌运维大屏或分享给非管理员。
+
+开源地址：[site-guard](https://github.com/sunmh207/site-guard)
+
+推荐场景：当你运维多个站点，希望有一个轻量、自托管的"证书到期 + 关键路径存活 + IM 告警"一体化巡检方案时，Site Guard 是开箱即用的选择（Docker Compose 一键部署）。
+
 ## 交流
 
 若本项目对您有帮助，欢迎 Star ⭐️ 或 Fork。 有任何问题或建议，欢迎提交 Issue 或 PR。
