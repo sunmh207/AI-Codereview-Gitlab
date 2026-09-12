@@ -221,17 +221,21 @@ agentic 模式的额外开销：
 curl -fsSL https://raw.githubusercontent.com/sunmh207/AI-Codereview-Gitlab/refs/heads/main/scripts/pro/install.sh | bash
 ```
 
-### 2. Entire Dashboard
+### 2. Site Watch
 
-如果你正在使用 AI Agent 开发工具 (如: Cursor、Claude Code、Codex ...)，并希望对人机交互过程进行全面的记录与回溯分析，推荐使用 [Entire Dashboard](https://github.com/sunmh207/entire-dashboard)。该项目提供了完整的人机交互记录与可视化分析功能，可帮助你深入理解 AI Agent 的使用模式，优化交互体验，提升开发效率。
+站点健康巡检与告警平台 —— "不让故障悄悄发生"。以检测项为核心，对站点可用性、HTTP 探活、TLS 证书有效期等进行持续监控，异常时自动告警；轻量自托管，适合运维多站点时的一体化巡检。
 
-### 3. Site Guard
+开源地址：[site-watch](https://github.com/sunmh207/site-watch)
 
-站点健康巡检与告警平台 —— "不让故障，悄悄发生"。对站点的可用性、SSL 证书有效期、关键路径进行持续探活巡检，异常或恢复时自动推送钉钉 / 飞书 / 企业微信告警；同时提供公开大屏（只读视图，无需登录即可查看整体健康度），适合内嵌运维大屏或分享给非管理员。
+推荐场景：当你运维多个站点，希望有一个轻量、自托管的"证书到期 + HTTP 存活 + 告警"一体化巡检方案时，Site Watch 是开箱即用的选择（Docker Compose 一键部署）。
 
-开源地址：[site-guard](https://github.com/sunmh207/site-guard)
+### 3. Task Flow
 
-推荐场景：当你运维多个站点，希望有一个轻量、自托管的"证书到期 + 关键路径存活 + IM 告警"一体化巡检方案时，Site Guard 是开箱即用的选择（Docker Compose 一键部署）。
+面向小团队的任务管理与协作工具：把任务创建、推进、协作、看板和钉钉日报/周报串成一条闭环。支持任务分组、团队看板、钉钉通知与 AI 周报，开箱即可 Docker 部署。
+
+开源地址：[task-flow](https://github.com/sunmh207/task-flow)
+
+推荐场景：小团队需要把任务流转、负载看板和钉钉站会/周报串起来，又不想引入重型项目管理工具时，Task Flow 是轻量可选方案。
 
 ## 交流
 
